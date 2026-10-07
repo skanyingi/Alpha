@@ -1,0 +1,4 @@
+asset_id,policy_id,latitude,longitude,elevation,occupancy,tiv,ground_up_loss,deductible,policy_limit,coinsurance,loss_date
+Z-001,KB-200,0.5900,34.2000,1140,informal iron sheet,1800000,0,25000,1800000,1.0,2026-05-03
+Z-002,KB-201,0.5200,34.2200,1165,permanent masonry,4500000,0,75000,4500000,1.0,2026-05-03
+Z-003,KB-202,0.4700,34.1800,1130,concrete rcc,9000000,0,150000,9000000,1.0,2026-05-03

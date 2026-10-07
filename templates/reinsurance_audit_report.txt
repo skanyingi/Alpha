@@ -1,0 +1,28 @@
+"""
+REINSURANCE CATASTROPHE AUDIT REPORT
+
+Client: {{CLIENT_NAME}}
+Event ID: {{EVENT_ID}}
+
+Gross / Ground-Up Claim (after primary terms): {{GROUND_UP_LOSS}}
+Reinsurer Payout: {{REINSURER_PAYOUT}}
+Cedant Retention: {{CEDANT_RETENTION}}
+Fraud / Spatial Discrepancy Flags: {{FRAUD_FLAG_COUNT}}
+
+Modeled ground-up loss (TIV x damage ratio): {{MODELED_GROUND_UP_LOSS}}
+Expected annual loss: {{EXPECTED_ANNUAL_LOSS}}
+Hazard region: {{HAZARD_REGION}}
+Synthetic hazard input: {{SYNTHETIC_HAZARD}}
+Synthetic vulnerability curves: {{SYNTHETIC_VULNERABILITY}}
+Synthetic exposure portfolio: {{SYNTHETIC_EXPOSURE}}
+Synthetic: {{SYNTHETIC}}
+
+Vulnerability curves are a JRC/Huizinga proxy. Nzoia JRC depth grids and
+Nairobi County hotspots are measured inputs when those files are mounted.
+Nairobi pluvial scores use depth_m = susceptibility x 4.0 m.
+
+Paste this text into a Google Doc, apply Heading 1 to the title, then set
+script property REPORT_TEMPLATE_ID to that Doc's id. Apps Script replaces
+the {{PLACEHOLDERS}}, exports a PDF, and replies on the Gmail thread with
+the Drive archive and Slides deck links.
+"""

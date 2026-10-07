@@ -1,0 +1,30 @@
+{
+  "type": "FeatureCollection",
+  "name": "miami_surge_flood_extent",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "overlay": "flood_hazard_extent",
+        "name": "sample_coastal_surge",
+        "water_surface_elevation_m": 2.5,
+        "style": {
+          "color": "#1D4E89",
+          "fillColor": "#4C8DDE",
+          "fillOpacity": 0.18,
+          "weight": 2
+        }
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-80.25, 25.72],
+          [-80.12, 25.72],
+          [-80.12, 25.84],
+          [-80.25, 25.84],
+          [-80.25, 25.72]
+        ]]
+      }
+    }
+  ]
+}

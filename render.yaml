@@ -1,0 +1,83 @@
+# Catastrophe Analytics — Render Blueprint
+# Live app: https://alpha.onrender.com
+#
+# Apply from the Render dashboard: New > Blueprint > connect skanyingi/Alpha.
+# The service name "alpha" is what Render publishes at https://alpha.onrender.com.
+# One instance only: modeled jobs are kept in process memory.
+
+services:
+  - type: web
+    name: alpha
+    runtime: python
+    repo: https://github.com/skanyingi/Alpha
+    branch: main
+    plan: starter
+    region: oregon
+    numInstances: 1
+    autoDeployTrigger: commit
+    healthCheckPath: /health
+    buildCommand: >-
+      python -m pip install --upgrade pip setuptools wheel
+      && python -m pip install -r requirements.txt
+      && python -c "import main; assert main.app.title"
+    preDeployCommand: mkdir -p /var/data/audit_logs
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1
+    disk:
+      name: alpha-audit
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.8"
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: APP_URL
+        value: https://alpha.onrender.com
+      - key: CATMOD_AUDIT_DIR
+        value: /var/data/audit_logs
+      - key: CATMOD_HAZARD_REGION
+        value: nairobi
+      - key: CATMOD_HDC_DIM
+        value: "10000"
+      - key: CATMOD_HDC_SEED
+        value: "42"
+      - key: CATMOD_CLEAN_CONFIDENCE_THRESHOLD
+        value: "0.95"
+      - key: CATMOD_DEFAULT_ATTACHMENT
+        value: "40000000"
+      - key: CATMOD_DEFAULT_LIMIT
+        value: "100000000"
+      - key: CATMOD_DEFAULT_COPART
+        value: "0.90"
+      - key: CATMOD_DEFAULT_REINSTATEMENT_RATE
+        value: "1.0"
+      - key: CATMOD_DEFAULT_REINSTATEMENTS
+        value: "1"
+      - key: CATMOD_DEFAULT_LAYER_PREMIUM
+        value: "5000000"
+      - key: CATMOD_MAP_LATITUDE
+        value: "-1.28"
+      - key: CATMOD_MAP_LONGITUDE
+        value: "36.82"
+      - key: CATMOD_MAP_ZOOM
+        value: "12"
+      - key: CATMOD_FLOOD_WSE_M
+        value: "2.5"
+      - key: CATMOD_SHADER_PRESET
+        value: PHOTOREAL_DEFAULT
+      - key: JEV_BASE_URL
+        value: https://jevtypesafeai.com/api/v1/decide
+      - key: JEV_MODEL
+        value: jev-1.13.0
+      - key: JEV_TIMEOUT_MS
+        value: "400"
+      - key: GEMINI_MODEL
+        value: gemini-2.0-flash
+      - key: JEV_API_KEY
+        sync: false
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPEN_BUILDINGS_GEOJSON_URL
+        sync: false

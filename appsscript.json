@@ -1,0 +1,24 @@
+{
+  "timeZone": "America/New_York",
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8",
+  "dependencies": {
+    "enabledAdvancedServices": [
+      {
+        "userSymbol": "Tasks",
+        "serviceId": "tasks",
+        "version": "v1"
+      }
+    ]
+  },
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/gmail.modify",
+    "https://www.googleapis.com/auth/gmail.send",
+    "https://www.googleapis.com/auth/documents",
+    "https://www.googleapis.com/auth/presentations",
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/tasks",
+    "https://www.googleapis.com/auth/script.external_request"
+  ]
+}

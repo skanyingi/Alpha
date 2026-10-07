@@ -1,0 +1,1635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CatMod — catastrophe desk</title>
+<meta name="theme-color" content="#04141c">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#202124;
+    --muted:#5f6368;
+    --line:#dadce0;
+    --shadow:0 1px 6px rgba(32,33,36,.28);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;}
+  body{
+    min-height:100vh;
+    min-height:100dvh;
+    font-family:Inter,Arial,sans-serif;
+    color:#fff;
+    overflow:hidden;
+  }
+  button,input{font-family:inherit;}
+  a{color:inherit;}
+
+  .stage{position:fixed;inset:0;overflow:hidden;background:#04141c;}
+  .stage-bg{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    object-position:center;
+    pointer-events:none;
+    opacity:0;
+    transform:translate3d(0,0,0);
+    z-index:0;
+  }
+  .stage-bg.is-on{
+    opacity:1;
+    z-index:1;
+  }
+  .stage-bg.is-leave{
+    opacity:1;
+    z-index:2;
+    animation:bg-scroll-out 1.15s cubic-bezier(.22,1,.36,1) forwards;
+  }
+  .stage-bg.is-enter{
+    opacity:1;
+    z-index:3;
+    animation:bg-scroll-in 1.15s cubic-bezier(.22,1,.36,1) forwards;
+  }
+  @keyframes bg-scroll-out{
+    from{transform:translate3d(0,0,0);}
+    to{transform:translate3d(-100%,0,0);}
+  }
+  @keyframes bg-scroll-in{
+    from{transform:translate3d(100%,0,0);}
+    to{transform:translate3d(0,0,0);}
+  }
+  .veil{
+    position:absolute;inset:0;z-index:1;pointer-events:none;
+    background:
+      radial-gradient(ellipse 58% 48% at 58% 42%, rgba(3,18,28,.08) 0%, transparent 62%),
+      linear-gradient(180deg, rgba(4,22,32,.34) 0%, rgba(4,22,32,.08) 32%, rgba(4,22,32,.1) 70%, rgba(4,22,32,.4) 100%);
+  }
+  .rays,.caustics,.grain{position:absolute;inset:0;z-index:2;pointer-events:none;}
+  .rays{
+    background:
+      radial-gradient(ellipse 22% 80% at 22% 8%, rgba(255,255,255,.16), transparent 72%),
+      radial-gradient(ellipse 18% 55% at 70% 12%, rgba(180,240,255,.10), transparent 70%);
+    mix-blend-mode:screen;
+    animation:breathe 9s ease-in-out infinite alternate;
+  }
+  .caustics{
+    background:
+      radial-gradient(circle at 20% 30%, rgba(90,220,240,.07) 0 1px, transparent 2px),
+      radial-gradient(circle at 70% 60%, rgba(255,255,255,.05) 0 1px, transparent 2px),
+      radial-gradient(circle at 45% 80%, rgba(255,130,0,.06) 0 1.2px, transparent 2.4px);
+    background-size:180px 180px, 240px 240px, 160px 160px;
+    opacity:.55;
+    animation:drift 22s linear infinite;
+  }
+  .grain{
+    opacity:.08;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+    mix-blend-mode:overlay;
+  }
+  @keyframes breathe{from{opacity:.55;}to{opacity:1;}}
+  @keyframes drift{from{background-position:0 0,0 0,0 0;}to{background-position:180px 90px,-120px 80px,80px -60px;}}
+
+  .top{
+    position:fixed;top:0;right:0;z-index:20;
+    display:flex;align-items:center;gap:18px;
+    padding:14px 18px 0 0;
+    font-size:13px;font-weight:500;
+    text-shadow:0 1px 6px rgba(0,0,0,.45);
+  }
+  .top a{text-decoration:none;}
+  .top a:hover{text-decoration:underline;}
+  .icon-btn{
+    all:unset;cursor:pointer;width:40px;height:40px;border-radius:50%;
+    display:grid;place-items:center;color:#5f6368;
+  }
+  .icon-btn:hover{background:rgba(60,64,67,.08);}
+  .icon-btn svg{width:22px;height:22px;display:block;}
+  .apps-btn{color:#fff;text-shadow:none;}
+  .apps-btn:hover{background:rgba(255,255,255,.16);}
+  .avatar{
+    width:32px;height:32px;border-radius:50%;
+    background:#1a73e8;color:#fff;
+    display:grid;place-items:center;
+    font-weight:600;font-size:15px;
+    box-shadow:0 1px 4px rgba(0,0,0,.35);
+  }
+
+  .apps{
+    position:fixed;top:62px;right:64px;z-index:30;
+    width:320px;padding:16px 8px 12px;
+    background:#fff;color:var(--ink);
+    border-radius:24px;
+    box-shadow:0 8px 28px rgba(0,0,0,.28);
+    display:none;
+  }
+  .apps.open{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;}
+  .apps a{
+    text-decoration:none;color:var(--ink);
+    display:flex;flex-direction:column;align-items:center;gap:8px;
+    padding:14px 6px 10px;border-radius:16px;font-size:13px;
+  }
+  .apps a:hover{background:#f1f3f4;}
+  .apps .bubble{
+    width:48px;height:48px;border-radius:50%;
+    display:grid;place-items:center;color:#fff;
+  }
+  .apps svg{width:24px;height:24px;}
+
+  .cluster{
+    position:relative;z-index:5;
+    min-height:100vh;min-height:100dvh;
+    display:flex;flex-direction:column;align-items:center;
+    padding:18vh 20px 40px;
+    transition:padding .8s cubic-bezier(.22,1,.36,1);
+  }
+  body.is-thinking .cluster,
+  body.has-result .cluster{
+    padding-top:64px;
+    padding-bottom:18px;
+    justify-content:flex-start;
+  }
+  body.has-result .cluster{
+    height:100dvh;
+  }
+  body.has-result .search-wrap{
+    flex:1 1 auto;
+    min-height:0;
+    overflow:hidden;
+  }
+  .wordmark{
+    margin:0 0 28px;
+    font-family:Outfit,Arial,sans-serif;
+    font-weight:500;
+    font-size:clamp(42px,6.4vw,84px);
+    letter-spacing:-.03em;
+    line-height:.95;
+    color:#fff;
+    text-shadow:0 2px 22px rgba(0,0,0,.35);
+    text-align:center;
+    max-height:140px;
+  }
+
+  .search-wrap{
+    position:relative;
+    width:min(720px,100%);
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+    min-height:0;
+    transition:flex-basis .8s cubic-bezier(.22,1,.36,1);
+  }
+  body.is-thinking .search-wrap,
+  body.has-result .search-wrap{
+    flex:1 1 auto;
+    min-height:0;
+  }
+  .search{
+    width:100%;height:56px;
+    display:flex;align-items:center;
+    background:#fff;color:var(--ink);
+    border-radius:999px;
+    box-shadow:var(--shadow);
+    padding:0 8px 0 6px;
+    flex:none;
+    position:relative;
+    z-index:8;
+  }
+  .search input{
+    flex:1;min-width:0;border:0;outline:0;background:transparent;
+    font-size:16px;color:var(--ink);height:100%;padding:0 8px;
+  }
+  .search.is-querying input,
+  body.has-result .search input{
+    flex:0 1 auto;
+    width:auto;
+    min-width:4ch;
+    max-width:46%;
+    field-sizing:content;
+  }
+  .search input::-webkit-search-cancel-button{appearance:none;display:none;}
+  .ai-mode{
+    all:unset;cursor:pointer;box-sizing:border-box;
+    height:40px;padding:0 14px 0 12px;margin-left:4px;
+    border-radius:999px;border:1px solid var(--line);
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:14px;font-weight:500;color:var(--ink);white-space:nowrap;
+  }
+  .ai-mode:hover{background:#f8f9fa;}
+  .ai-mode svg{width:18px;height:18px;}
+  .plus-menu{
+    position:absolute;left:0;top:64px;z-index:12;
+    width:260px;padding:8px;background:#fff;color:var(--ink);
+    border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.22);
+    display:none;
+  }
+  .plus-menu.open{display:block;}
+  .plus-menu button{
+    all:unset;cursor:pointer;box-sizing:border-box;
+    width:100%;display:flex;align-items:center;gap:12px;
+    padding:12px;border-radius:12px;font-size:14px;
+  }
+  .plus-menu button:hover{background:#f1f3f4;}
+  .plus-menu svg{width:20px;height:20px;color:#5f6368;}
+
+  .cards{
+    margin-top:26px;
+    display:flex;gap:12px;justify-content:center;flex-wrap:wrap;
+    max-height:220px;
+  }
+  .gcard{
+    display:flex;align-items:center;gap:12px;
+    min-width:228px;max-width:280px;
+    padding:12px 18px 12px 14px;
+    background:#fff;color:var(--ink);
+    border-radius:16px;text-decoration:none;
+    box-shadow:0 1px 3px rgba(60,64,67,.2), 0 2px 8px rgba(0,0,0,.08);
+  }
+  .gcard:hover{box-shadow:0 2px 8px rgba(60,64,67,.28);}
+  .gcard-ico{
+    width:28px;height:28px;flex:none;
+    display:grid;place-items:center;
+  }
+  .gcard-ico svg{width:24px;height:24px;}
+  .gcard strong{display:block;font-size:14px;font-weight:500;line-height:1.25;}
+  .gcard em{display:block;margin-top:2px;font-style:normal;font-size:12px;color:var(--muted);line-height:1.3;}
+
+  .shortcuts{
+    margin-top:36px;
+    display:flex;align-items:flex-start;justify-content:center;gap:28px;flex-wrap:wrap;
+    max-height:160px;
+  }
+  .shortcut{
+    width:84px;display:flex;flex-direction:column;align-items:center;gap:8px;
+    text-decoration:none;color:#fff;background:none;border:0;padding:0;cursor:pointer;
+    font-size:12px;text-shadow:0 1px 6px rgba(0,0,0,.55);
+  }
+  .bubble{
+    width:48px;height:48px;border-radius:50%;
+    display:grid;place-items:center;
+    box-shadow:0 2px 8px rgba(0,0,0,.25);
+  }
+  .bubble svg{width:24px;height:24px;}
+  .shortcut span{max-width:84px;text-align:center;line-height:1.2;}
+  .c-globe{background:linear-gradient(160deg,#1a73e8,#34a853);}
+  .c-ask{background:#129e8e;}
+  .c-maps{background:#1a73e8;}
+  .c-cities{background:#e8a317;}
+  .c-sources{background:#7b3ff2;}
+  .c-health{background:#1a73e8;}
+  .c-climate{background:#0277bd;}
+  .c-add{background:#f3e6cf;color:#3c4043;}
+  .c-custom{background:#5f6368;}
+  .c-mobile{background:linear-gradient(160deg,#2fb964,#1a73e8);}
+  .c-upload{background:#e8710a;}
+  .c-menu{background:#3c4043;}
+
+  :root{
+    --g-blue:#4285F4;
+    --g-red:#EA4335;
+    --g-yellow:#FBBC05;
+    --g-green:#34A853;
+    --g-orange:#F9AB00;
+  }
+  @property --gem-angle{
+    syntax:"<angle>";
+    inherits:false;
+    initial-value:0deg;
+  }
+  @keyframes gem-spin{to{--gem-angle:360deg;}}
+  @keyframes gem-breathe{
+    0%,100%{filter:drop-shadow(0 0 0 transparent);}
+    50%{filter:drop-shadow(0 0 10px rgba(66,133,244,.45)) drop-shadow(0 0 16px rgba(234,67,53,.28));}
+  }
+  .gem-glow{
+    position:relative;
+    isolation:isolate;
+  }
+  .gem-glow::after{
+    content:"";
+    position:absolute;
+    inset:-4px;
+    border-radius:inherit;
+    padding:3px;
+    background:conic-gradient(from var(--gem-angle), var(--g-blue), var(--g-red), var(--g-orange), var(--g-yellow), var(--g-green), var(--g-blue));
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+    mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite:exclude;
+    opacity:0;
+    pointer-events:none;
+    z-index:2;
+    animation:gem-spin 2.4s linear infinite;
+    transition:opacity .28s ease;
+  }
+  .wordmark.gem-glow::after{border-radius:18px;}
+  .search.gem-glow::after{border-radius:999px;}
+  .gcard.gem-glow::after{border-radius:16px;}
+  .quote-card.gem-glow::after{border-radius:28px;}
+  .ai-mode.gem-glow::after{border-radius:999px;}
+  .apps-btn.gem-glow::after,.avatar.gem-glow::after{border-radius:50%;}
+  .top a.gem-glow{border-radius:10px;padding:6px 10px;}
+  .top a.gem-glow::after{border-radius:10px;}
+  .search-wrap{overflow:visible;}
+  .gem-glow:hover,
+  .gem-glow:focus-within,
+  .gem-glow:active,
+  .gem-glow.is-on,
+  body.is-thinking .gem-glow{
+    box-shadow:
+      0 0 0 2px rgba(66,133,244,.85),
+      0 0 10px rgba(66,133,244,.45),
+      0 0 16px rgba(234,67,53,.32),
+      0 0 22px rgba(251,188,5,.28),
+      0 0 26px rgba(52,168,83,.28);
+  }
+  .gem-glow:hover::after,
+  .gem-glow:focus-within::after,
+  .gem-glow:active::after,
+  .gem-glow.is-on::after,
+  body.is-thinking .gem-glow::after{
+    opacity:1;
+  }
+  body.is-thinking .gem-glow{
+    animation:gem-breathe 1.1s ease-in-out infinite;
+  }
+  .shortcuts .shortcut,
+  .shortcuts .shortcut.gem-glow{
+    box-shadow:none !important;
+    filter:none !important;
+    animation:none !important;
+  }
+  .shortcuts .shortcut::after,
+  .shortcuts .shortcut.gem-glow::after,
+  body.is-thinking .shortcuts .gem-glow::after{
+    display:none !important;
+    opacity:0 !important;
+  }
+
+  .wordmark,.cards,.shortcuts{
+    transition:opacity .55s ease, transform .7s cubic-bezier(.22,1,.36,1), max-height .7s ease, margin .7s ease, filter .55s ease;
+  }
+  body.is-thinking .wordmark,
+  body.is-thinking .cards,
+  body.is-thinking .shortcuts,
+  body.has-result .wordmark,
+  body.has-result .cards,
+  body.has-result .shortcuts{
+    opacity:0;
+    transform:translateY(-16px) scale(.98);
+    filter:blur(6px);
+    pointer-events:none;
+    max-height:0;
+    margin:0;
+    overflow:hidden;
+  }
+
+  .query-rail{
+    position:relative;
+    display:none;
+    align-items:center;
+    flex:1 1 96px;
+    min-width:72px;
+    height:40px;
+    margin:0 4px 0 2px;
+    overflow:hidden;
+    -webkit-mask-image:linear-gradient(90deg, #000 0%, #000 78%, transparent 100%);
+    mask-image:linear-gradient(90deg, #000 0%, #000 78%, transparent 100%);
+  }
+  .search.is-querying .query-rail,
+  body.has-result .query-rail{display:flex;}
+  .search.is-querying #micBtn,
+  body.has-result #micBtn{display:none;}
+  .query-pip{
+    width:32px;height:32px;border-radius:50%;
+    border:2px solid #fff;
+    box-shadow:0 1px 5px rgba(0,0,0,.22);
+    display:grid;place-items:center;
+    flex:none;
+    color:#fff;
+    z-index:1;
+  }
+  .query-pip svg{width:15px;height:15px;display:block;}
+  .query-pip.is-fly{
+    position:absolute;
+    top:4px;
+    left:100%;
+    animation:bombard 1.2s cubic-bezier(.18,.7,.25,1) forwards;
+  }
+  @keyframes bombard{
+    0%{transform:translateX(12px) scale(.45) rotate(-18deg);opacity:0;}
+    14%{opacity:1;transform:translateX(-18px) scale(1.08) rotate(8deg);}
+    100%{transform:translateX(-340px) scale(1) rotate(0deg);opacity:.9;}
+  }
+  .query-pip.is-settled{
+    position:relative;
+    margin-left:-10px;
+    opacity:0;
+    transform:scale(.4);
+    animation:pip-in .42s cubic-bezier(.22,1,.36,1) forwards;
+  }
+  .query-pip.is-settled:first-child{margin-left:0;}
+  @keyframes pip-in{
+    to{opacity:1;transform:scale(1);}
+  }
+
+  .result{
+    position:relative;
+    z-index:5;
+    width:100%;
+    flex:0 1 auto;
+    min-height:0;
+    display:flex;
+    align-items:stretch;
+    overflow:hidden;
+    pointer-events:none;
+    opacity:0;
+    max-height:0;
+    margin-top:0;
+    transform:translateY(18px);
+    transition:
+      opacity .55s ease,
+      transform .8s cubic-bezier(.22,1,.36,1),
+      max-height .85s cubic-bezier(.22,1,.36,1),
+      margin-top .8s cubic-bezier(.22,1,.36,1);
+  }
+  body.has-result .result{
+    opacity:1;
+    transform:none;
+    pointer-events:auto;
+    flex:1 1 auto;
+    max-height:none;
+    height:auto;
+    min-height:0;
+    margin-top:20px;
+    z-index:4;
+  }
+  .quote-card{
+    width:100%;
+    height:100%;
+    min-height:0;
+    background:#fff;
+    color:var(--ink);
+    border-radius:28px;
+    padding:28px 32px 24px;
+    box-shadow:0 18px 50px rgba(15,23,42,.22);
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+  }
+  .quote-card h2{
+    margin:0;
+    font-size:18px;
+    font-weight:600;
+    letter-spacing:-.02em;
+    line-height:1.3;
+    flex:none;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    max-width:100%;
+  }
+  .quote-card .status{
+    margin:8px 0 0;
+    font-size:14px;
+    color:var(--muted);
+    line-height:1.45;
+    min-height:1.45em;
+    flex:none;
+  }
+  .result-answer{
+    margin:18px 0 0;
+    font-size:16px;
+    line-height:1.65;
+    color:#202124;
+    flex:1 1 auto;
+    min-height:0;
+    overflow:auto;
+    white-space:pre-wrap;
+  }
+  .result-answer:empty{display:none;}
+  #mapFrame{
+    width:100%;
+    flex:1 1 auto;
+    height:460px;
+    min-height:460px;
+    border:0;
+    border-radius:16px;
+    background:#d5dde3;
+    margin-top:12px;
+  }
+  .mode-bar{
+    display:flex;gap:6px;flex-wrap:wrap;
+    margin:16px 0 0;flex:none;
+  }
+  .mode-tab{
+    all:unset;cursor:pointer;
+    height:32px;padding:0 12px;border-radius:999px;
+    font-size:13px;font-weight:500;color:var(--muted);
+    border:1px solid var(--line);
+  }
+  .mode-tab.is-on{
+    color:#fff;background:#202124;border-color:#202124;
+  }
+  .mode-panels{flex:1 1 auto;min-height:0;position:relative;}
+  .mode-panel{display:none;height:100%;min-height:0;}
+  .mode-panel.is-on{display:flex;flex-direction:column;}
+  .mode-fallback{color:var(--muted);font-size:14px;}
+  #graphSvg{width:100%;height:min(320px,42vh);flex:none;}
+  #graphTip{margin:6px 0 0;font-size:12px;color:var(--muted);min-height:1.2em;}
+  .graph-note{margin:4px 0 0;font-size:11px;color:#80868b;}
+
+  .sheet{
+    position:fixed;inset:0;z-index:40;
+    background:rgba(0,0,0,.35);
+    display:none;align-items:center;justify-content:center;padding:20px;
+  }
+  .sheet.open{display:flex;}
+  .dialog{
+    width:min(420px,100%);background:#fff;color:var(--ink);
+    border-radius:24px;padding:22px 22px 18px;
+    box-shadow:0 12px 40px rgba(0,0,0,.3);
+  }
+  .dialog h2{margin:0 0 14px;font-size:18px;font-weight:500;}
+  .dialog label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px;}
+  .dialog input{
+    width:100%;height:44px;border:1px solid var(--line);border-radius:12px;
+    padding:0 12px;font-size:15px;
+  }
+  .dialog-row{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;}
+  .dialog-row button{
+    all:unset;cursor:pointer;height:36px;padding:0 16px;border-radius:999px;font-size:14px;font-weight:500;
+  }
+  .dialog-row .ghost{color:#1a73e8;}
+  .dialog-row .primary{background:#1a73e8;color:#fff;}
+  .dialog-row .primary:disabled{opacity:.55;}
+  body.pwa-open{overflow:hidden;}
+  #pwaSheet{
+    z-index:60;
+    align-items:center;
+    justify-content:center;
+  }
+  #pwaCard.pwa-card{
+    width:min(420px, calc(100vw - 40px));
+    height:auto !important;
+    max-height:min(88vh, 680px);
+    margin:0 auto;
+    padding:28px 24px 20px;
+    text-align:center;
+    align-items:center;
+    flex:none;
+    overflow:auto;
+    background:#fff;
+    box-shadow:0 18px 50px rgba(15,23,42,.22);
+  }
+  .pwa-kicker{
+    margin:0 auto;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+    text-align:center;width:100%;
+  }
+  .pwa-card h2{
+    margin-top:8px;
+    text-align:center;
+    white-space:normal;
+    width:100%;
+  }
+  .pwa-card .status{
+    text-align:center;
+    max-width:34em;
+    margin-left:auto;
+    margin-right:auto;
+  }
+  .pwa-qr{
+    margin:16px auto 8px;
+    width:min(240px,70vw);
+    padding:12px;
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:18px;
+  }
+  .pwa-qr svg,.pwa-qr img{display:block;width:100%;height:auto;border-radius:8px;}
+  .pwa-url{
+    margin:0 0 8px;
+    font-size:11px;color:var(--muted);word-break:break-all;text-align:center;
+    width:100%;
+  }
+  .pwa-card .dialog-row{
+    justify-content:center;
+    width:100%;
+  }
+  .pwa-push{
+    all:unset;
+    cursor:pointer;
+    display:block;
+    margin:10px auto 0;
+    color:#1a73e8;
+    font-size:14px;
+    font-weight:500;
+  }
+  .pwa-push:disabled{opacity:.55;cursor:default;}
+
+  @media (max-width:720px){
+    .cluster{padding:max(56px, env(safe-area-inset-top, 0px) + 40px) 12px 16px;}
+    body.has-result .cluster,
+    body.is-thinking .cluster{padding-top:max(48px, env(safe-area-inset-top, 0px) + 28px);padding-bottom:12px;}
+    .wordmark{font-size:clamp(36px,10vw,56px);}
+    .search{height:52px;}
+    .search-wrap{width:min(100%, calc(100vw - 24px));}
+    .ai-mode span{display:none;}
+    .ai-mode{padding:0 10px;}
+    .cards{max-height:none;gap:10px;}
+    .gcard{min-width:0;width:min(320px,100%);}
+    .shortcuts{max-height:none;gap:18px;margin-top:22px;}
+    .top{gap:10px;padding:max(10px, env(safe-area-inset-top, 0px)) 10px 0 0;}
+    .apps{right:12px;width:min(320px,calc(100vw - 24px));}
+    .quote-card{padding:18px 16px 14px;border-radius:22px;}
+    .quote-card h2{font-size:16px;}
+    .pwa-card{width:min(420px, calc(100vw - 24px));}
+  }
+  @media (display-mode: standalone){
+    .top{padding-top:max(12px, env(safe-area-inset-top, 0px));}
+    body.has-result .cluster{padding-top:max(52px, env(safe-area-inset-top, 0px) + 32px);}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .stage-bg.is-leave,.stage-bg.is-enter{animation:none;}
+    .rays,.caustics{animation:none;}
+    .gem-glow::after,body.is-thinking .gem-glow{animation:none;}
+    .query-pip.is-fly,.query-pip.is-settled{animation:none;opacity:1;transform:none;}
+  }
+</style>
+</head>
+<body>
+<div class="stage" aria-hidden="true">
+  <img class="stage-bg is-on" src="h2o-assets/aquaask-bg-1.jpg" alt="">
+  <img class="stage-bg" src="h2o-assets/aquaask-bg-2.jpg" alt="">
+  <img class="stage-bg" src="h2o-assets/aquaask-bg-3.jpg" alt="">
+  <img class="stage-bg" src="h2o-assets/aquaask-bg-4.jpg" alt="">
+  <div class="veil"></div>
+  <div class="rays"></div>
+  <div class="caustics"></div>
+  <div class="grain"></div>
+</div>
+
+<header class="top">
+  <a href="/map/" id="homeLink" class="gem-glow">Home</a>
+  <a href="#ask" id="askLink" class="gem-glow">Ask</a>
+  <button class="icon-btn apps-btn gem-glow" id="appsBtn" type="button" aria-label="Open apps" aria-expanded="false">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <circle cx="5" cy="5" r="1.7"/><circle cx="12" cy="5" r="1.7"/><circle cx="19" cy="5" r="1.7"/>
+      <circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/>
+      <circle cx="5" cy="19" r="1.7"/><circle cx="12" cy="19" r="1.7"/><circle cx="19" cy="19" r="1.7"/>
+    </svg>
+  </button>
+  <div class="avatar gem-glow" aria-hidden="true">C</div>
+</header>
+
+<nav class="apps" id="apps" aria-label="CatMod apps">
+  <a href="#ask" data-query="Run the Nairobi modeled portfolio"><span class="bubble c-globe"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.8 3.8 5.8 3.8 9S14.5 18.2 12 21c-2.5-2.8-3.8-5.8-3.8-9S9.5 5.8 12 3z"/></svg></span>Nairobi</a>
+  <a href="#ask" data-query="Run the Nzoia depth portfolio"><span class="bubble c-ask"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><path d="M12 3s6 6.2 6 10.2A6 6 0 0 1 6 13.2C6 9.2 12 3 12 3z"/></svg></span>Nzoia</a>
+  <a href="#ask" data-query="Show the flood hazard catalogue"><span class="bubble c-health"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/></svg></span>Hazard</a>
+  <a href="#ask" data-query="Desk status"><span class="bubble c-climate"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg></span>Status</a>
+  <a href="#ask" data-query="List modeled events"><span class="bubble c-custom"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></span>Events</a>
+  <a href="#ask" data-query="Run the Miami reported portfolio"><span class="bubble c-mobile"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M10.5 18.5h3"/></svg></span>Miami</a>
+  <a href="#ask" data-upload><span class="bubble c-upload"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V6M8 9.5 12 5.5 16 9.5"/><path d="M5 19h14"/></svg></span>Upload</a>
+  <a href="map.html"><span class="bubble c-maps"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linejoin="round"><path d="M9 4.5 3.5 6.5v13L9 17.5l6 2 5.5-2v-13L15 6.5 9 4.5z"/><path d="M9 4.5v13M15 6.5v13"/></svg></span>Map</a>
+</nav>
+
+<main class="cluster">
+  <h1 class="wordmark gem-glow">CatMod</h1>
+
+  <div class="search-wrap">
+    <form class="search gem-glow" id="askForm" role="search">
+      <button class="icon-btn" id="plusBtn" type="button" aria-label="More" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+      <input id="q" type="search" name="q" placeholder="Nairobi, Nzoia, an address, or audit an event" autocomplete="off" autofocus>
+      <div class="query-rail" id="queryRail" aria-hidden="true"></div>
+      <button class="icon-btn" id="micBtn" type="button" aria-label="Voice search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4"/></svg>
+      </button>
+      <input id="lensFile" type="file" accept=".csv,text/csv,text/plain" hidden>
+      <button class="icon-btn" id="lensBtn" type="button" aria-label="Look up or reverse image search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/><path d="M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3" stroke-linecap="round"/></svg>
+      </button>
+      <button class="ai-mode gem-glow" id="aiBtn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 3.2 13.3 8.2 18.3 9.5 13.3 10.8 12 15.8 10.7 10.8 5.7 9.5 10.7 8.2 12 3.2Z" fill="#1a73e8"/>
+          <path d="M18 14.2 18.7 16.4 18.9 16.6 21.1 17.3 18.9 18 18.7 18.2 18 20.4 17.3 18.2 17.1 18 14.9 17.3 17.1 16.6 17.3 16.4 18 14.2Z" fill="#9334e6"/>
+        </svg>
+        <span>Modeled</span>
+      </button>
+    </form>
+    <div class="plus-menu" id="plusMenu">
+      <button type="button" data-query="Run the Nairobi modeled portfolio">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.8 3.8 5.8 3.8 9S14.5 18.2 12 21c-2.5-2.8-3.8-5.8-3.8-9S9.5 5.8 12 3z"/></svg>
+        Run Nairobi book
+      </button>
+      <button type="button" data-query="List modeled events">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3s6 6.2 6 10.2A6 6 0 0 1 6 13.2C6 9.2 12 3 12 3z"/></svg>
+        Open events
+      </button>
+      <button type="button" data-upload>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V6M8 9.5 12 5.5 16 9.5"/><path d="M5 19h14"/></svg>
+        Upload bordereau CSV
+      </button>
+      <button type="button" data-query="Open the Nairobi loss map">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M9 4.5 3.5 6.5v13L9 17.5l6 2 5.5-2v-13L15 6.5 9 4.5z"/><path d="M9 4.5v13M15 6.5v13"/></svg>
+        Open loss map
+      </button>
+    </div>
+
+    <section class="result" id="result" aria-live="polite" aria-hidden="true">
+      <article class="quote-card gem-glow" id="quoteCard">
+        <h2 id="resultTitle"></h2>
+        <p class="status" id="resultStatus">Running the catastrophe desk…</p>
+        <div class="mode-bar" id="modeBar" hidden>
+          <button class="mode-tab is-on" type="button" data-tab="answer">Answer</button>
+          <button class="mode-tab" type="button" data-tab="graphs">EP curve</button>
+          <button class="mode-tab" type="button" data-tab="map">Map</button>
+        </div>
+        <div class="mode-panels">
+          <div class="mode-panel is-on" data-panel="answer">
+            <p class="result-answer" id="resultAnswer"></p>
+          </div>
+          <div class="mode-panel" data-panel="graphs">
+            <svg id="graphSvg" viewBox="0 0 640 280" role="img" aria-label="Exceedance probability curve"></svg>
+            <p id="graphTip"></p>
+            <p class="graph-note" id="graphNote"></p>
+          </div>
+          <div class="mode-panel" data-panel="map">
+            <iframe id="mapFrame" title="Portfolio loss map" src="about:blank"></iframe>
+          </div>
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <div class="cards">
+    <a class="gcard gem-glow" href="#ask" data-query="Run the Nairobi modeled portfolio">
+      <span class="gcard-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M12 2.8 13.5 8.4 19.1 9.9 13.5 11.4 12 17 10.5 11.4 4.9 9.9 10.5 8.4 12 2.8Z" fill="#1a73e8"/>
+          <path d="M18.2 13.6 19 16.2 21.6 17 19 17.8 18.2 20.4 17.4 17.8 14.8 17 17.4 16.2 18.2 13.6Z" fill="#9334e6"/>
+        </svg>
+      </span>
+      <span>
+        <strong>Nairobi book</strong>
+        <em>Modeled flood, susceptibility × 4 m</em>
+      </span>
+    </a>
+    <a class="gcard gem-glow" href="#ask" data-query="Run the Nzoia depth portfolio">
+      <span class="gcard-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#e8a317" stroke-width="1.6" stroke-linejoin="round">
+          <rect x="3.5" y="5" width="12" height="10" rx="1.5"/>
+          <path d="M8 19h8M15.5 8.5 20.5 6v10l-5-2.5"/>
+        </svg>
+      </span>
+      <span>
+        <strong>Nzoia book</strong>
+        <em>Flood depth in metres</em>
+      </span>
+    </a>
+    <a class="gcard gem-glow" href="#ask" data-query="List modeled events">
+      <span class="gcard-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#2fb964" stroke-width="1.7" stroke-linejoin="round">
+          <rect x="6.5" y="2.5" width="11" height="19" rx="2.4"/>
+          <path d="M10.5 18.5h3M9.5 7h5M9.5 10h5M9.5 13h3"/>
+        </svg>
+      </span>
+      <span>
+        <strong>Modeled events</strong>
+        <em>Gross, reinsurer, flags</em>
+      </span>
+    </a>
+    <a class="gcard gem-glow" href="#ask" data-query="Open the Nairobi loss map">
+      <span class="gcard-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="1.7" stroke-linejoin="round">
+          <rect x="6.5" y="2.5" width="11" height="19" rx="2.4"/>
+          <path d="M10.5 18.5h3"/>
+        </svg>
+      </span>
+      <span>
+        <strong>Loss map</strong>
+        <em>Leaflet export for the latest book</em>
+      </span>
+    </a>
+  </div>
+
+  <div class="shortcuts" id="shortcuts"></div>
+</main>
+
+<div class="sheet" id="sheet">
+  <form class="dialog" id="addForm">
+    <h2>Add shortcut</h2>
+    <label for="scName">Name</label>
+    <input id="scName" required maxlength="24" placeholder="Globe">
+    <label for="scUrl">Link</label>
+    <input id="scUrl" required placeholder="https://">
+    <div class="dialog-row">
+      <button class="ghost" type="button" id="addCancel">Cancel</button>
+      <button class="primary" type="submit">Done</button>
+    </div>
+  </form>
+</div>
+
+<div class="sheet" id="pwaSheet">
+  <article class="quote-card gem-glow pwa-card" id="pwaCard">
+    <p class="pwa-kicker">CatMod</p>
+    <h2>Portfolio map</h2>
+    <p class="status" id="pwaNote">The loss map opens from a modeled book.</p>
+    <div class="pwa-qr" id="pwaQr" role="img" aria-label="Portfolio map"></div>
+    <p class="pwa-url" id="pwaUrl"></p>
+    <div class="dialog-row">
+      <button class="ghost" type="button" id="pwaClose">Close</button>
+      <button class="primary" type="button" id="pwaInstall">Install app</button>
+    </div>
+    <button class="pwa-push" type="button" id="pwaPush">Enable notifications</button>
+  </article>
+</div>
+
+<script>
+(function(){
+  var defaults = [
+    {name:"Nairobi", query:"Run the Nairobi modeled portfolio", kind:"c-ask", icon:"drop"},
+    {name:"Nzoia", query:"Run the Nzoia depth portfolio", kind:"c-maps", icon:"map"},
+    {name:"Hazard", query:"Show the flood hazard catalogue", kind:"c-health", icon:"health"},
+    {name:"Status", query:"Desk status", kind:"c-climate", icon:"climate"},
+    {name:"Events", query:"List modeled events", kind:"c-custom", icon:"custom"}
+  ];
+  var ICON = {
+    water: "h2o-assets/cite-icons/cite-water.png?v=3",
+    paper: "h2o-assets/cite-icons/cite-paper.png?v=3",
+    satellite: "h2o-assets/cite-icons/cite-satellite.png?v=3",
+    university: "h2o-assets/cite-icons/cite-university.png?v=3",
+    health: "h2o-assets/cite-icons/cite-health.png?v=3",
+    globe: "h2o-assets/cite-icons/cite-globe.png?v=3",
+    leaf: "h2o-assets/cite-icons/cite-leaf.png?v=3",
+    spark: "h2o-assets/cite-icons/cite-spark.png?v=3",
+    pdf: "h2o-assets/cite-icons/cite-pdf.png?v=3",
+    csv: "h2o-assets/cite-icons/cite-csv.png?v=3",
+    url: "h2o-assets/cite-icons/cite-url.png?v=3",
+    youtube: "h2o-assets/cite-icons/cite-youtube.png?v=3",
+    email: "h2o-assets/cite-icons/cite-email.png?v=3"
+  };
+  var KIND_CYCLE = ["pdf","csv","url","youtube","email","satellite","university","health","water","leaf","paper","globe","spark"];
+  var QUERY_STAGES = [
+    "Reading the bordereau…",
+    "Sampling hazard depth…",
+    "Running the decimal waterfall…"
+  ];
+  var icons = {
+    globe:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.8 3.8 5.8 3.8 9S14.5 18.2 12 21c-2.5-2.8-3.8-5.8-3.8-9S9.5 5.8 12 3z"/></svg>',
+    drop:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><path d="M12 3s6 6.2 6 10.2A6 6 0 0 1 6 13.2C6 9.2 12 3 12 3z"/></svg>',
+    map:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linejoin="round"><path d="M9 4.5 3.5 6.5v13L9 17.5l6 2 5.5-2v-13L15 6.5 9 4.5z"/><path d="M9 4.5v13M15 6.5v13"/></svg>',
+    city:'<svg viewBox="0 0 24 24" fill="#fff"><path d="M4 20V9l5-3v3l5-3v14H4zm12 0v-8h4v8h-4z"/></svg>',
+    health:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/></svg>',
+    climate:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg>',
+    doc:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><path d="M6 4h9l3 3v13H6z"/><path d="M15 4v3h3M8 12h8M8 16h6"/></svg>',
+    plus:'<svg viewBox="0 0 24 24" fill="none" stroke="#3c4043" stroke-width="1.8" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg>',
+    phone:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M10.5 18.5h3"/></svg>',
+    upload:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V6M8 9.5 12 5.5 16 9.5"/><path d="M5 19h14"/></svg>',
+    menu:'<svg viewBox="0 0 24 24" fill="#fff"><circle cx="6" cy="6" r="1.7"/><circle cx="12" cy="6" r="1.7"/><circle cx="18" cy="6" r="1.7"/><circle cx="6" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18" cy="12" r="1.7"/><circle cx="6" cy="18" r="1.7"/><circle cx="12" cy="18" r="1.7"/><circle cx="18" cy="18" r="1.7"/></svg>',
+    custom:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/></svg>'
+  };
+
+  function loadCustom(){
+    try{ return JSON.parse(localStorage.getItem("il-shortcuts") || "[]"); }
+    catch(e){ return []; }
+  }
+  function saveCustom(list){
+    localStorage.setItem("il-shortcuts", JSON.stringify(list));
+  }
+
+  var shortcuts = document.getElementById("shortcuts");
+  function renderShortcuts(){
+    shortcuts.innerHTML = "";
+    defaults.concat(loadCustom()).forEach(function(item){
+      var a = document.createElement("a");
+      a.className = "shortcut";
+      a.href = item.href || "#ask";
+      if(item.query) a.setAttribute("data-query", item.query);
+      a.innerHTML = '<span class="bubble '+(item.kind||"c-custom")+'">'+(icons[item.icon]||icons.custom)+'</span><span></span>';
+      a.querySelector("span:last-child").textContent = item.name;
+      shortcuts.appendChild(a);
+    });
+    var add = document.createElement("button");
+    add.className = "shortcut";
+    add.type = "button";
+    add.id = "addBtn";
+    add.innerHTML = '<span class="bubble c-add">'+icons.plus+'</span><span>Add shortcut</span>';
+    add.addEventListener("click", function(){ document.getElementById("sheet").classList.add("open"); });
+    var menu = document.createElement("button");
+    menu.className = "shortcut";
+    menu.type = "button";
+    menu.id = "menuShortcut";
+    menu.setAttribute("aria-label", "Open apps");
+    menu.setAttribute("aria-expanded", "false");
+    menu.innerHTML = '<span class="bubble c-menu">'+icons.menu+'</span><span>Menu</span>';
+    menu.addEventListener("click", toggleApps);
+    shortcuts.appendChild(menu);
+    shortcuts.appendChild(add);
+  }
+
+  var slides = [].slice.call(document.querySelectorAll(".stage-bg"));
+  if(slides.length > 1){
+    var cur = 0;
+    var cycling = false;
+    var reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setInterval(function(){
+      if(cycling) return;
+      var pick = cur;
+      while(pick === cur) pick = Math.floor(Math.random()*slides.length);
+      var outgoing = slides[cur];
+      var incoming = slides[pick];
+      if(reduceMotion){
+        outgoing.classList.remove("is-on","is-leave","is-enter");
+        incoming.classList.add("is-on");
+        cur = pick;
+        return;
+      }
+      cycling = true;
+      outgoing.classList.remove("is-on","is-enter");
+      incoming.classList.remove("is-on","is-leave");
+      outgoing.classList.add("is-leave");
+      incoming.classList.add("is-enter");
+      incoming.addEventListener("animationend", function done(){
+        incoming.removeEventListener("animationend", done);
+        outgoing.classList.remove("is-leave");
+        incoming.classList.remove("is-enter");
+        incoming.classList.add("is-on");
+        cycling = false;
+      });
+      cur = pick;
+    }, 10000);
+  }
+
+  var q = document.getElementById("q");
+  var askForm = document.getElementById("askForm");
+  var queryRail = document.getElementById("queryRail");
+  var resultTitle = document.getElementById("resultTitle");
+  var resultStatus = document.getElementById("resultStatus");
+  var resultAnswer = document.getElementById("resultAnswer");
+  var searching = false;
+  var statusTimer = 0;
+  var bombardTimer = 0;
+  var revealTimer = 0;
+  var PIP_GLYPH = {
+    clock:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="7.5"/><path d="M12 8.2v4.2l2.8 1.8"/></svg>',
+    dollar:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M12 6v12"/><path d="M15.2 8.2c0-1.4-1.4-2.4-3.2-2.4S8.8 7.2 8.8 8.6c0 1.5 1.3 2.1 3.2 2.5s3.2 1.1 3.2 2.7-1.5 2.6-3.2 2.6-3.2-1-3.2-2.5"/></svg>',
+    people:'<svg viewBox="0 0 24 24" fill="#fff"><circle cx="9" cy="8.2" r="2.3"/><path d="M4.6 18.2c.3-3.1 2.2-4.8 4.4-4.8s4.1 1.7 4.4 4.8"/><circle cx="16.2" cy="8.5" r="1.9"/><path d="M13.8 18.2c.25-2.3 1.6-3.6 3.3-3.6 1.8 0 3.2 1.3 3.4 3.6"/></svg>',
+    anchor:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="6.8" r="2"/><path d="M12 8.8v10.4M8.2 13h7.6M6.6 18.6C6.6 16 9 14.2 12 14.2s5.4 1.8 5.4 4.4"/></svg>',
+    drop:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"><path d="M12 4.5s5.4 5.6 5.4 9.2a5.4 5.4 0 1 1-10.8 0C6.6 10.1 12 4.5 12 4.5z"/></svg>',
+    leaf:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M6 16c6-1 9-6 11.5-12-6 1-11 5-12 12z"/><path d="M8 14c1.5-1 4-3.2 7-5"/></svg>',
+    pdf:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"><path d="M7 4.5h7l3.5 3.5V19.5H7z"/><path d="M14 4.5V8h3.5"/></svg>',
+    health:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="7.5"/><path d="M12 8.5v7M8.5 12h7"/></svg>',
+    globe:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><circle cx="12" cy="12" r="7.5"/><path d="M4.5 12h15M12 4.5c2.2 2.4 3.3 5 3.3 7.5S14.2 17.1 12 19.5C9.8 17.1 8.7 14.5 8.7 12S9.8 6.9 12 4.5z"/></svg>'
+  };
+  var QUERY_PIPS = [
+    {id:"clock", bg:"#e2157b", svg:PIP_GLYPH.clock},
+    {id:"dollar", bg:"#34a853", svg:PIP_GLYPH.dollar},
+    {id:"people", bg:"#1a73e8", svg:PIP_GLYPH.people},
+    {id:"anchor", bg:"#f9ab00", svg:PIP_GLYPH.anchor},
+    {id:"drop", bg:"#12b5c4", svg:PIP_GLYPH.drop},
+    {id:"leaf", bg:"#0f9d58", svg:PIP_GLYPH.leaf},
+    {id:"pdf", bg:"#ea4335", svg:PIP_GLYPH.pdf},
+    {id:"health", bg:"#4285f4", svg:PIP_GLYPH.health},
+    {id:"globe", bg:"#7b3ff2", svg:PIP_GLYPH.globe}
+  ];
+  var KIND_TO_PIP = {
+    pdf:"pdf", csv:"dollar", url:"globe", youtube:"pdf", email:"people",
+    satellite:"anchor", university:"people", health:"health", water:"drop",
+    leaf:"leaf", paper:"pdf", globe:"globe", spark:"clock"
+  };
+
+  function uniqueSources(list){
+    var seen = {};
+    var out = [];
+    (list || []).forEach(function(s){
+      var key = ((s.publication_title || "") + "|" + (s.doi || "") + "|" + (s.url || "")).toLowerCase();
+      if(seen[key]) return;
+      seen[key] = true;
+      out.push(s);
+    });
+    return out.slice(0, 8);
+  }
+  function sourceKind(s){
+    var origin = String((s && (s.source_origin || s.url)) || "");
+    var t = ((((s && s.publication_title) || "") + " " + ((s && s.doi) || "") + " " + origin + " " + ((s && s.section) || "") + " " + ((s && s.source_type) || "")).toLowerCase());
+    if(/youtube|youtu\.be/.test(t)) return "youtube";
+    if(/\.eml\b|mailto:|e-?mail/.test(t)) return "email";
+    if(/\.csv\b|\.xlsx\b|\.xls\b|spreadsheet/.test(t)) return "csv";
+    if(/\.pdf\b/.test(t) || ((s && s.source_type) || "") === "pdf") return "pdf";
+    if(/university|coimbra|universidade/.test(t)) return "university";
+    if(/odh-ut|digital health|terminology|biophysical/.test(t)) return "health";
+    if(/remote sensing|earth observation|satellite|space to stream|copernicus/.test(t)) return "satellite";
+    if(/oneaquahealth\.eu|project website/.test(t)) return "water";
+    if(/stream|diatom|ecosystem|urban river|pharmaceutical|biodiversity/.test(t)) return "leaf";
+    if(/duckduckgo|wikipedia|tavily|^web$|https?:/.test(t) || ((s && s.source_type) || "") === "url") return "url";
+    if(/10\.\d{4,}/.test(t) || (s && s.doi && String(s.doi).indexOf("10.") === 0)) return "paper";
+    return "spark";
+  }
+  function assignUniqueIcons(list){
+    var used = {};
+    (list || []).forEach(function(s){
+      var preferred = s._iconKind || sourceKind(s);
+      var kind = preferred;
+      if(used[kind]){
+        for(var i = 0; i < KIND_CYCLE.length; i++){
+          if(!used[KIND_CYCLE[i]]){
+            kind = KIND_CYCLE[i];
+            break;
+          }
+        }
+      }
+      used[kind] = true;
+      s._iconKind = kind;
+    });
+  }
+  function pipById(id){
+    for(var i = 0; i < QUERY_PIPS.length; i++){
+      if(QUERY_PIPS[i].id === id) return QUERY_PIPS[i];
+    }
+    return QUERY_PIPS[0];
+  }
+  function pipForSource(s){
+    return pipById(KIND_TO_PIP[(s && s._iconKind) || sourceKind(s) || "spark"] || "clock");
+  }
+  function makePip(item, cls){
+    var el = document.createElement("span");
+    el.className = "query-pip " + (cls || "");
+    el.style.background = item.bg;
+    el.innerHTML = item.svg;
+    el.title = item.id;
+    return el;
+  }
+  function fitQuery(){
+    var n = Math.min(22, Math.max(3, String(q.value || "").length + 1));
+    q.style.width = n + "ch";
+  }
+  function clearQueryFit(){
+    q.style.width = "";
+  }
+  function stopBombard(){
+    window.clearInterval(bombardTimer);
+    bombardTimer = 0;
+  }
+  function startBombard(){
+    stopBombard();
+    queryRail.innerHTML = "";
+    askForm.classList.add("is-querying");
+    queryRail.setAttribute("aria-hidden", "false");
+    var i = 0;
+    function spawn(){
+      var item = QUERY_PIPS[i % QUERY_PIPS.length];
+      var el = makePip(item, "is-fly");
+      el.style.animationDuration = (0.95 + (i % 3) * 0.12) + "s";
+      el.style.top = ((i % 3) * 2) + "px";
+      queryRail.appendChild(el);
+      el.addEventListener("animationend", function(){
+        if(el.parentNode) el.parentNode.removeChild(el);
+      });
+      i += 1;
+    }
+    spawn();
+    bombardTimer = window.setInterval(spawn, 130);
+  }
+  function settlePips(sources){
+    stopBombard();
+    queryRail.innerHTML = "";
+    askForm.classList.add("is-querying");
+    var items = [];
+    if(sources && sources.length){
+      assignUniqueIcons(sources);
+      sources.forEach(function(s){ items.push(pipForSource(s)); });
+    }else{
+      items = QUERY_PIPS.slice(0, 4);
+    }
+    items.slice(0, 8).forEach(function(item, idx){
+      var el = makePip(item, "is-settled");
+      el.style.zIndex = String(idx + 1);
+      el.style.animationDelay = (idx * 90) + "ms";
+      if(sources && sources[idx] && sources[idx].publication_title){
+        el.title = sources[idx].publication_title;
+      }
+      queryRail.appendChild(el);
+    });
+  }
+  function flashGlow(el){
+    if(!el) return;
+    el.classList.add("is-on");
+    window.setTimeout(function(){ el.classList.remove("is-on"); }, 900);
+  }
+  function resetHome(e){
+    if(e) e.preventDefault();
+    searching = false;
+    stopBombard();
+    window.clearInterval(statusTimer);
+    window.clearTimeout(revealTimer);
+    document.body.classList.remove("is-thinking","is-leaving","has-result");
+    askForm.classList.remove("is-querying");
+    queryRail.innerHTML = "";
+    queryRail.setAttribute("aria-hidden","true");
+    document.getElementById("modeBar").hidden = true;
+    document.getElementById("graphNote").textContent = "";
+    document.getElementById("result").setAttribute("aria-hidden","true");
+    resultAnswer.textContent = "";
+    resultStatus.textContent = QUERY_STAGES[0];
+    resultTitle.textContent = "";
+    clearQueryFit();
+    history.replaceState({}, "", location.pathname);
+    q.focus();
+  }
+  function applyModes(modes){
+    var bar = document.getElementById("modeBar");
+    bar.hidden = false;
+    var note = document.getElementById("graphNote");
+    if(note){
+    note.textContent = (modes && modes.note) || "";
+    }
+    if(window.renderAquaModes) window.renderAquaModes(document.getElementById("quoteCard"), modes || {});
+  }
+  var BOOKS = {
+    nairobi: {file:"samples/sample_nairobi_bordereau.csv", region:"nairobi"},
+    nzoia: {file:"samples/sample_nzoia_bordereau.csv", region:"nzoia"},
+    miami: {file:"samples/sample_miami_bordereau.csv", region:"miami"}
+  };
+
+  function readError(res){
+    return res.json().catch(function(){ return {}; }).then(function(body){
+      var detail = body && body.detail;
+      if(detail && typeof detail !== "string") detail = JSON.stringify(detail);
+      throw new Error(detail || res.statusText || "Request failed");
+    });
+  }
+  function getJSON(url){
+    return fetch(url).then(function(res){
+      if(!res.ok) return readError(res);
+      return res.json();
+    });
+  }
+  function postJSON(url, body){
+    return fetch(url, {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify(body)
+    }).then(function(res){
+      if(!res.ok) return readError(res);
+      return res.json();
+    });
+  }
+  function money(n){
+    var x = Number(n);
+    if(!isFinite(x)) return String(n == null ? "" : n);
+    return x.toLocaleString("en-US", {style:"currency", currency:"USD", maximumFractionDigits:2});
+  }
+  function compact(n){
+    var x = Number(n);
+    if(!isFinite(x)) return "";
+    var sign = x < 0 ? "-" : "";
+    x = Math.abs(x);
+    if(x >= 1e9) return sign + "$" + (x/1e9).toFixed(2) + "B";
+    if(x >= 1e6) return sign + "$" + (x/1e6).toFixed(2) + "M";
+    if(x >= 1e3) return sign + "$" + (x/1e3).toFixed(1) + "k";
+    return sign + "$" + x.toFixed(0);
+  }
+  function yn(v){ return v ? "true" : "false"; }
+  var lastEventId = "";
+  function showCatmodMap(){
+    var frame = document.getElementById("mapFrame");
+    if(!frame || !lastEventId) return;
+    frame.src = "map.html?event_id=" + encodeURIComponent(lastEventId) + "&t=" + Date.now();
+  }
+  window.showCatmodMap = showCatmodMap;
+  function present(view){
+    window.clearInterval(statusTimer);
+    settlePips(view.sources || []);
+    resultStatus.textContent = view.status || "Desk response";
+    resultAnswer.textContent = view.answer || "";
+    if(view.eventId) lastEventId = view.eventId;
+    applyModes(view.modes || {});
+  }
+  function jobView(data, openMap){
+    var syn = data.synthetic || {};
+    var ep = data.ep_curve || {};
+    var curve = ep.curve || [];
+    var labels = curve.map(function(p){ return "RP " + p.return_period; });
+    var points = curve.map(function(p){ return Number(p.loss_float != null ? p.loss_float : p.loss); });
+    var lines = [
+      "Event " + data.event_id,
+      "Region " + data.hazard_region + " · loss basis " + data.loss_basis + " · return period " + data.return_period,
+      "Treaty " + (data.treaty_label || ""),
+      "",
+      "Modeled ground-up loss  " + money(data.modeled_ground_up_loss),
+      "Gross claim             " + money(data.total_gross_claim),
+      "Reinsurer payout        " + money(data.reinsurer_payout),
+      "Cedant retained         " + money(data.cedant_retained_loss),
+      "Reinstatement premium   " + money(data.reinstatement_premium_due),
+      "Expected annual loss    " + money(ep.eal),
+      "",
+      "Claims " + data.claim_count + " · flagged " + data.flagged_count,
+      "Synthetic hazard " + yn(syn.hazard) + " · vulnerability curves " + yn(syn.vulnerability_curves) + " · exposure " + yn(syn.exposure_portfolio),
+      "Primary ground-up loss is modeled: " + yn(syn.primary_ground_up_loss)
+    ];
+    return {
+      status: "Posted " + (data.filename || "bordereau") + " to /v1/process-bordereau.",
+      answer: lines.join("\n"),
+      eventId: data.event_id,
+      sources: [
+        {publication_title:"Hazard lookup", source_origin:"hazard raster"},
+        {publication_title:"Vulnerability curves", source_origin:"damage.csv"},
+        {publication_title:"Decimal waterfall", source_origin:"treaty.pdf"},
+        {publication_title:"Exceedance curve", source_origin:"https://ep-curve"}
+      ],
+      modes: {
+        default_tab: openMap ? "map" : "answer",
+        note: "Occurrence EP curve from the return-period catalogue. Vulnerability curves are proxy functions. Hazard synthetic is " + yn(syn.hazard) + ".",
+        graph: {
+          labels: labels,
+          series: [{name:"OEP loss", color:"#1a73e8", points: points}],
+          highlight_value: compact(ep.eal),
+          highlight_label: labels[Math.min(labels.length - 1, 3)] || "",
+          highlight_unit: "EAL"
+        }
+      }
+    };
+  }
+  function floodView(data){
+    var flood = data.flood || {};
+    var gemini = data.gemini || {};
+    return {
+      status: "Posted the point to /api/v1/flood/evaluate.",
+      answer: [
+        data.address || ((data.latitude) + ", " + (data.longitude)),
+        "Asset " + (data.asset_id || ""),
+        "Risk " + (flood.risk_level || "") + " · score " + (flood.risk_score != null ? flood.risk_score : ""),
+        "Inundation depth " + (flood.inundation_depth_m != null ? flood.inundation_depth_m + " m" : ""),
+        "Ground elevation " + (flood.ground_elevation_m != null ? flood.ground_elevation_m + " m" : ""),
+        "Occupancy " + (gemini.occupancy_type || ""),
+        gemini.justification || ""
+      ].filter(Boolean).join("\n"),
+      sources: [{publication_title:"Flood evaluate", source_origin:"https://flood"}],
+      modes: {note:"Single-asset flood score from /api/v1/flood/evaluate."}
+    };
+  }
+  function eventsView(data){
+    var rows = (data && data.events) || [];
+    var lines = rows.length ? rows.map(function(ev){
+      return ev.event_id + "  gross " + money(ev.total_gross_claim) + "  reinsurer " + money(ev.reinsurer_payout) + "  flags " + ev.flagged_count;
+    }) : ["No modeled events in memory yet. Run a Nairobi, Nzoia, or Miami book."];
+    return {
+      status: "Read " + rows.length + " event" + (rows.length === 1 ? "" : "s") + " from /api/v1/events.",
+      answer: lines.join("\n"),
+      sources: rows.slice(0, 8).map(function(ev){ return {publication_title: ev.event_id, source_origin: "event.csv"}; }),
+      modes: {note:"Events live in this server process. A restart clears the list."}
+    };
+  }
+  function auditView(data){
+    var layers = data.layer_verification || {};
+    var lines = Object.keys(layers).sort().map(function(key){
+      var row = layers[key];
+      return "Layer " + key + " " + (row.layer_name || "") + "  " + (row.verified ? "verified" : "missing");
+    });
+    var steps = (data.entries || []).map(function(entry){
+      return "L" + entry.layer + " " + entry.step + "  " + entry.status;
+    });
+    return {
+      status: "Read /api/v1/audit/" + (data.event_id || "") + ".",
+      answer: ["Event " + (data.event_id || ""), ""].concat(lines).concat([""]).concat(steps).join("\n"),
+      eventId: data.event_id,
+      sources: [{publication_title:"Audit log", source_origin:"audit.json"}],
+      modes: {note:"Layers 1–5 are the required audit chain. Hazard, vulnerability, and EP steps are recorded beside them."}
+    };
+  }
+  function hazardView(collection, status){
+    var features = (collection && collection.features) || [];
+    var names = features.slice(0, 8).map(function(f){
+      var p = f.properties || {};
+      return p.name || p.id || p.hazard_id || f.id || "hazard polygon";
+    });
+    return {
+      status: "Read /api/v1/flood/hazard and /api/v1/flood/status.",
+      answer: [
+        "Hazard features " + features.length,
+        names.join("\n"),
+        "",
+        "Maps configured " + yn(status && status.maps_configured),
+        "Flood water surface " + ((status && status.flood_wse_m) != null ? status.flood_wse_m + " m" : "")
+      ].join("\n"),
+      sources: [{publication_title:"Flood hazard", source_origin:"hazard.geojson"}],
+      modes: {note:"This catalogue is the flood sidecar, separate from the Nairobi susceptibility and Nzoia depth rasters used by the bordereau."}
+    };
+  }
+  function deskView(health, status, events){
+    var count = ((events && events.events) || []).length;
+    return {
+      status: "Read /health, /api/v1/flood/status, and /api/v1/events.",
+      answer: [
+        "API " + ((health && health.status) || "unknown"),
+        "Modeled events in memory " + count,
+        "Maps configured " + yn(status && status.maps_configured),
+        "Flood water surface " + ((status && status.flood_wse_m) != null ? status.flood_wse_m + " m" : ""),
+        "",
+        "Run the Nairobi modeled portfolio",
+        "Run the Nzoia depth portfolio",
+        "Run the Miami reported portfolio",
+        "Open the Nairobi loss map",
+        "List modeled events",
+        "Show the flood hazard catalogue",
+        "Or paste latitude, longitude, an address, or audit EVENT_ID."
+      ].join("\n"),
+      sources: [{publication_title:"Desk health", source_origin:"https://health"}],
+      modes: {note:"Modeled forces TIV × damage ratio into the decimal waterfall. Reported keeps the bordereau ground-up loss."}
+    };
+  }
+  function bookFor(lower){
+    if(!(/portfolio|bordereau|\bbook\b|^run\b|^open\b/.test(lower))) return null;
+    if(/nzoia/.test(lower)) return BOOKS.nzoia;
+    if(/miami/.test(lower)) return BOOKS.miami;
+    if(/nairobi/.test(lower)) return BOOKS.nairobi;
+    return null;
+  }
+  function runBook(book, basis, openMap){
+    return fetch(book.file).then(function(res){
+      if(!res.ok) throw new Error("Sample bordereau is not on the desk: " + book.file);
+      return res.text();
+    }).then(function(csv){
+      return postJSON("/v1/process-bordereau", {
+        client_email: "desk@catmod.local",
+        client_name: "Catastrophe desk",
+        filename: book.file.split("/").pop(),
+        data: csv,
+        content_type: "text/csv",
+        loss_basis: basis,
+        hazard_region: book.region,
+        return_period: 100
+      });
+    }).then(function(data){ return jobView(data, openMap); });
+  }
+  function dispatch(text, modeled){
+    var lower = text.toLowerCase();
+    var basis = modeled || /\bmodeled\b/.test(lower) ? "modeled" : (/\breported\b/.test(lower) ? "reported" : "auto");
+    var openMap = /\bmap\b/.test(lower);
+    var coord = text.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
+    if(coord){
+      return postJSON("/api/v1/flood/evaluate", {latitude: Number(coord[1]), longitude: Number(coord[2])}).then(floodView);
+    }
+    var audit = text.match(/^audit\s+(\S+)/i);
+    if(audit) return getJSON("/api/v1/audit/" + encodeURIComponent(audit[1])).then(auditView);
+    var book = bookFor(lower);
+    if(book) return runBook(book, basis, openMap);
+    if(/\bevents?\b/.test(lower)) return getJSON("/api/v1/events").then(eventsView);
+    if(/hazard|footprint/.test(lower)){
+      return Promise.all([getJSON("/api/v1/flood/hazard"), getJSON("/api/v1/flood/status")]).then(function(pair){
+        return hazardView(pair[0], pair[1]);
+      });
+    }
+    if(/status|health|\bdesk\b/.test(lower)){
+      return Promise.all([getJSON("/health"), getJSON("/api/v1/flood/status"), getJSON("/api/v1/events")]).then(function(triple){
+        return deskView(triple[0], triple[1], triple[2]);
+      });
+    }
+    if(text.length >= 8){
+      return getJSON("/api/v1/flood/geocode?q=" + encodeURIComponent(text)).then(function(geo){
+        return postJSON("/api/v1/flood/evaluate", {
+          address: text,
+          latitude: geo.latitude,
+          longitude: geo.longitude
+        });
+      }).then(floodView);
+    }
+    return Promise.all([getJSON("/health"), getJSON("/api/v1/flood/status"), getJSON("/api/v1/events")]).then(function(triple){
+      return deskView(triple[0], triple[1], triple[2]);
+    });
+  }
+  function begin(text){
+    searching = true;
+    q.value = text;
+    fitQuery();
+    closeMenus();
+    flashGlow(askForm);
+    document.body.classList.add("is-thinking");
+    document.body.classList.add("has-result");
+    document.getElementById("result").setAttribute("aria-hidden","false");
+    resultTitle.textContent = text;
+    resultAnswer.textContent = "";
+    resultStatus.textContent = QUERY_STAGES[0];
+    startBombard();
+    var stage = 0;
+    window.clearInterval(statusTimer);
+    statusTimer = window.setInterval(function(){
+      stage = (stage + 1) % QUERY_STAGES.length;
+      resultStatus.textContent = QUERY_STAGES[stage];
+    }, 650);
+    try{
+      var next = new URL(location.href);
+      next.searchParams.set("q", text);
+      history.replaceState({}, "", next);
+    }catch(err){}
+  }
+  function finish(){
+    document.body.classList.remove("is-thinking");
+    document.body.classList.add("has-result");
+    document.getElementById("result").setAttribute("aria-hidden","false");
+    searching = false;
+  }
+  function runSearch(text, modeled){
+    text = String(text || "").trim();
+    if(!text){ q.focus(); return; }
+    if(searching) return;
+    begin(text);
+    dispatch(text, !!modeled).then(present).catch(function(err){
+      window.clearInterval(statusTimer);
+      settlePips([]);
+      resultStatus.textContent = "The desk returned an error.";
+      resultAnswer.textContent = (err && err.message) || "Try again in a moment.";
+      applyModes({});
+    }).finally(finish);
+  }
+  window.runAquaAsk = runSearch;
+  window.resetAquaAsk = resetHome;
+  window.fitAquaQuery = fitQuery;
+
+  document.getElementById("askForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    runSearch(q.value, false);
+  });
+  document.getElementById("aiBtn").addEventListener("click", function(){
+    runSearch(q.value || "Run the Nairobi modeled portfolio", true);
+  });
+  document.getElementById("lensBtn").addEventListener("click", function(){
+    document.getElementById("lensFile").click();
+  });
+  document.getElementById("lensFile").addEventListener("change", function(){
+    var file = this.files && this.files[0];
+    this.value = "";
+    if(!file || searching) return;
+    var reader = new FileReader();
+    reader.onload = function(){
+      var name = file.name || "bordereau.csv";
+      var region = /nzoia/i.test(name) ? "nzoia" : (/miami/i.test(name) ? "miami" : "nairobi");
+      begin("Upload " + name);
+      postJSON("/v1/process-bordereau", {
+        client_email: "desk@catmod.local",
+        client_name: "Catastrophe desk",
+        filename: name,
+        data: String(reader.result || ""),
+        content_type: "text/csv",
+        loss_basis: "modeled",
+        hazard_region: region,
+        return_period: 100
+      }).then(function(data){ present(jobView(data, false)); }).catch(function(err){
+        window.clearInterval(statusTimer);
+        settlePips([]);
+        resultStatus.textContent = "The bordereau was rejected.";
+        resultAnswer.textContent = (err && err.message) || "Check the CSV columns.";
+      }).finally(finish);
+    };
+    reader.readAsText(file);
+  });
+  document.getElementById("homeLink").addEventListener("click", function(e){
+    if(document.body.classList.contains("has-result") || document.body.classList.contains("is-thinking") || document.body.classList.contains("is-leaving")){
+      resetHome(e);
+    }
+  });
+  document.getElementById("askLink").addEventListener("click", function(e){
+    e.preventDefault();
+    if(document.body.classList.contains("has-result")) resetHome();
+    q.focus();
+  });
+  document.querySelector(".cards").addEventListener("click", function(e){
+    var card = e.target.closest(".gcard");
+    if(!card) return;
+    e.preventDefault();
+    flashGlow(card);
+    if(card.hasAttribute("data-pwa")){
+      if(window.openAquaPwa) window.openAquaPwa(false);
+      return;
+    }
+    runSearch(card.getAttribute("data-query") || "", false);
+  });
+  shortcuts.addEventListener("click", function(e){
+    var item = e.target.closest("[data-query]");
+    if(!item) return;
+    e.preventDefault();
+    runSearch(item.getAttribute("data-query"), false);
+  });
+  document.getElementById("apps").addEventListener("click", function(e){
+    var upload = e.target.closest("[data-upload]");
+    if(upload){
+      e.preventDefault();
+      closeMenus();
+      document.getElementById("lensFile").click();
+      return;
+    }
+    var pwa = e.target.closest("[data-pwa]");
+    if(pwa){
+      e.preventDefault();
+      closeMenus();
+      if(window.openAquaPwa) window.openAquaPwa(false);
+      return;
+    }
+    var link = e.target.closest("[data-query]");
+    if(!link) return;
+    e.preventDefault();
+    closeMenus();
+    runSearch(link.getAttribute("data-query"), false);
+  });
+
+  var mic = document.getElementById("micBtn");
+  var Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  mic.addEventListener("click", function(){
+    if(!Rec){ q.focus(); return; }
+    var rec = new Rec();
+    rec.lang = "en-US";
+    rec.onresult = function(ev){
+      q.value = ev.results[0][0].transcript;
+      runSearch(q.value, false);
+    };
+    rec.start();
+  });
+
+  var plusBtn = document.getElementById("plusBtn");
+  var plusMenu = document.getElementById("plusMenu");
+  var appsBtn = document.getElementById("appsBtn");
+  var apps = document.getElementById("apps");
+  function closeMenus(){
+    plusMenu.classList.remove("open");
+    apps.classList.remove("open");
+    plusBtn.setAttribute("aria-expanded","false");
+    appsBtn.setAttribute("aria-expanded","false");
+    var menuShortcut = document.getElementById("menuShortcut");
+    if(menuShortcut) menuShortcut.setAttribute("aria-expanded","false");
+  }
+  window.closeAquaMenus = closeMenus;
+  function toggleApps(e){
+    e.stopPropagation();
+    var open = apps.classList.toggle("open");
+    plusMenu.classList.remove("open");
+    appsBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    plusBtn.setAttribute("aria-expanded","false");
+    var menuShortcut = document.getElementById("menuShortcut");
+    if(menuShortcut) menuShortcut.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  renderShortcuts();
+  plusBtn.addEventListener("click", function(e){
+    e.stopPropagation();
+    var open = plusMenu.classList.toggle("open");
+    apps.classList.remove("open");
+    plusBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    appsBtn.setAttribute("aria-expanded","false");
+    var menuShortcut = document.getElementById("menuShortcut");
+    if(menuShortcut) menuShortcut.setAttribute("aria-expanded","false");
+  });
+  appsBtn.addEventListener("click", toggleApps);
+  plusMenu.addEventListener("click", function(e){
+    var upload = e.target.closest("[data-upload]");
+    if(upload){
+      closeMenus();
+      document.getElementById("lensFile").click();
+      return;
+    }
+    var pwa = e.target.closest("[data-pwa]");
+    if(pwa){
+      closeMenus();
+      if(window.openAquaPwa) window.openAquaPwa(false);
+      return;
+    }
+    var btn = e.target.closest("[data-query]");
+    if(!btn) return;
+    closeMenus();
+    runSearch(btn.getAttribute("data-query"), false);
+  });
+  document.addEventListener("click", function(e){
+    if(apps.contains(e.target) || plusMenu.contains(e.target)) return;
+    closeMenus();
+  });
+
+  var sheet = document.getElementById("sheet");
+  document.getElementById("addCancel").addEventListener("click", function(){ sheet.classList.remove("open"); });
+  sheet.addEventListener("click", function(e){ if(e.target === sheet) sheet.classList.remove("open"); });
+  document.getElementById("addForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var list = loadCustom();
+    list.push({
+      name: document.getElementById("scName").value.trim(),
+      href: document.getElementById("scUrl").value.trim(),
+      kind: "c-custom",
+      icon: "custom"
+    });
+    saveCustom(list);
+    sheet.classList.remove("open");
+    e.target.reset();
+    renderShortcuts();
+  });
+  var boot = new URLSearchParams(location.search);
+  var bootQ = (boot.get("q") || "").trim();
+  if(bootQ && boot.get("install") !== "1"){
+    window.setTimeout(function(){ runSearch(bootQ, boot.get("ai") === "1"); }, 180);
+  }
+})();
+</script>
+<script src="modes.js?v=catmod2"></script>
+</body>
+</html>

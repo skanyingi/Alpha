@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CAT Portfolio — Leaflet Export</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    html, body, #map { height: 100%; margin: 0; }
+    body { font: 12px/1.4 system-ui, sans-serif; }
+    .legend, .toolbar {
+      background: #fff; padding: 8px 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.3);
+    }
+    .legend { line-height: 1.4; }
+    .swatch { display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: -1px; }
+    .toolbar {
+      display: flex; gap: 6px; align-items: center; flex-wrap: wrap; min-width: 320px; max-width: 520px;
+    }
+    .toolbar input {
+      flex: 1; border: 1px solid #ccc; padding: 6px 8px; font: inherit;
+    }
+    .toolbar button {
+      border: 1px solid #bbb; background: #f7f7f7; padding: 6px 10px; cursor: pointer; font: inherit;
+    }
+    .popup-card { min-width: 240px; max-width: 300px; }
+    .popup-card img { width: 100%; height: 110px; object-fit: cover; background: #eee; margin: 4px 0; }
+    .badge {
+      display: inline-block; color: #fff; padding: 2px 8px; font-weight: 600; letter-spacing: .02em;
+    }
+    .meta { margin: 4px 0; }
+    .hint { color: #666; margin-top: 4px; }
+    .inundation-card {
+      background: #1b2838; color: #f3f6fb; padding: 8px; margin: 4px 0;
+      border-left: 4px solid #C1121F;
+    }
+    .modal-backdrop {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,.35);
+      z-index: 2000; align-items: center; justify-content: center;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: #fff; max-width: 520px; width: calc(100% - 24px); max-height: 80vh;
+      overflow: auto; padding: 12px 14px; box-shadow: 0 1px 4px rgba(0,0,0,.3);
+    }
+    .modal h2 { margin: 0 0 8px; font-size: 14px; }
+    .modal pre {
+      background: #f6f6f6; padding: 8px; overflow: auto; max-height: 240px; font-size: 11px;
+    }
+    .modal .row { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+    .swatch.neon { background: linear-gradient(90deg, #FF2BD6, #00F5FF); }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="blender-modal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal">
+      <h2>3D / Blender readiness</h2>
+      <div id="blender-summary" class="meta">Loading manifest…</div>
+      <label class="meta">Shader
+        <select id="shader-preset">
+          <option value="PHOTOREAL_DEFAULT">PHOTOREAL_DEFAULT</option>
+          <option value="VICE_CITY_NEON">VICE_CITY_NEON</option>
+          <option value="GTA_STYLIZED">GTA_STYLIZED</option>
+        </select>
+      </label>
+      <pre id="blender-json"></pre>
+      <div class="row">
+        <button id="blender-download" type="button">Download JSON</button>
+        <button id="blender-refresh" type="button">Refresh</button>
+        <button id="blender-close" type="button">Close</button>
+      </div>
+      <div class="hint">No WebGL tiles are loaded in this view. Use the JSON with Blender Blosm, Cesium, or Three.js later.</div>
+    </div>
+  </div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/map/renderPresets.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const eventId = params.get("event_id");
+    const claimsUrl = eventId
+      ? `/api/v1/leaflet-export?event_id=${encodeURIComponent(eventId)}`
+      : "/api/v1/leaflet-export";
+    const footprintsUrl = eventId
+      ? `/api/v1/flood/footprints?event_id=${encodeURIComponent(eventId)}`
+      : "/api/v1/flood/footprints";
+
+    const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap"
+    });
+    const satellite = L.tileLayer(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      { attribution: "Tiles &copy; Esri" }
+    );
+
+    const region = (params.get("region") || "").toLowerCase();
+    const miamiOverride = region === "miami" || params.get("center") === "miami";
+    const openingView = miamiOverride ? [25.78, -80.20] : [-1.28, 36.82];
+    const map = L.map("map", { layers: [satellite] }).setView(openingView, 12);
+    let esriErrors = 0;
+    satellite.on("tileerror", () => {
+      esriErrors += 1;
+      if (esriErrors === 4) {
+        console.warn("[Fallback Mode] ESRI World Imagery tiles failed. Using OSM streets.");
+        if (!map.hasLayer(osm)) osm.addTo(map);
+      }
+    });
+    const claimsLayer = L.layerGroup().addTo(map);
+    const floodLayer = L.layerGroup().addTo(map);
+    const hazardLayer = L.layerGroup().addTo(map);
+
+    L.control.layers(
+      { "Streets": osm, "Aerial": satellite },
+      { "Portfolio claims": claimsLayer, "Building flood exposure": floodLayer, "Flood hazard extent": hazardLayer }
+    ).addTo(map);
+
+    const toolbar = L.control({ position: "topleft" });
+    toolbar.onAdd = () => {
+      const div = L.DomUtil.create("div", "toolbar");
+      div.innerHTML = `
+        <input id="flood-address" type="text" placeholder="Address or click the map" />
+        <button id="flood-go" type="button">Evaluate flood</button>
+        <button id="blender-export" type="button">Export to 3D / Blender Manifest</button>
+      `;
+      L.DomEvent.disableClickPropagation(div);
+      return div;
+    };
+    toolbar.addTo(map);
+
+    function esc(value) {
+      return String(value == null ? "" : value)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function popupHtml(p) {
+      const color = p["marker-color"] || "#555";
+      const aerial = p.aerial_url
+        ? `<img alt="Aerial" src="${esc(p.aerial_url)}" onerror="this.style.display='none'" />`
+        : "";
+      const street = p.street_url
+        ? `<img alt="Street View" src="${esc(p.street_url)}" onerror="this.outerHTML='<div class=\\'inundation-card\\'>Ground-level inundation: ${esc(p.inundation_depth_m ?? '—')} m</div>'" />`
+        : "";
+      const inundation = `<div class="inundation-card">Ground-level inundation: ${esc(p.inundation_depth_m ?? "—")} m${p.street_fallback ? " · Street View fallback" : ""}</div>`;
+      return `
+        <div class="popup-card">
+          <div class="badge" style="background:${esc(color)}">${esc(p.badge || p.risk_level || "EXPOSURE")}</div>
+          <div class="meta"><b>${esc(p.asset_id || "Building")}</b></div>
+          <div class="meta">${esc(p.address || "Geocode unavailable")}</div>
+          ${aerial}${street}${inundation}
+          <div class="meta">Occupancy: ${esc(p.occupancy_type || p.occupancy || "—")}</div>
+          <div class="meta">Storeys: ${esc(p.estimated_storeys ?? "—")}</div>
+          <div class="meta">Material: ${esc(p.roof_wall_material || "—")}</div>
+          <div class="meta">FFE / clearance: ${esc(p.ground_clearance_elevation || "—")}</div>
+          <div class="meta">Vulnerability: ${esc(p.vulnerability_score ?? "—")} / 10</div>
+          <div class="meta">Inundation: ${esc(p.inundation_depth_m ?? "—")} m</div>
+          <div class="hint">${esc(p.justification || "")}</div>
+        </div>
+      `;
+    }
+
+    function addFloodFeature(feature) {
+      const layer = L.geoJSON(feature, {
+        style: (feat) => (feat.properties && feat.properties.style) || {},
+        onEachFeature: (feat, lyr) => {
+          lyr.bindPopup(popupHtml(feat.properties || {}), { maxWidth: 320 });
+          lyr.on("click", () => enrichFeature(feat, lyr));
+        }
+      });
+      layer.addTo(floodLayer);
+      return layer;
+    }
+
+    async function enrichFeature(feature, lyr) {
+      const geom = feature.geometry || {};
+      let lat = feature.properties && feature.properties.centroid_lat;
+      let lng = feature.properties && feature.properties.centroid_lng;
+      if (geom.type === "Polygon" && (!lat || !lng)) {
+        const c = L.geoJSON(feature).getBounds().getCenter();
+        lat = c.lat; lng = c.lng;
+      }
+      try {
+        const res = await fetch("/api/v1/flood/evaluate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            latitude: lat,
+            longitude: lng,
+            occupancy_hint: (feature.properties || {}).occupancy_type || "",
+            ground_elevation_m: (feature.properties || {}).ground_elevation_m,
+            asset_id: (feature.properties || {}).asset_id
+          })
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.geojson) {
+          lyr.setPopupContent(popupHtml(data.geojson.properties || {}));
+          if (data.geojson.properties && data.geojson.properties.style) {
+            lyr.setStyle(data.geojson.properties.style);
+          }
+        }
+      } catch (_err) { /* keep heuristic popup */ }
+    }
+
+    async function evaluateAt(body) {
+      try {
+        const res = await fetch("/api/v1/flood/evaluate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          console.warn("[Fallback Mode] Flood evaluate failed:", data.detail || res.status);
+          return;
+        }
+        const provider = data.geocode && data.geocode.provider;
+        if (provider && provider !== "google" && provider !== "google_places") {
+          console.warn("[Fallback Mode] Google Geocoding failed: billing/authorization. Using OSM Nominatim.");
+        }
+        const layer = addFloodFeature(data.geojson);
+        const latlng = [data.latitude, data.longitude];
+        map.setView(latlng, Math.max(map.getZoom(), 17));
+        layer.eachLayer((lyr) => lyr.openPopup());
+      } catch (err) {
+        console.warn("[Fallback Mode] Flood evaluate failed:", err);
+      }
+    }
+
+    document.getElementById("flood-go").addEventListener("click", () => {
+      const q = document.getElementById("flood-address").value.trim();
+      if (!q) return;
+      evaluateAt({ address: q });
+    });
+    document.getElementById("flood-address").addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") document.getElementById("flood-go").click();
+    });
+
+    map.on("click", (ev) => {
+      const t = ev.originalEvent && ev.originalEvent.target;
+      if (t && t.closest && t.closest(".toolbar, .leaflet-control, .leaflet-overlay-pane, .leaflet-marker-pane, .leaflet-tooltip-pane, .leaflet-popup-pane")) {
+        return;
+      }
+      evaluateAt({ latitude: ev.latlng.lat, longitude: ev.latlng.lng });
+    });
+
+    fetch(claimsUrl).then((r) => r.ok ? r.json() : null).then((geojson) => {
+      if (!geojson) return;
+      const layer = L.geoJSON(geojson, {
+        pointToLayer: (feature, latlng) => {
+          const color = feature.properties["marker-color"] || "#3388ff";
+          return L.circleMarker(latlng, {
+            radius: (feature.properties.style && feature.properties.style.radius) || 8,
+            color, fillColor: color, fillOpacity: 0.85, weight: 1
+          });
+        },
+        style: (feature) => feature.properties.style || {},
+        onEachFeature: (feature, lyr) => {
+          const p = feature.properties;
+          if (p.overlay) return;
+          lyr.bindPopup(
+            `<b>${esc(p.asset_id || "")}</b><br/>
+             Occupancy: ${esc(p.occupancy || "—")}<br/>
+             GUL / covered: ${esc(p.ground_up_loss)}<br/>
+             Reinsured: ${esc(p.reinsured_payout)}<br/>
+             HDC interpolation: ${esc(p.hdc_interpolation_score)}<br/>
+             Fraud flag: ${esc(p.fraud_flag)}<br/>
+             ${p.badge === "synthetic" || p.synthetic ? "<b>synthetic</b>" : ""}`
+          );
+        }
+      }).addTo(claimsLayer);
+      if (layer.getBounds && layer.getBounds().isValid()) {
+        map.fitBounds(layer.getBounds().pad(0.2));
+      }
+      setTimeout(() => map.invalidateSize(), 150);
+    }).catch(() => {});
+
+    fetch(footprintsUrl).then((r) => r.ok ? r.json() : null).then((geojson) => {
+      if (!geojson || !geojson.features) return;
+      geojson.features.forEach((f) => addFloodFeature(f));
+    }).catch(() => {});
+
+    fetch("/api/v1/flood/hazard").then((r) => r.json()).then((geojson) => {
+      L.geoJSON(geojson, { style: (f) => (f.properties && f.properties.style) || {} }).addTo(hazardLayer);
+    }).catch(() => {});
+
+    const legend = L.control({ position: "bottomright" });
+    legend.onAdd = () => {
+      const div = L.DomUtil.create("div", "legend");
+      const items = [
+        ["#2A9D4A", "low loss / low flood risk"],
+        ["#E07A3D", "retained loss"],
+        ["#E0B825", "moderate flood risk"],
+        ["#C1121F", "XL payout / high flood risk"],
+        ["#7B1E3A", "fraud / spatial flag"],
+        ["#1D4E89", "flood hazard extent"],
+        ["#6C757D", "synthetic: proxy curve or generated portfolio"]
+      ];
+      div.innerHTML = items.map(
+        ([color, label]) => `<div><span class="swatch" style="background:${color}"></span>${label}</div>`
+      ).join("");
+      return div;
+    };
+    legend.addTo(map);
+
+    const blenderModal = document.getElementById("blender-modal");
+    let lastManifest = null;
+
+
+    function blenderUrl(download) {
+      const shader = document.getElementById("shader-preset").value;
+      const qs = new URLSearchParams({ shader_preset: shader });
+      if (eventId) qs.set("event_id", eventId);
+      if (download) qs.set("download", "true");
+      return `/api/export/blender-manifest?${qs.toString()}`;
+    }
+
+    async function loadManifest() {
+      const summary = document.getElementById("blender-summary");
+      const pre = document.getElementById("blender-json");
+      summary.textContent = "Loading manifest…";
+      const res = await fetch(blenderUrl(false));
+      const data = await res.json();
+      if (!res.ok) {
+        summary.textContent = data.detail || "Manifest failed";
+        return;
+      }
+      lastManifest = data;
+      const bbox = data.bounding_box || {};
+      let tilesNote = "3D Tiles session not requested in this preview.";
+      try {
+        const bounds = map.getBounds();
+        const tilesRes = await fetch(
+          `/api/spatial/3d-tiles-session?west=${bounds.getWest()}&south=${bounds.getSouth()}&east=${bounds.getEast()}&north=${bounds.getNorth()}&renderer=cesium`
+        );
+        if (tilesRes.ok) {
+          const tiles = await tilesRes.json();
+          tilesNote = tiles.fallback
+            ? `Fallback procedural terrain + OSM footprints (Google 3D Tiles unavailable).`
+            : `3D Tiles session ready (meshes not loaded). session=${tiles.session ? "yes" : "root only"}`;
+        } else {
+          const err = await tilesRes.json().catch(() => ({}));
+          console.warn("[Fallback Mode] Google Photorealistic 3D Tiles failed:", err.detail || tilesRes.status);
+          tilesNote = "Using procedural terrain + OSM building footprints.";
+        }
+      } catch (_err) {
+        tilesNote = "3D Tiles session skipped.";
+      }
+      summary.innerHTML = `
+        Buildings: <b>${esc(data.building_count)}</b> ·
+        Shader: <b>${esc(data.shader_preset)}</b><br/>
+        BBox: ${esc(bbox.south)} , ${esc(bbox.west)} → ${esc(bbox.north)} , ${esc(bbox.east)}<br/>
+        Water surface: ${esc((data.water_levels || {}).absolute_water_surface_m)} m<br/>
+        ${esc(tilesNote)}
+      `;
+      pre.textContent = JSON.stringify({
+        format: data.format,
+        event_id: data.event_id,
+        shader_preset: data.shader_preset,
+        bounding_box: data.bounding_box,
+        building_count: data.building_count,
+        water_levels: data.water_levels,
+        blender_hints: data.blender_hints,
+        photoreal_tiles: data.photoreal_tiles
+      }, null, 2);
+    }
+
+    document.getElementById("blender-export").addEventListener("click", () => {
+      blenderModal.classList.add("open");
+      loadManifest();
+    });
+    document.getElementById("blender-close").addEventListener("click", () => {
+      blenderModal.classList.remove("open");
+    });
+    blenderModal.addEventListener("click", (ev) => {
+      if (ev.target === blenderModal) blenderModal.classList.remove("open");
+    });
+    document.getElementById("blender-refresh").addEventListener("click", loadManifest);
+    document.getElementById("shader-preset").addEventListener("change", loadManifest);
+    document.getElementById("blender-download").addEventListener("click", () => {
+      window.location.href = blenderUrl(true);
+    });
+  </script>
+</body>
+</html>

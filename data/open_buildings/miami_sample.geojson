@@ -1,0 +1,120 @@
+{
+  "type": "FeatureCollection",
+  "name": "google_open_buildings_miami_sample",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "full_plus_code": "76RXXR65+M8",
+        "area_in_meters": 1850.0,
+        "confidence": 0.86,
+        "source": "open_buildings_sample"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-80.1930, 25.7606],
+          [-80.1906, 25.7606],
+          [-80.1906, 25.7628],
+          [-80.1930, 25.7628],
+          [-80.1930, 25.7606]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "full_plus_code": "76RXXQ6Q+X2",
+        "area_in_meters": 920.0,
+        "confidence": 0.81,
+        "source": "open_buildings_sample"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-80.2112, 25.7890],
+          [-80.2088, 25.7890],
+          [-80.2088, 25.7910],
+          [-80.2112, 25.7910],
+          [-80.2112, 25.7890]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "full_plus_code": "76RXXQGF+22",
+        "area_in_meters": 2400.0,
+        "confidence": 0.9,
+        "source": "open_buildings_sample"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-80.1866, 25.7738],
+          [-80.1834, 25.7738],
+          [-80.1834, 25.7762],
+          [-80.1866, 25.7762],
+          [-80.1866, 25.7738]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "full_plus_code": "76RXXR22+2X",
+        "area_in_meters": 1100.0,
+        "confidence": 0.84,
+        "source": "open_buildings_sample"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-80.2012, 25.8000],
+          [-80.1988, 25.8000],
+          [-80.1988, 25.8020],
+          [-80.2012, 25.8020],
+          [-80.2012, 25.8000]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "full_plus_code": "76RXXQC4+X2",
+        "area_in_meters": 220.0,
+        "confidence": 0.78,
+        "source": "open_buildings_sample"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-80.1956, 25.7694],
+          [-80.1944, 25.7694],
+          [-80.1944, 25.7706],
+          [-80.1956, 25.7706],
+          [-80.1956, 25.7694]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "full_plus_code": "76RXXQR6+V6",
+        "area_in_meters": 3100.0,
+        "confidence": 0.88,
+        "source": "open_buildings_sample"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-80.1904, 25.7810],
+          [-80.1872, 25.7810],
+          [-80.1872, 25.7834],
+          [-80.1904, 25.7834],
+          [-80.1904, 25.7810]
+        ]]
+      }
+    }
+  ]
+}
