@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#04141c">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&family=Inter:wght@400;500;600&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
     --ink:#202124;
@@ -143,7 +143,7 @@
     position:relative;z-index:5;
     min-height:100vh;min-height:100dvh;
     display:flex;flex-direction:column;align-items:center;
-    padding:18vh 20px 40px;
+    padding:18vh 32px 40px;
     transition:padding .8s cubic-bezier(.22,1,.36,1);
   }
   body.is-thinking .cluster,
@@ -175,7 +175,7 @@
 
   .search-wrap{
     position:relative;
-    width:min(720px,100%);
+    width:100%;
     display:flex;
     flex-direction:column;
     align-items:stretch;
@@ -422,7 +422,7 @@
   @keyframes bombard{
     0%{transform:translateX(12px) scale(.45) rotate(-18deg);opacity:0;}
     14%{opacity:1;transform:translateX(-18px) scale(1.08) rotate(8deg);}
-    100%{transform:translateX(-340px) scale(1) rotate(0deg);opacity:.9;}
+    100%{transform:translateX(calc(-100vw + 180px)) scale(1) rotate(0deg);opacity:.9;}
   }
   .query-pip.is-settled{
     position:relative;
@@ -630,13 +630,151 @@
   }
   .pwa-push:disabled{opacity:.55;cursor:default;}
 
+  body.has-desk .quote-card{
+    padding:0;
+    background:transparent;
+    box-shadow:none;
+    overflow:hidden;
+  }
+  body.has-desk .quote-card > :not(#eventsDesk){display:none !important;}
+  #eventsDesk{display:none;height:100%;min-height:0;}
+  body.has-desk #eventsDesk{display:block;}
+  #eventsDesk.dk{
+    height:100%;
+    min-height:0;
+    background:#00d96e;
+    padding:22px 22px 16px;
+    position:relative;
+    overflow:hidden;
+    font-family:Poppins,Inter,sans-serif;
+    color:#191c23;
+    box-sizing:border-box;
+  }
+  #eventsDesk .dk-tri{position:absolute;pointer-events:none;background:#00c45c;}
+  #eventsDesk .dk-tri-a{top:0;left:42%;width:340px;height:140px;clip-path:polygon(18% 0,100% 0,46% 100%);}
+  #eventsDesk .dk-tri-b{right:0;bottom:0;width:360px;height:180px;clip-path:polygon(100% 8%,100% 100%,0 100%);}
+  #eventsDesk .dk-card{
+    position:relative;z-index:1;height:100%;background:#fff;border-radius:16px;
+    display:flex;overflow:hidden;box-shadow:0 16px 40px rgba(0,40,16,.08);
+  }
+  #eventsDesk .dk-rail{
+    width:72px;flex:0 0 72px;background:#fff;border-right:1px solid #f0f1f5;
+    display:flex;flex-direction:column;align-items:center;padding:16px 0 18px;gap:8px;
+  }
+  #eventsDesk .dk-mark{
+    width:34px;height:34px;border:0;border-radius:10px;background:#f4f5f8;color:#9aa1ad;
+    display:grid;place-items:center;margin-bottom:10px;cursor:pointer;
+  }
+  #eventsDesk .dk-mark svg,#eventsDesk .dk-rail nav button svg,#eventsDesk .dk-search svg,#eventsDesk .dk-bell svg,#eventsDesk .dk-caret svg,#eventsDesk .dk-docs svg{
+    width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;
+  }
+  #eventsDesk .dk-rail nav{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;}
+  #eventsDesk .dk-rail nav button{
+    width:42px;height:40px;border:0;background:transparent;color:#c5cad3;position:relative;cursor:pointer;display:grid;place-items:center;
+  }
+  #eventsDesk .dk-rail nav button.on{color:#0dd573;}
+  #eventsDesk .dk-rail nav button.on::before{
+    content:"";position:absolute;left:0;top:10px;width:3px;height:20px;border-radius:2px;background:#0dd573;
+  }
+  #eventsDesk .dk-main{flex:1;min-width:0;display:flex;flex-direction:column;background:#f5f6fa;}
+  #eventsDesk .dk-top{
+    height:64px;flex:0 0 64px;background:#fff;display:flex;align-items:center;justify-content:space-between;
+    padding:0 22px 0 20px;border-bottom:1px solid #f2f3f6;
+  }
+  #eventsDesk .dk-search{display:flex;align-items:center;gap:8px;color:#c5c8d0;width:min(280px,40%);}
+  #eventsDesk .dk-search input{
+    border:0;outline:none;background:transparent;width:100%;font:400 13px Poppins,sans-serif;color:#191c23;
+  }
+  #eventsDesk .dk-search input::placeholder{color:#c5c8d0;}
+  #eventsDesk .dk-top-right{display:flex;align-items:center;gap:16px;}
+  #eventsDesk .dk-bell{
+    width:32px;height:32px;border:0;background:transparent;color:#9aa1ad;position:relative;cursor:pointer;display:grid;place-items:center;
+  }
+  #eventsDesk .dk-bell.hot::after{
+    content:"";position:absolute;top:4px;right:4px;width:7px;height:7px;border-radius:50%;background:#00b85c;box-shadow:0 0 0 2px #fff;
+  }
+  #eventsDesk .dk-user{
+    border:0;background:transparent;display:flex;align-items:center;gap:8px;cursor:pointer;position:relative;
+    color:#191c23;font:600 13px Poppins,sans-serif;padding:0;
+  }
+  #eventsDesk .dk-caret{color:#b0b6c0;display:grid;}
+  #eventsDesk .dk-caret svg{width:12px;height:12px;}
+  #eventsDesk .dk-ava{width:32px;height:32px;border-radius:50%;overflow:hidden;display:block;flex:0 0 32px;background:#1a73e8;}
+  #eventsDesk .dk-ava svg{width:32px;height:32px;display:block;}
+  #eventsDesk .who-menu{
+    position:absolute;top:42px;right:0;background:#fff;border-radius:8px;box-shadow:0 10px 24px rgba(20,24,40,.14);
+    padding:6px;min-width:180px;z-index:5;
+  }
+  #eventsDesk .who-menu[hidden]{display:none !important;}
+  #eventsDesk .who-menu button{
+    width:100%;border:0;background:transparent;text-align:left;padding:8px 10px;border-radius:6px;
+    font:500 12px Poppins,sans-serif;color:#2a2e36;cursor:pointer;
+  }
+  #eventsDesk .who-menu button:hover{background:#f5f6fa;}
+  #eventsDesk .dk-body{flex:1;min-height:0;overflow:auto;padding:26px 22px 18px;}
+  #eventsDesk .dk-title-row{display:flex;align-items:center;justify-content:space-between;margin:0 6px 18px;gap:12px;}
+  #eventsDesk .dk-title-row h1{margin:0;font:700 28px/1 Poppins,sans-serif;letter-spacing:-.4px;color:#191c23;}
+  #eventsDesk .dk-addbtn{
+    height:34px;padding:0 14px;border:0;border-radius:6px;background:#0dd573;color:#fff;
+    font:600 13px Poppins,sans-serif;cursor:pointer;box-shadow:0 8px 16px rgba(13,213,115,.32);white-space:nowrap;
+  }
+  #eventsDesk .dk-note{margin:-8px 6px 14px;color:#8b919c;font:400 12px Poppins,sans-serif;}
+  #eventsDesk .dk-tabs{display:flex;gap:28px;margin:0 6px;border-bottom:1px solid #e6e8ee;}
+  #eventsDesk .dk-tabs button{
+    border:0;background:transparent;padding:8px 0 11px;font:500 13px Poppins,sans-serif;color:#a0a6b0;cursor:pointer;position:relative;
+  }
+  #eventsDesk .dk-tabs button.on{color:#1a1d24;}
+  #eventsDesk .dk-tabs button.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:#0dd573;}
+  #eventsDesk .dk-cols,#eventsDesk .dk-row{
+    display:grid;grid-template-columns:32px minmax(180px,1.7fr) 72px 1.1fr 1fr 1fr 36px;
+    align-items:center;column-gap:8px;
+  }
+  #eventsDesk .dk-cols{padding:14px 18px 8px;color:#b7bdc7;font:500 11px Poppins,sans-serif;}
+  #eventsDesk .dk-cols span:nth-child(n+3){text-align:center;}
+  #eventsDesk .dk-rows{display:flex;flex-direction:column;gap:10px;}
+  #eventsDesk .dk-row{
+    background:#fff;border-radius:8px;min-height:64px;padding:8px 14px;
+    box-shadow:0 1px 3px rgba(15,23,42,.05);position:relative;cursor:pointer;
+  }
+  #eventsDesk .dk-row.is-open{z-index:3;}
+  #eventsDesk .dk-num{color:#c5cad3;font:500 13px Poppins,sans-serif;}
+  #eventsDesk .dk-who{display:flex;align-items:center;gap:10px;min-width:0;}
+  #eventsDesk .dk-id{display:flex;flex-direction:column;min-width:0;}
+  #eventsDesk .dk-id b{font:600 13px/1.2 Poppins,sans-serif;color:#1c1f27;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #eventsDesk .dk-id small{font:400 11px/1.3 Poppins,sans-serif;color:#a0a6b2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #eventsDesk .dk-cell{text-align:center;font:500 13px Poppins,sans-serif;color:#8b919c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #eventsDesk .dk-docs{
+    width:34px;height:34px;border:0;background:transparent;color:#8b919c;cursor:pointer;
+    display:grid;place-items:center;justify-self:center;padding:0;margin:0 auto;
+  }
+  #eventsDesk .dk-docs:hover{color:#0dd573;}
+  #eventsDesk .dk-more{position:relative;justify-self:end;}
+  #eventsDesk .dk-kebab{
+    width:28px;height:28px;border:0;background:transparent;color:#b7bdc6;cursor:pointer;font-size:16px;line-height:1;
+  }
+  #eventsDesk .dk-menu{
+    position:absolute;right:0;top:30px;background:#fff;border-radius:8px;
+    box-shadow:0 10px 24px rgba(20,24,40,.14);padding:6px;z-index:4;min-width:160px;display:flex;flex-direction:column;
+  }
+  #eventsDesk .dk-menu[hidden]{display:none !important;}
+  #eventsDesk .dk-menu button{
+    border:0;background:transparent;text-align:left;padding:8px 10px;border-radius:6px;
+    font:500 12px Poppins,sans-serif;color:#2a2e36;cursor:pointer;
+  }
+  #eventsDesk .dk-menu button:hover{background:#f5f6fa;}
+  #eventsDesk .dk-empty{padding:28px 12px;text-align:center;color:#8b919c;font:500 13px Poppins,sans-serif;}
+  #eventsDesk .dk-pill{
+    width:32px;height:32px;border-radius:50%;display:grid;place-items:center;flex:none;
+    background:#e8fff2;color:#067a3a;font:700 12px Poppins,sans-serif;
+  }
+
   @media (max-width:720px){
     .cluster{padding:max(56px, env(safe-area-inset-top, 0px) + 40px) 12px 16px;}
     body.has-result .cluster,
     body.is-thinking .cluster{padding-top:max(48px, env(safe-area-inset-top, 0px) + 28px);padding-bottom:12px;}
     .wordmark{font-size:clamp(36px,10vw,56px);}
     .search{height:52px;}
-    .search-wrap{width:min(100%, calc(100vw - 24px));}
+    .search-wrap{width:100%;}
     .ai-mode span{display:none;}
     .ai-mode{padding:0 10px;}
     .cards{max-height:none;gap:10px;}
@@ -646,6 +784,10 @@
     .apps{right:12px;width:min(320px,calc(100vw - 24px));}
     .quote-card{padding:18px 16px 14px;border-radius:22px;}
     .quote-card h2{font-size:16px;}
+    #eventsDesk.dk{padding:10px;}
+    #eventsDesk .dk-title-row h1{font-size:22px;}
+    #eventsDesk .dk-cols,#eventsDesk .dk-row{grid-template-columns:28px minmax(120px,1.4fr) 48px .8fr .8fr 32px;}
+    #eventsDesk .dk-cols span:nth-child(6),#eventsDesk .dk-row .dk-when{display:none;}
     .pwa-card{width:min(420px, calc(100vw - 24px));}
   }
   @media (display-mode: standalone){
@@ -710,6 +852,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4"/></svg>
       </button>
       <input id="lensFile" type="file" accept=".csv,text/csv,text/plain" hidden>
+      <input id="folderPick" type="file" webkitdirectory directory multiple hidden>
       <button class="icon-btn" id="lensBtn" type="button" aria-label="Look up or reverse image search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/><path d="M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3" stroke-linecap="round"/></svg>
       </button>
@@ -732,7 +875,7 @@
       </button>
       <button type="button" data-upload>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V6M8 9.5 12 5.5 16 9.5"/><path d="M5 19h14"/></svg>
-        Upload bordereau CSV
+        Upload a folder
       </button>
       <button type="button" data-query="Open the Nairobi loss map">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M9 4.5 3.5 6.5v13L9 17.5l6 2 5.5-2v-13L15 6.5 9 4.5z"/><path d="M9 4.5v13M15 6.5v13"/></svg>
@@ -762,6 +905,70 @@
             <iframe id="mapFrame" title="Portfolio loss map" src="about:blank"></iframe>
           </div>
         </div>
+        <section class="dk" id="eventsDesk" aria-label="Modeled events">
+          <div class="dk-tri dk-tri-a" aria-hidden="true"></div>
+          <div class="dk-tri dk-tri-b" aria-hidden="true"></div>
+          <div class="dk-card">
+            <aside class="dk-rail" aria-label="Event desk">
+              <button class="dk-mark" id="deskHome" type="button" aria-label="Back to CatMod">
+                <svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg>
+              </button>
+              <nav>
+                <button type="button" data-rail="queue" class="on" aria-label="Event queue">
+                  <svg viewBox="0 0 24 24"><path d="M4 11.5 12 4l8 7.5"/><path d="M7 10.5V20h10v-9.5"/></svg>
+                </button>
+                <button type="button" data-rail="files" aria-label="Uploaded files">
+                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg>
+                </button>
+                <button type="button" data-rail="upload" aria-label="Upload folder">
+                  <svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v9H3z"/></svg>
+                </button>
+              </nav>
+            </aside>
+            <div class="dk-main">
+              <header class="dk-top">
+                <label class="dk-search">
+                  <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg>
+                  <input id="deskSearch" type="search" placeholder="Search" aria-label="Search this session" autocomplete="off">
+                </label>
+                <div class="dk-top-right">
+                  <button type="button" class="dk-bell" id="deskBell" aria-label="Session alerts">
+                    <svg viewBox="0 0 24 24"><path d="M6 16V10a6 6 0 1 1 12 0v6l1.5 2h-15z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>
+                  </button>
+                  <div class="dk-user" id="deskUser" role="button" tabindex="0">
+                    <span class="dk-ava" aria-hidden="true"><svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="16" fill="#1a73e8"/><text x="16" y="21" text-anchor="middle" font-size="14" font-family="Poppins,sans-serif" fill="#fff" font-weight="600">C</text></svg></span>
+                    <b>CatMod</b>
+                    <span class="dk-caret" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></span>
+                    <div class="who-menu" id="deskUserMenu" hidden>
+                      <button type="button" id="deskClear">Clear uploaded folders</button>
+                    </div>
+                  </div>
+                </div>
+              </header>
+              <div class="dk-body">
+                <div class="dk-title-row">
+                  <h1>Dashboard</h1>
+                  <button type="button" class="dk-addbtn" id="deskUpload">+ Upload folder</button>
+                </div>
+                <p class="dk-note" id="deskNote">Folders stay in this tab only. A refresh clears them. Modeled books stay until the server restarts.</p>
+                <div class="dk-tabs" role="tablist">
+                  <button type="button" data-tab="queue" class="on" role="tab">Event queue</button>
+                  <button type="button" data-tab="files" role="tab">Files</button>
+                </div>
+                <div class="dk-cols" id="deskCols" aria-hidden="true">
+                  <span></span>
+                  <span>Event</span>
+                  <span>Files</span>
+                  <span>Basis</span>
+                  <span>Gross</span>
+                  <span>In session</span>
+                  <span></span>
+                </div>
+                <div class="dk-rows" id="deskRows"></div>
+              </div>
+            </div>
+          </div>
+        </section>
       </article>
     </section>
   </div>
@@ -972,6 +1179,12 @@
   var resultStatus = document.getElementById("resultStatus");
   var resultAnswer = document.getElementById("resultAnswer");
   var searching = false;
+  var sessionFiles = [];
+  var deskEvents = [];
+  var deskTab = "queue";
+  var deskQuery = "";
+  var deskKebab = "";
+  var deskMenuOpen = false;
   var statusTimer = 0;
   var bombardTimer = 0;
   var revealTimer = 0;
@@ -1127,7 +1340,7 @@
     stopBombard();
     window.clearInterval(statusTimer);
     window.clearTimeout(revealTimer);
-    document.body.classList.remove("is-thinking","is-leaving","has-result");
+    document.body.classList.remove("is-thinking","is-leaving","has-result","has-desk");
     askForm.classList.remove("is-querying");
     queryRail.innerHTML = "";
     queryRail.setAttribute("aria-hidden","true");
@@ -1367,6 +1580,380 @@
       });
     }).then(function(data){ return jobView(data, openMap); });
   }
+  function esc(s){
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];
+    });
+  }
+  function fileBytes(n){
+    n = Number(n) || 0;
+    if(n < 1024) return n + " B";
+    if(n < 1048576) return (n / 1024).toFixed(1) + " KB";
+    return (n / 1048576).toFixed(1) + " MB";
+  }
+  function sessionStamp(iso){
+    var d = new Date(iso);
+    if(isNaN(d.getTime())) return "This session";
+    return d.toLocaleString(undefined, {month:"short", day:"numeric", hour:"numeric", minute:"2-digit"});
+  }
+  function fileKind(name){
+    var lower = String(name || "").toLowerCase();
+    if(/\.csv$/.test(lower)) return "CSV";
+    if(/\.json$|\.geojson$/.test(lower)) return "JSON";
+    if(/\.txt$|\.md$|\.log$/.test(lower)) return "Text";
+    return "File";
+  }
+  function isBordereau(text, name){
+    if(!/\.csv$/i.test(name || "")) return false;
+    var head = String(text || "").slice(0, 600).toLowerCase();
+    return head.indexOf("asset_id") >= 0 || head.indexOf("tiv") >= 0;
+  }
+  function regionOf(path){
+    if(/nzoia/i.test(path)) return "nzoia";
+    if(/miami/i.test(path)) return "miami";
+    return "nairobi";
+  }
+  function readFileText(file){
+    var ok = /\.(csv|txt|json|md|geojson|tsv|log)$/i.test(file.name || "");
+    if(!ok || file.size > 8 * 1024 * 1024) return Promise.resolve("");
+    return new Promise(function(resolve){
+      var reader = new FileReader();
+      reader.onload = function(){
+        var text = String(reader.result || "");
+        resolve(text.length > 120000 ? text.slice(0, 120000) : text);
+      };
+      reader.onerror = function(){ resolve(""); };
+      reader.readAsText(file);
+    });
+  }
+  function folderGroups(){
+    var map = {};
+    sessionFiles.forEach(function(file){
+      if(!map[file.folder]){
+        map[file.folder] = {name:file.folder, files:0, bytes:0, ingested:file.ingested, eventId:""};
+      }
+      var group = map[file.folder];
+      group.files += 1;
+      group.bytes += file.size || 0;
+      if(file.eventId) group.eventId = file.eventId;
+      if(file.ingested < group.ingested) group.ingested = file.ingested;
+    });
+    return Object.keys(map).map(function(key){ return map[key]; });
+  }
+  function sessionHits(text){
+    var needle = String(text || "").trim().toLowerCase();
+    if(needle.length < 2) return [];
+    return sessionFiles.filter(function(file){
+      return (file.name + "\n" + file.path + "\n" + file.folder + "\n" + (file.text || "")).toLowerCase().indexOf(needle) >= 0;
+    });
+  }
+  function hitSnippet(file, text){
+    var needle = String(text || "").trim().toLowerCase();
+    var body = file.text || "";
+    var at = needle ? body.toLowerCase().indexOf(needle) : -1;
+    if(at < 0) return file.path;
+    var start = Math.max(0, at - 28);
+    var clip = body.slice(start, at + needle.length + 56).replace(/\s+/g, " ");
+    return (start ? "…" : "") + clip;
+  }
+  function pill(letter){
+    return '<span class="dk-pill">' + esc(String(letter || "F").slice(0, 1).toUpperCase()) + "</span>";
+  }
+  function renderDesk(){
+    var desk = document.getElementById("eventsDesk");
+    if(!desk) return;
+    var query = deskQuery.trim().toLowerCase();
+    var search = document.getElementById("deskSearch");
+    if(search && document.activeElement !== search) search.value = deskQuery;
+    document.querySelectorAll("#eventsDesk [data-rail]").forEach(function(btn){
+      var rail = btn.getAttribute("data-rail");
+      btn.classList.toggle("on", (rail === "queue" && deskTab === "queue") || (rail === "files" && deskTab === "files"));
+    });
+    document.querySelectorAll("#eventsDesk [data-tab]").forEach(function(btn){
+      btn.classList.toggle("on", btn.getAttribute("data-tab") === deskTab);
+    });
+    var cols = document.getElementById("deskCols");
+    cols.innerHTML = deskTab === "files"
+      ? "<span></span><span>File</span><span>Size</span><span>Folder</span><span>Kind</span><span>In session</span><span></span>"
+      : "<span></span><span>Event</span><span>Files</span><span>Basis</span><span>Gross</span><span>In session</span><span></span>";
+    var flagged = deskEvents.some(function(ev){ return Number(ev.flagged_count) > 0; });
+    document.getElementById("deskBell").classList.toggle("hot", flagged || sessionFiles.some(function(file){ return !file.text && file.size > 0; }));
+    var rows = [];
+    if(deskTab === "files"){
+      rows = sessionFiles.filter(function(file){
+        if(!query) return true;
+        return (file.name + " " + file.path + " " + file.folder + " " + (file.text || "")).toLowerCase().indexOf(query) >= 0;
+      }).map(function(file, index){
+        var open = deskKebab === file.id;
+        return '<div class="dk-row' + (open ? " is-open" : "") + '" data-file="' + esc(file.id) + '">' +
+          '<span class="dk-num">' + (index + 1) + "</span>" +
+          '<span class="dk-who">' + pill(file.name) + '<span class="dk-id"><b>' + esc(file.name) + "</b><small>" + esc(query ? hitSnippet(file, deskQuery) : file.path) + "</small></span></span>" +
+          '<span class="dk-cell">' + esc(fileBytes(file.size)) + "</span>" +
+          '<span class="dk-cell">' + esc(file.folder) + "</span>" +
+          '<span class="dk-cell">' + esc(file.kind) + "</span>" +
+          '<span class="dk-cell dk-when">' + esc(sessionStamp(file.ingested)) + "</span>" +
+          '<span class="dk-more"><button type="button" class="dk-kebab" data-kebab="' + esc(file.id) + '" aria-label="File actions">⋮</button>' +
+          '<div class="dk-menu"' + (open ? "" : " hidden") + ">" +
+          '<button type="button" data-act="query" data-file="' + esc(file.id) + '">Query this file</button>' +
+          '<button type="button" data-act="drop" data-file="' + esc(file.id) + '">Drop from session</button>' +
+          "</div></span></div>";
+      });
+    }else{
+      var seen = {};
+      deskEvents.forEach(function(ev){ seen[ev.event_id] = true; });
+      var queue = deskEvents.map(function(ev){
+        return {
+          id: ev.event_id,
+          title: ev.event_id,
+          sub: "Reinsurer " + money(ev.reinsurer_payout) + " · flags " + ev.flagged_count,
+          files: "—",
+          basis: "Modeled",
+          gross: money(ev.total_gross_claim),
+          when: "Server",
+          query: ev.event_id,
+          folder: ""
+        };
+      });
+      folderGroups().forEach(function(group){
+        if(group.eventId && seen[group.eventId]) return;
+        queue.push({
+          id: "folder:" + group.name,
+          title: group.name,
+          sub: group.files + " file" + (group.files === 1 ? "" : "s") + " · " + fileBytes(group.bytes),
+          files: String(group.files),
+          basis: "Folder",
+          gross: "—",
+          when: sessionStamp(group.ingested),
+          query: group.name,
+          folder: group.name
+        });
+      });
+      rows = queue.filter(function(row){
+        if(!query) return true;
+        return (row.title + " " + row.sub + " " + row.basis + " " + row.folder).toLowerCase().indexOf(query) >= 0;
+      }).map(function(row, index){
+        var open = deskKebab === row.id;
+        var filesCell = row.folder
+          ? '<button type="button" class="dk-docs" data-folder="' + esc(row.folder) + '" aria-label="Files in ' + esc(row.folder) + '"><svg viewBox="0 0 24 24"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v6h6"/></svg></button>'
+          : '<span class="dk-cell">' + esc(row.files) + "</span>";
+        return '<div class="dk-row' + (open ? " is-open" : "") + '" data-query-row="' + esc(row.query) + '">' +
+          '<span class="dk-num">' + (index + 1) + "</span>" +
+          '<span class="dk-who">' + pill(row.title) + '<span class="dk-id"><b>' + esc(row.title) + "</b><small>" + esc(row.sub) + "</small></span></span>" +
+          filesCell +
+          '<span class="dk-cell">' + esc(row.basis) + "</span>" +
+          '<span class="dk-cell">' + esc(row.gross) + "</span>" +
+          '<span class="dk-cell dk-when">' + esc(row.when) + "</span>" +
+          '<span class="dk-more"><button type="button" class="dk-kebab" data-kebab="' + esc(row.id) + '" aria-label="Event actions">⋮</button>' +
+          '<div class="dk-menu"' + (open ? "" : " hidden") + ">" +
+          '<button type="button" data-act="query" data-q="' + esc(row.query) + '">Query</button>' +
+          (row.folder ? '<button type="button" data-act="files" data-folder="' + esc(row.folder) + '">Show files</button>' : "") +
+          "</div></span></div>";
+      });
+    }
+    document.getElementById("deskRows").innerHTML = rows.length
+      ? rows.join("")
+      : '<p class="dk-empty">' + (query ? "Nothing in this session matches that search." : "Upload a folder, or run a book. The queue lists what this session is holding.") + "</p>";
+    document.getElementById("deskNote").textContent = sessionFiles.length
+      ? sessionFiles.length + " file" + (sessionFiles.length === 1 ? "" : "s") + " in this tab. Refresh clears the folders. Modeled books stay until the server restarts."
+      : "Folders stay in this tab only. A refresh clears them. Modeled books stay until the server restarts.";
+  }
+  function showDesk(){
+    document.body.classList.add("has-result", "has-desk");
+    document.getElementById("result").setAttribute("aria-hidden", "false");
+    resultTitle.textContent = "Modeled events";
+    resultStatus.textContent = "Session event queue.";
+    renderDesk();
+  }
+  function refreshDeskEvents(){
+    return getJSON("/api/v1/events").then(function(data){
+      deskEvents = (data && data.events) || [];
+      renderDesk();
+      return data;
+    }).catch(function(){
+      deskEvents = [];
+      renderDesk();
+      return {events:[]};
+    });
+  }
+  function openEventsDesk(opts){
+    opts = opts || {};
+    if(opts.tab) deskTab = opts.tab;
+    if(opts.query != null) deskQuery = opts.query;
+    deskKebab = "";
+    showDesk();
+    if(opts.pick) document.getElementById("folderPick").click();
+    return refreshDeskEvents().then(function(data){
+      return {
+        status: "Opened the event queue. " + sessionFiles.length + " uploaded file" + (sessionFiles.length === 1 ? "" : "s") + " in this session.",
+        answer: eventsView(data).answer,
+        sources: eventsView(data).sources,
+        modes: {note:"Uploaded folders live in this tab until you refresh. Modeled events live in the server process until it restarts."}
+      };
+    });
+  }
+  function postBordereauFile(row){
+    var basis = /reported/i.test(row.path) ? "reported" : "modeled";
+    return postJSON("/v1/process-bordereau", {
+      client_email: "desk@catmod.local",
+      client_name: "Catastrophe desk",
+      filename: row.name,
+      data: row.text,
+      content_type: "text/csv",
+      loss_basis: basis,
+      hazard_region: regionOf(row.path),
+      return_period: 100
+    }).then(function(data){
+      row.eventId = data.event_id || "";
+      row.kind = "Bordereau";
+      if(data.event_id) lastEventId = data.event_id;
+      return refreshDeskEvents();
+    }).catch(function(){
+      row.kind = "Bordereau";
+      renderDesk();
+    });
+  }
+  function ingestFolder(fileList){
+    var files = Array.prototype.slice.call(fileList || []);
+    if(!files.length) return Promise.resolve();
+    showDesk();
+    deskTab = "queue";
+    return Promise.all(files.map(function(file){
+      var rel = file.webkitRelativePath || file.name;
+      var folder = rel.split("/")[0] || file.name;
+      return readFileText(file).then(function(text){
+        return {
+          id: "f-" + Math.random().toString(36).slice(2, 10),
+          folder: folder,
+          path: rel,
+          name: file.name,
+          size: file.size || 0,
+          text: text,
+          kind: isBordereau(text, file.name) && file.size < 400000 ? "Bordereau" : fileKind(file.name),
+          eventId: "",
+          ingested: new Date().toISOString()
+        };
+      });
+    })).then(function(rows){
+      sessionFiles = sessionFiles.concat(rows);
+      renderDesk();
+      var books = rows.filter(function(row){ return row.kind === "Bordereau" && row.text; });
+      return books.reduce(function(chain, row){
+        return chain.then(function(){ return postBordereauFile(row); });
+      }, Promise.resolve());
+    });
+  }
+  function queryInDesk(text){
+    deskQuery = text;
+    deskTab = sessionHits(text).length ? "files" : deskTab;
+    deskKebab = "";
+    var search = document.getElementById("deskSearch");
+    if(search) search.value = text;
+    q.value = text;
+    showDesk();
+  }
+  function bindDesk(){
+    var desk = document.getElementById("eventsDesk");
+    if(bindDesk.done || !desk) return;
+    bindDesk.done = true;
+    document.getElementById("deskHome").addEventListener("click", function(){ resetHome(); });
+    document.getElementById("deskUpload").addEventListener("click", function(){
+      document.getElementById("folderPick").click();
+    });
+    desk.addEventListener("click", function(e){
+      var rail = e.target.closest("[data-rail]");
+      if(rail){
+        if(rail.getAttribute("data-rail") === "upload"){
+          document.getElementById("folderPick").click();
+          return;
+        }
+        deskTab = rail.getAttribute("data-rail") === "files" ? "files" : "queue";
+        deskKebab = "";
+        renderDesk();
+        return;
+      }
+      var tab = e.target.closest("[data-tab]");
+      if(tab){
+        deskTab = tab.getAttribute("data-tab") === "files" ? "files" : "queue";
+        deskKebab = "";
+        renderDesk();
+        return;
+      }
+      var folderBtn = e.target.closest("[data-folder]");
+      if(folderBtn && !e.target.closest("[data-act]")){
+        deskTab = "files";
+        deskQuery = folderBtn.getAttribute("data-folder") || "";
+        deskKebab = "";
+        renderDesk();
+        return;
+      }
+      var act = e.target.closest("[data-act]");
+      if(act){
+        var action = act.getAttribute("data-act");
+        if(action === "drop"){
+          var id = act.getAttribute("data-file");
+          sessionFiles = sessionFiles.filter(function(file){ return file.id !== id; });
+          deskKebab = "";
+          renderDesk();
+          return;
+        }
+        if(action === "files"){
+          deskTab = "files";
+          deskQuery = act.getAttribute("data-folder") || "";
+          deskKebab = "";
+          renderDesk();
+          return;
+        }
+        queryInDesk(act.getAttribute("data-q") || (sessionFiles.filter(function(file){ return file.id === act.getAttribute("data-file"); })[0] || {}).name || "");
+        return;
+      }
+      var kebab = e.target.closest("[data-kebab]");
+      if(kebab){
+        var key = kebab.getAttribute("data-kebab");
+        deskKebab = deskKebab === key ? "" : key;
+        renderDesk();
+        return;
+      }
+      if(e.target.closest("#deskUser")){
+        deskMenuOpen = !deskMenuOpen;
+        document.getElementById("deskUserMenu").hidden = !deskMenuOpen;
+        return;
+      }
+      deskMenuOpen = false;
+      document.getElementById("deskUserMenu").hidden = true;
+      var row = e.target.closest("[data-query-row]");
+      if(row) queryInDesk(row.getAttribute("data-query-row") || "");
+      else if(deskKebab){ deskKebab = ""; renderDesk(); }
+    });
+    document.getElementById("deskClear").addEventListener("click", function(e){
+      e.stopPropagation();
+      sessionFiles = [];
+      deskKebab = "";
+      deskMenuOpen = false;
+      document.getElementById("deskUserMenu").hidden = true;
+      renderDesk();
+    });
+    document.getElementById("deskSearch").addEventListener("input", function(){
+      deskQuery = this.value;
+      renderDesk();
+    });
+    document.getElementById("deskSearch").addEventListener("keydown", function(e){
+      e.stopPropagation();
+      if(e.key === "Enter") e.preventDefault();
+    });
+    document.getElementById("deskBell").addEventListener("click", function(){
+      var waiting = sessionFiles.filter(function(file){ return !file.text && file.size > 0; }).length;
+      var flags = deskEvents.reduce(function(sum, ev){ return sum + (Number(ev.flagged_count) || 0); }, 0);
+      resultStatus.textContent = flags
+        ? flags + " flagged claim" + (flags === 1 ? "" : "s") + " on modeled events."
+        : (waiting ? waiting + " file" + (waiting === 1 ? "" : "s") + " stored by name only." : "No open alerts in this session.");
+    });
+    document.getElementById("folderPick").addEventListener("change", function(){
+      var files = Array.prototype.slice.call(this.files || []);
+      this.value = "";
+      if(!files.length) return;
+      ingestFolder(files);
+    });
+  }
   function dispatch(text, modeled){
     var lower = text.toLowerCase();
     var basis = modeled || /\bmodeled\b/.test(lower) ? "modeled" : (/\breported\b/.test(lower) ? "reported" : "auto");
@@ -1379,7 +1966,25 @@
     if(audit) return getJSON("/api/v1/audit/" + encodeURIComponent(audit[1])).then(auditView);
     var book = bookFor(lower);
     if(book) return runBook(book, basis, openMap);
-    if(/\bevents?\b/.test(lower)) return getJSON("/api/v1/events").then(eventsView);
+    if(/^(list|open|show)\b.*\bevents?\b/.test(lower) || lower === "events" || lower === "modeled events"){
+      return openEventsDesk({tab:"queue", query:""});
+    }
+    var hits = sessionHits(text);
+    if(hits.length){
+      return openEventsDesk({tab:"files", query:text}).then(function(){
+        return {
+          status: "Queried " + hits.length + " file" + (hits.length === 1 ? "" : "s") + " held in this session.",
+          answer: hits.slice(0, 8).map(function(file){
+            return file.name + "\n" + hitSnippet(file, text);
+          }).join("\n\n"),
+          sources: hits.slice(0, 6).map(function(file){
+            return {publication_title: file.name, source_origin: file.path};
+          }),
+          modes: {note:"Matches come from folders uploaded in this tab. Refresh clears them."}
+        };
+      });
+    }
+    if(/\bevents?\b/.test(lower)) return openEventsDesk({tab:"queue", query:""});
     if(/hazard|footprint/.test(lower)){
       return Promise.all([getJSON("/api/v1/flood/hazard"), getJSON("/api/v1/flood/status")]).then(function(pair){
         return hazardView(pair[0], pair[1]);
@@ -1409,6 +2014,7 @@
     fitQuery();
     closeMenus();
     flashGlow(askForm);
+    document.body.classList.remove("has-desk");
     document.body.classList.add("is-thinking");
     document.body.classList.add("has-result");
     document.getElementById("result").setAttribute("aria-hidden","false");
@@ -1520,7 +2126,8 @@
     if(upload){
       e.preventDefault();
       closeMenus();
-      document.getElementById("lensFile").click();
+      showDesk();
+      document.getElementById("folderPick").click();
       return;
     }
     var pwa = e.target.closest("[data-pwa]");
@@ -1573,6 +2180,7 @@
     if(menuShortcut) menuShortcut.setAttribute("aria-expanded", open ? "true" : "false");
   }
   renderShortcuts();
+  bindDesk();
   plusBtn.addEventListener("click", function(e){
     e.stopPropagation();
     var open = plusMenu.classList.toggle("open");
@@ -1587,7 +2195,8 @@
     var upload = e.target.closest("[data-upload]");
     if(upload){
       closeMenus();
-      document.getElementById("lensFile").click();
+      showDesk();
+      document.getElementById("folderPick").click();
       return;
     }
     var pwa = e.target.closest("[data-pwa]");
