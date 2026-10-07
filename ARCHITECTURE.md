@@ -58,11 +58,13 @@ flowchart LR
     WH[POST /v1/process-bordereau]
     Pipe[catmod.pipeline.run_pipeline]
     Map[GET /api/v1/leaflet-export]
+    Ev[GET /api/v1/events]
     Aud[GET /api/v1/audit/event_id]
   end
 
   subgraph Browser
-    Leaf[Leaflet map<br/>static/index.html]
+    Desk[CatMod desk + toasts<br/>static/index.html]
+    Leaf[Leaflet map<br/>static/map.html]
   end
 
   C -->|bordereau email| Gmail
@@ -71,9 +73,11 @@ flowchart LR
   WH --> Pipe
   Pipe -.->|occupancy UNK + JEV_API_KEY| JevAPI
   Pipe --> Map
+  Pipe --> Ev
   Pipe --> Aud
   WH -->|placeholders + totals| Docs
   Docs -->|PDF cover note| U
+  Desk -->|poll new event ids| Ev
   Leaf --> Map
 ```
 
@@ -199,7 +203,8 @@ Hypervector RAG/
 ├── data/sample_bordereau.csv
 ├── data/flood_hazard/           sample surge polygon
 ├── templates/reinsurance_audit_report.txt
-├── static/index.html            Leaflet consumer
+├── static/index.html            CatMod desk: search, event queue, toasts
+├── static/map.html              Leaflet loss map
 ├── scripts/run_sample_job.py
 ├── tests/
 └── audit_logs/                  per-event JSONL
@@ -313,7 +318,8 @@ flowchart TB
 | GET | `/api/v1/leaflet-export?event_id=` | GeoJSON for the map |
 | GET | `/api/v1/audit/{event_id}` | Layer verification |
 | GET | `/api/v1/events` | In-memory job index |
-| GET | `/map/` | Static Leaflet UI |
+| GET | `/map/` | CatMod desk (`static/index.html`) |
+| GET | `/map/map.html` | Leaflet loss map for one event |
 
 Webhook body (`BordereauWebhook`): `client_email`, `filename`, `data` (CSV text) or `data_base64` (xlsx/pdf), optional `treaty`, `hazard_polygon`, `client_index_id`, `source_urls` (Drive or document links taken from the email body). Catastrophe-model fields: `loss_basis` (`auto` | `reported` | `modeled`), `return_period` (10, 25, 50, 100, 250, 500; default 100), `hazard_region` (`miami`, `nairobi`, `nzoia`), `hazard_raster_path` (CSV, ESRI ASCII `.asc`, or uncompressed GeoTIFF).
 
@@ -322,6 +328,14 @@ Job JSON adds `modeled_ground_up_loss`, `modeled_waterfall`, `ep_curve`, `treaty
 Report placeholders filled by Apps Script:
 
 `{{CLIENT_NAME}}` `{{EVENT_ID}}` `{{GROUND_UP_LOSS}}` `{{REINSURER_PAYOUT}}` `{{CEDANT_RETENTION}}` `{{FRAUD_FLAG_COUNT}}` `{{MODELED_GROUND_UP_LOSS}}` `{{EXPECTED_ANNUAL_LOSS}}` `{{SYNTHETIC}}`
+
+### Desk
+
+`static/index.html` is the CatMod search desk. The bar and answer card fill the viewport with a small edge inset. Phrase commands open a book, the hazard catalogue, desk status, an audit, or the event queue. A free-text string of eight or more characters that is not one of those commands is geocoded. Jev classifies occupancy on each bordereau line; it does not answer open questions about the job list. Gemini is used only for flood-imagery occupancy, and a missing key falls back to the local heuristic.
+
+**Modeled events**, **Events**, and **Upload** open the event dashboard (the queue layout: rail, search, tabs, rows). Upload reads a real folder in the browser. File text stays in that tab until refresh. A bordereau CSV in the folder is posted to `/v1/process-bordereau` and joins the in-memory event list. The dashboard search, and the main bar, match names and text in that session library.
+
+The desk polls `GET /api/v1/events` every four seconds. The first response is the baseline. Each event id that appears after that — the Apps Script webhook, or a folder upload — drops a card from the top center. The card uses the same icon, title, and subtitle layout as the home shortcuts. Clean jobs are green, flagged jobs are amber, and a positive reinsurer payout is blue. The card leaves on its own. If the queue is already open, it refreshes with the new row.
 
 ---
 

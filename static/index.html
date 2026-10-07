@@ -794,11 +794,45 @@
     .top{padding-top:max(12px, env(safe-area-inset-top, 0px));}
     body.has-result .cluster{padding-top:max(52px, env(safe-area-inset-top, 0px) + 32px);}
   }
+  .toast-stack{
+    position:fixed;top:16px;left:50%;transform:translateX(-50%);
+    z-index:70;display:flex;flex-direction:column;align-items:center;gap:10px;
+    width:min(420px,calc(100vw - 32px));pointer-events:none;
+  }
+  .toast-card{
+    pointer-events:auto;width:100%;
+    display:flex;align-items:center;gap:12px;
+    padding:12px 18px 12px 14px;border-radius:16px;
+    box-shadow:0 1px 3px rgba(60,64,67,.2), 0 12px 32px rgba(0,0,0,.22);
+    animation:toast-drop .48s cubic-bezier(.22,1,.36,1);
+  }
+  .toast-card.is-clean{background:#e7fff3;color:#0b3d24;}
+  .toast-card.is-flag{background:#fff4d6;color:#6a4b00;}
+  .toast-card.is-payout{background:#e8f1ff;color:#0b3a86;}
+  .toast-ico{
+    width:28px;height:28px;flex:none;border-radius:50%;
+    display:grid;place-items:center;font:700 12px Inter,sans-serif;color:#fff;
+  }
+  .toast-card.is-clean .toast-ico{background:#0dd573;}
+  .toast-card.is-flag .toast-ico{background:#e8a317;}
+  .toast-card.is-payout .toast-ico{background:#1a73e8;}
+  .toast-card strong{display:block;font-size:14px;font-weight:600;line-height:1.25;}
+  .toast-card em{display:block;margin-top:2px;font-style:normal;font-size:12px;line-height:1.3;opacity:.82;}
+  .toast-card.is-leave{animation:toast-lift .32s ease forwards;}
+  @keyframes toast-drop{
+    from{opacity:0;transform:translateY(-28px);}
+    to{opacity:1;transform:none;}
+  }
+  @keyframes toast-lift{
+    to{opacity:0;transform:translateY(-16px);}
+  }
+
   @media (prefers-reduced-motion:reduce){
     .stage-bg.is-leave,.stage-bg.is-enter{animation:none;}
     .rays,.caustics{animation:none;}
     .gem-glow::after,body.is-thinking .gem-glow{animation:none;}
     .query-pip.is-fly,.query-pip.is-settled{animation:none;opacity:1;transform:none;}
+    .toast-card,.toast-card.is-leave{animation:none;}
   }
 </style>
 </head>
@@ -813,6 +847,8 @@
   <div class="caustics"></div>
   <div class="grain"></div>
 </div>
+
+<div class="toast-stack" id="toastStack" aria-live="polite" aria-label="Apps Script events"></div>
 
 <header class="top">
   <a href="/map/" id="homeLink" class="gem-glow">Home</a>
@@ -2232,6 +2268,47 @@
     e.target.reset();
     renderShortcuts();
   });
+  var seenAppsEvents = null;
+  function toastTone(ev){
+    if(Number(ev.flagged_count) > 0) return "is-flag";
+    if(Number(ev.reinsurer_payout) > 0) return "is-payout";
+    return "is-clean";
+  }
+  function pushAppsToast(ev){
+    var stack = document.getElementById("toastStack");
+    if(!stack || !ev || !ev.event_id) return;
+    var tone = toastTone(ev);
+    var card = document.createElement("article");
+    card.className = "toast-card " + tone;
+    card.innerHTML =
+      '<span class="toast-ico" aria-hidden="true">' + (tone === "is-flag" ? "!" : "A") + "</span>" +
+      '<span><strong>' + esc(ev.event_id) + "</strong><em>Apps Script · gross " + esc(money(ev.total_gross_claim)) +
+      " · flags " + esc(ev.flagged_count) + "</em></span>";
+    stack.insertBefore(card, stack.firstChild);
+    window.setTimeout(function(){
+      card.classList.add("is-leave");
+      window.setTimeout(function(){ if(card.parentNode) card.remove(); }, 340);
+    }, 6400);
+  }
+  function pollAppsScriptEvents(){
+    getJSON("/api/v1/events").then(function(data){
+      var rows = (data && data.events) || [];
+      if(!seenAppsEvents){
+        seenAppsEvents = {};
+        rows.forEach(function(ev){ if(ev.event_id) seenAppsEvents[ev.event_id] = true; });
+        return;
+      }
+      var fresh = rows.filter(function(ev){ return ev.event_id && !seenAppsEvents[ev.event_id]; });
+      fresh.forEach(function(ev){
+        seenAppsEvents[ev.event_id] = true;
+        pushAppsToast(ev);
+      });
+      if(fresh.length && document.body.classList.contains("has-desk")) refreshDeskEvents();
+    }).catch(function(){});
+  }
+  pollAppsScriptEvents();
+  window.setInterval(pollAppsScriptEvents, 4000);
+
   var boot = new URLSearchParams(location.search);
   var bootQ = (boot.get("q") || "").trim();
   if(bootQ && boot.get("install") !== "1"){

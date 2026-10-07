@@ -18,7 +18,9 @@ python -m pytest tests -q
 uvicorn main:app --port 8000
 ```
 
-Live service: [https://alpha.onrender.com](https://alpha.onrender.com) (`GET /health`, map at `/map/`).
+Live service: [https://alpha.onrender.com](https://alpha.onrender.com) (`GET /health`, desk at `/map/`).
+
+The desk search bar fills the screen with a small margin. **Modeled events** lists jobs held in server memory. **Upload** reads a folder into the browser for this tab only; a bordereau CSV in that folder is modeled and joins the queue. New Apps Script jobs show as colored cards from the top center (green when clean, amber when flagged, blue when the reinsurer payout is positive). Asking the bar a free-form question is not a language-model query: known phrases run the desk, uploaded file text is a literal match, and other long strings are geocoded. Jev standardizes occupancy. Gemini is optional and only scores flood imagery.
 
 - Webhook: `POST /v1/process-bordereau`
 - Map payload: `GET /api/v1/leaflet-export`
