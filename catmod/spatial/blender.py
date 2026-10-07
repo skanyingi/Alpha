@@ -66,10 +66,10 @@ def _bbox_from_buildings(buildings: Sequence[dict[str, Any]]) -> dict[str, float
         elevs.append(float(b.get("extrude_to_m") or 0.0))
     if not lats:
         return {
-            "south": 25.72,
-            "west": -80.25,
-            "north": 25.84,
-            "east": -80.12,
+            "south": -1.32,
+            "west": 36.78,
+            "north": -1.26,
+            "east": 36.86,
             "min_elevation_m": 0.0,
             "max_elevation_m": 30.0,
         }

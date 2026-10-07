@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
-from catmod.analytics.ep_curve import portfolio_ep_curve
+from catmod.analytics.ep_curve import catalog_ep_curve, portfolio_ep_curve
 from catmod.audit import AuditLog
 from catmod.config import Settings, get_settings
 from catmod.finance.metrics import portfolio_tail_metrics
@@ -23,6 +23,7 @@ from catmod.finance.waterfall import calculate_reinsurance_waterfall
 from catmod.hazard.provenance import exposure_portfolio_synthetic
 from catmod.hazard.raster import HazardHit
 from catmod.hazard.service import STANDARD_RETURN_PERIODS, HazardService, default_hazard_service, service_with_file
+from catmod.hazard.stochastic import StochasticHazardGenerator
 from catmod.hdc.encoding import ItemMemory
 from catmod.hdc.memory import PortfolioMemory
 from catmod.hdc.physics import physics_validate
@@ -32,6 +33,7 @@ from catmod.jev.harness import JevHarness
 from catmod.leaflet.geojson import build_export
 from catmod.schemas import BordereauWebhook, EnrichedClaim
 from catmod.vulnerability.engine import VulnerabilityResult, assess
+from catmod.vulnerability.stochastic_engine import evaluate_vulnerability_sample
 
 
 def _loss_epoch_days(loss_date: str) -> float:
@@ -74,6 +76,96 @@ def _hazard_is_synthetic(evaluations: list[tuple[HazardHit, VulnerabilityResult,
     if not in_bounds:
         return True
     return any(hit.synthetic for hit in in_bounds)
+
+
+def _stochastic_catalog(
+    claims,
+    triages,
+    treaty: XLTreaty,
+    *,
+    region: str,
+    event_count: int,
+    sample_count: int,
+    seed: int,
+) -> dict[str, Any]:
+    """Event catalog, Beta ground-up samples, and one Decimal waterfall per event.
+
+    The returned losses are the financial view. Hypervector encoding is left to
+    the caller so this function never touches FHRR memory.
+    """
+    generator = StochasticHazardGenerator()
+    events = generator.generate_event_set(region, num_events=event_count, seed=seed)
+    locations = [(claim.latitude, claim.longitude) for claim in claims]
+    deductibles = [claim.deductible for claim in claims]
+    policy_limits = [claim.policy_limit for claim in claims]
+    coinsurance = [claim.coinsurance for claim in claims]
+    occupancies = [triage.standardized_occupancy for triage in triages]
+    gross_losses: list[Decimal] = []
+    reinsurer_losses: list[Decimal] = []
+    rates: list[Decimal] = []
+    mean_ratios: list[Decimal] = []
+    std_ratios: list[Decimal] = []
+    draws = 0
+    footprints: list[dict[str, float | str]] = []
+    for event_index, event in enumerate(events):
+        points = generator.get_footprint(event, locations)
+        event_guls: list[Decimal] = []
+        damage_values: list[float] = []
+        for loc_index, (claim, occupancy, point) in enumerate(zip(claims, occupancies, points)):
+            sampled = evaluate_vulnerability_sample(
+                occupancy,
+                point.depth_m,
+                claim.tiv,
+                num_samples=sample_count,
+                seed=seed + event_index * 10007 + loc_index,
+            )
+            event_guls.append(sampled.mean_ground_up_loss)
+            mean_ratios.append(sampled.mean_damage_ratio)
+            std_ratios.append(sampled.stddev_damage_ratio)
+            damage_values.append(float(sampled.mean_damage_ratio))
+            draws += sample_count
+        waterfall = calculate_reinsurance_waterfall(
+            event_guls,
+            deductibles,
+            policy_limits,
+            treaty,
+            coinsurance,
+        )
+        gross_losses.append(Decimal(str(waterfall["total_gross_claim"])))
+        reinsurer_losses.append(Decimal(str(waterfall["reinsurer_payout"])))
+        rates.append(event.rate)
+        if event_index < 48:
+                footprints.append(
+                    {
+                        "latitude": sum(claim.latitude for claim in claims) / len(claims),
+                        "longitude": sum(claim.longitude for claim in claims) / len(claims),
+                        "damage_ratio": sum(damage_values) / len(damage_values),
+                        "cost": float(sum(event_guls, Decimal("0"))),
+                        "occupancy": occupancies[0],
+                        "event_id": event.event_id,
+                    }
+                )
+    curve = catalog_ep_curve(gross_losses, rates, years=2_000, seed=seed)
+    mean_dr = sum(mean_ratios, Decimal("0")) / Decimal(len(mean_ratios))
+    mean_sigma = sum(std_ratios, Decimal("0")) / Decimal(len(std_ratios))
+    weighted_reinsurer = sum(
+        (rate * loss for rate, loss in zip(rates, reinsurer_losses)),
+        Decimal("0"),
+    )
+    return {
+        "synthetic": True,
+        "stochastic": True,
+        "secondary_uncertainty": True,
+        "region": region,
+        "seed": seed,
+        "event_count": len(events),
+        "beta_samples": draws,
+        "mean_damage_ratio": format(mean_dr, "f"),
+        "stddev_damage_ratio": format(mean_sigma, "f"),
+        "rate_weighted_reinsurer_payout": format(weighted_reinsurer, "f"),
+        "ep_curve": curve,
+        "footprints": footprints,
+    }
 
 
 def default_treaty(settings: Settings, incoming: BordereauWebhook) -> XLTreaty:
@@ -213,6 +305,46 @@ def run_pipeline(payload: BordereauWebhook, settings: Settings | None = None) ->
         },
     )
 
+    stochastic_catalog: dict[str, Any] | None = None
+    if payload.execution_mode == "stochastic":
+        if not claims:
+            raise ValueError("stochastic execution requires at least one bordereau line")
+        stochastic_treaty = default_treaty(settings, payload)
+        stochastic_catalog = _stochastic_catalog(
+            claims,
+            triages,
+            stochastic_treaty,
+            region=hazard_region,
+            event_count=payload.stochastic_event_count,
+            sample_count=payload.stochastic_samples,
+            seed=settings.hdc_seed,
+        )
+        audit.record(
+            layer=8,
+            name="stochastic_hazard_simulated",
+            status="ok",
+            detail={
+                "num_events": stochastic_catalog["event_count"],
+                "spatial_covariance_seed": stochastic_catalog["seed"],
+                "region": hazard_region,
+                "synthetic": True,
+                "stochastic": True,
+            },
+        )
+        audit.record(
+            layer=9,
+            name="secondary_uncertainty_evaluated",
+            status="ok",
+            detail={
+                "mean_dr": stochastic_catalog["mean_damage_ratio"],
+                "stddev_dr": stochastic_catalog["stddev_damage_ratio"],
+                "beta_samples": stochastic_catalog["beta_samples"],
+                "synthetic": True,
+                "proxy": True,
+                "secondary_uncertainty": True,
+            },
+        )
+
     items = ItemMemory(dim=settings.hdc_dim, seed=settings.hdc_seed)
     memory = PortfolioMemory(items)
     for claim, triage, (_hit, vuln, basis) in zip(claims, triages, evaluations):
@@ -226,6 +358,17 @@ def run_pipeline(payload: BordereauWebhook, settings: Settings | None = None) ->
             occupancy=triage.standardized_occupancy,
             damage_ratio=float(vuln.damage_ratio),
         )
+    if stochastic_catalog is not None:
+        for index, footprint in enumerate(stochastic_catalog["footprints"]):
+            memory.encode_and_add(
+                latitude=float(footprint["latitude"]),
+                longitude=float(footprint["longitude"]),
+                elevation=0.0,
+                time_t=float(index),
+                cost=float(footprint["cost"]),
+                occupancy=str(footprint["occupancy"]),
+                damage_ratio=float(footprint["damage_ratio"]),
+            )
     audit.record(
         layer=3,
         name="hdc_portfolio_encoded",
@@ -350,6 +493,21 @@ def run_pipeline(payload: BordereauWebhook, settings: Settings | None = None) ->
             "monotonic_exceedance": ep_curve["monotonic_exceedance"],
         },
     )
+    if stochastic_catalog is not None:
+        stochastic_curve = stochastic_catalog["ep_curve"]
+        audit.record(
+            layer=10,
+            name="stochastic_ep_curve_generated",
+            status="ok",
+            detail={
+                "synthetic": True,
+                "stochastic": True,
+                "oep": stochastic_curve["oep"]["var"],
+                "aep": stochastic_curve["aep"]["var"],
+                "eal": stochastic_curve["eal"],
+                "tvar_995": stochastic_curve["tvar_995"],
+            },
+        )
 
     enriched: list[EnrichedClaim] = []
     leaflet_rows: list[dict[str, Any]] = []
@@ -420,9 +578,7 @@ def run_pipeline(payload: BordereauWebhook, settings: Settings | None = None) ->
             }
         )
 
-    if hazard_region == "miami":
-        map_center = {"latitude": 25.78, "longitude": -80.20, "zoom": 12}
-    elif hazard_region == "nzoia":
+    if hazard_region == "nzoia":
         map_center = {"latitude": 0.45, "longitude": 34.22, "zoom": 11}
     else:
         map_center = {
@@ -500,6 +656,7 @@ def run_pipeline(payload: BordereauWebhook, settings: Settings | None = None) ->
         "claim_count": len(claims),
         "tvar_pml": tails,
         "loss_basis": payload.loss_basis,
+        "execution_mode": payload.execution_mode,
         "return_period": payload.return_period,
         "hazard_region": hazard_region,
         "synthetic": {
@@ -512,6 +669,9 @@ def run_pipeline(payload: BordereauWebhook, settings: Settings | None = None) ->
         "modeled_ground_up_loss": format(modeled_total, "f"),
         "modeled_waterfall": _waterfall_summary(modeled_waterfall, synthetic=True),
         "ep_curve": ep_curve,
+        "stochastic_catalog": None
+        if stochastic_catalog is None
+        else {key: value for key, value in stochastic_catalog.items() if key != "footprints"},
         "placeholders": {
             "CLIENT_NAME": payload.client_name or payload.client_email,
             "EVENT_ID": event_id,

@@ -8,13 +8,13 @@ from catmod.hazard.raster import IS_OUT_OF_BOUNDS, NULL_ISLAND, load_hazard_file
 from catmod.hazard.service import HazardService, lookup_hazard
 
 
-def test_miami_depth_is_bounded_and_grows_with_return_period():
-    short = lookup_hazard(25.77, -80.19, return_period=10)
-    long = lookup_hazard(25.77, -80.19, return_period=500)
+def test_nzoia_depth_is_bounded_and_grows_with_return_period():
+    short = lookup_hazard(0.45, 34.22, return_period=10, region="nzoia")
+    long = lookup_hazard(0.45, 34.22, return_period=500, region="nzoia")
     assert short.in_bounds is True
     assert short.anomaly is None
     assert short.synthetic is True
-    assert short.region == "miami"
+    assert short.region == "nzoia"
     assert short.depth_m is not None and long.depth_m is not None
     assert Decimal("0") < short.depth_m <= Decimal("10")
     assert long.depth_m > short.depth_m
@@ -78,7 +78,7 @@ def test_coordinate_csv_nearest_neighbour(tmp_path: Path):
     # 0.50 susceptibility × 4.0 m documented Nairobi-style conversion.
     assert near.base_depth_m == Decimal("2.0000")
     assert "4.0" in (near.message or "")
-    far = service.lookup(25.77, -80.19)
+    far = service.lookup(0.45, 34.22)
     assert far.anomaly == IS_OUT_OF_BOUNDS
 
 

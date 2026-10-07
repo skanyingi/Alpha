@@ -26,8 +26,8 @@ def test_temporal_projection_is_bind_with_phase_power():
     items = ItemMemory(dim=1024, seed=7)
     mem = PortfolioMemory(items)
     mem.encode_and_add(
-        latitude=25.76,
-        longitude=-80.19,
+        latitude=-1.2921,
+        longitude=36.8219,
         elevation=3,
         time_t=0.0,
         cost=1_000_000,
@@ -43,15 +43,15 @@ def test_portfolio_superposition_and_cluster_probe():
     mem = PortfolioMemory(items)
     for i in range(6):
         mem.encode_and_add(
-            latitude=25.76 + i * 0.001,
-            longitude=-80.19,
+            latitude=-1.2921 + i * 0.001,
+            longitude=36.8219,
             elevation=2,
             time_t=0.1,
             cost=2_000_000,
             occupancy="COM_WHSE",
         )
-    near = mem.interpolation_score(25.762, -80.19)
+    near = mem.interpolation_score(-1.290, 36.8219)
     far = mem.interpolation_score(51.5, -0.12)
     assert near > far
-    clusters = mem.exposure_clusters((25.75, 25.78), (-80.21, -80.17), steps=6)
+    clusters = mem.exposure_clusters((-1.30, -1.28), (36.81, 36.84), steps=6)
     assert clusters[0]["exposure_score"] >= clusters[-1]["exposure_score"]

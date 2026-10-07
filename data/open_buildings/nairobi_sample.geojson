@@ -1,0 +1,24 @@
+{
+  "type": "FeatureCollection",
+  "name": "open_buildings_nairobi_sample",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "area_in_meters": 1850.0,
+        "confidence": 0.86,
+        "source": "open_buildings_sample"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [36.8208, -1.2930],
+          [36.8230, -1.2930],
+          [36.8230, -1.2912],
+          [36.8208, -1.2912],
+          [36.8208, -1.2930]
+        ]]
+      }
+    }
+  ]
+}

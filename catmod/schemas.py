@@ -33,6 +33,19 @@ class BordereauWebhook(BaseModel):
     treaty: XLTreatyIn | None = None
     hazard_polygon: list[list[float]] | None = None
     loss_basis: Literal["auto", "reported", "modeled"] = "auto"
+    execution_mode: Literal["deterministic", "stochastic"] = "deterministic"
+    stochastic_event_count: int = Field(
+        36,
+        ge=6,
+        le=10_000,
+        description="Catalog size when execution_mode is stochastic. The generator itself defaults to 10,000.",
+    )
+    stochastic_samples: int = Field(
+        24,
+        ge=1,
+        le=500,
+        description="Beta draws per location per event. The vulnerability sampler defaults to 100.",
+    )
     return_period: int = 100
     hazard_region: str | None = None
     hazard_raster_path: str | None = None

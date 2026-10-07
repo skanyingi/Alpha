@@ -33,7 +33,7 @@ The desk search bar fills the screen with a small margin. **Modeled events** lis
 
 Flood exposure on the map is a sidecar. Set `GOOGLE_MAPS_API_KEY` and `GEMINI_API_KEY` in `.env` for geocoding, Static Maps / Street View, and Gemini vision. XL payouts come only from `catmod/finance/`.
 
-Physical loss path, in order: Jev occupancy → `catmod/hazard/` (Miami, Nairobi, Nzoia, or a CSV / ASCII / GeoTIFF raster) → `catmod/vulnerability/` (`TIV × damage ratio`, cents) → Layer 4. `loss_basis=auto` keeps a positive reported ground-up loss as the contractual input and still prices the modeled loss beside it. `loss_basis=modeled` sends the curve loss into the primary waterfall. The job payload includes `ep_curve` (10, 25, 50, 100, 250, and 500-year) and `synthetic`.
+Physical loss path, in order: Jev occupancy → `catmod/hazard/` (Nairobi susceptibility converted as `score × 4.0 m`, Nzoia depth, or a CSV / ASCII / GeoTIFF raster) → `catmod/vulnerability/` (`TIV × damage ratio`, cents) → Layer 4. Mounted `nzoia_rp*.tif` files are JRC metre depths and replace the synthetic Nzoia stand-in. `loss_basis=auto` keeps a positive reported ground-up loss as the contractual input and still prices the modeled loss beside it. `loss_basis=modeled` sends the curve loss into the primary waterfall. The job payload includes `ep_curve` (10, 25, 50, 100, 250, and 500-year) and `synthetic`. `python scripts/run_sample_job.py` runs the Nairobi modeled portfolio. `execution_mode=stochastic` adds a synthetic event catalog and Beta damage samples beside that job; the default remains `deterministic`.
 
 Google Apps Script: copy `appsscript.js` into the project and replace the manifest with `appsscript.json`. Script properties:
 
@@ -47,6 +47,6 @@ Google Apps Script: copy `appsscript.js` into the project and replace the manife
 | `TASKS_LIST_ID` | Task list id, or leave blank for `@default` |
 | `UNDERWRITER_EMAIL` | Desk address used when the inbound message has no Reply-To |
 
-Create Gmail label `Catastrophe-Bordereaux` and a 5-minute trigger on `processIncomingBordereaux`. From the editor, run `testTasksIntegration`, `testDriveArchiving`, and `testSlidesGeneration` once to grant scopes. Processed threads are labeled `Catastrophe-Bordereaux/Processed` or `Catastrophe-Bordereaux/Failed`.
+Create Gmail label `Catastrophe-Bordereaux` and a 5-minute trigger on `processIncomingBordereaux`. Paste `setup.js` as `setup.gs` and run `setupEnvironment` once to create the archive, registry, and templates. From the editor, run `testTasksIntegration`, `testDriveArchiving`, and `testSlidesGeneration` once to grant scopes. Processed threads are labeled `Catastrophe-Bordereaux/Processed` or `Catastrophe-Bordereaux/Failed`.
 
 Treaty math never uses Jev or HDC. Spatial scores are flags only. Regenerate the source dump with `python scripts/dump_codebase.py`.

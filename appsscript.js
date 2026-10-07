@@ -946,13 +946,13 @@ function sampleAnalytics_() {
   return {
     event_id: 'TEST-EVENT',
     client_email: 'cedant@example.com',
-    client_name: 'Gulf Coast Mutual',
-    total_gross_claim: 139045000,
-    reinsurer_payout: 89140500,
-    cedant_retained_loss: 49904500,
-    reinstatement_premium_due: 4952250,
-    flagged_count: 1,
-    hazard_region: 'miami',
+    client_name: 'Nairobi County Mutual',
+    total_gross_claim: 7732953.6,
+    reinsurer_payout: 0,
+    cedant_retained_loss: 7732953.6,
+    reinstatement_premium_due: 0,
+    flagged_count: 0,
+    hazard_region: 'nairobi',
     treaty_label: '$100,000,000 xs $40,000,000 (90% share)',
     treaty: {
       attachment_point: 40000000,
@@ -961,7 +961,7 @@ function sampleAnalytics_() {
     },
     ep_curve: {
       eal: '2500000.00',
-      pml: { '100': '139045000.00', '250': '160000000.00' },
+      pml: { '100': '8152953.60', '250': '9000000.00' },
       tvar: {
         '0.95': '150000000.00',
         '0.99': '170000000.00',
@@ -970,19 +970,19 @@ function sampleAnalytics_() {
       }
     },
     placeholders: {
-      CLIENT_NAME: 'Gulf Coast Mutual',
+      CLIENT_NAME: 'Nairobi County Mutual',
       EVENT_ID: 'TEST-EVENT',
-      GROUND_UP_LOSS: 139045000,
-      REINSURER_PAYOUT: 89140500,
-      CEDANT_RETENTION: 49904500,
-      FRAUD_FLAG_COUNT: 1,
-      MODELED_GROUND_UP_LOSS: '120000000.00',
+      GROUND_UP_LOSS: 7732953.6,
+      REINSURER_PAYOUT: 0,
+      CEDANT_RETENTION: 7732953.6,
+      FRAUD_FLAG_COUNT: 0,
+      MODELED_GROUND_UP_LOSS: '8152953.60',
       EXPECTED_ANNUAL_LOSS: '2500000.00',
       SYNTHETIC: true,
       SYNTHETIC_HAZARD: 'true',
       SYNTHETIC_VULNERABILITY: 'true',
-      SYNTHETIC_EXPOSURE: 'false',
-      HAZARD_REGION: 'miami'
+      SYNTHETIC_EXPOSURE: 'true',
+      HAZARD_REGION: 'nairobi'
     },
     claims: [
       { occupancy: 'COM_WHSE', fraud_flag: false, hazard_anomaly: null },

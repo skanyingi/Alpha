@@ -66,8 +66,8 @@ def test_portfolio_ep_curve_is_synthetic_and_monotone():
     curve = portfolio_ep_curve(
         [
             {
-                "latitude": 25.77,
-                "longitude": -80.19,
+                "latitude": 0.45,
+                "longitude": 34.22,
                 "tiv": 1_000_000,
                 "occupancy": "RES_SF",
             },
@@ -86,6 +86,31 @@ def test_portfolio_ep_curve_is_synthetic_and_monotone():
     assert curve["synthetic"] is True
     assert Decimal(curve["eal"]) > 0
     assert losses[-1] > losses[0]
+
+
+def test_var_matches_the_return_period_knot_and_aep_is_below_oep_frequency():
+    curve = build_ep_curve({10: Decimal("100"), 100: Decimal("700"), 500: Decimal("1200")})
+    assert curve["var"]["0.99"] == curve["pml"]["100"]
+    assert Decimal(curve["tvar"]["0.99"]) >= Decimal(curve["var"]["0.99"])
+    oep = Decimal(curve["oep"][1]["exceedance_probability"])
+    aep = Decimal(curve["aep"][1]["exceedance_probability"])
+    assert oep == Decimal("0.01")
+    assert aep < oep
+
+
+def test_catalog_eal_is_the_rate_weighted_loss():
+    from catmod.analytics.ep_curve import catalog_ep_curve
+
+    curve = catalog_ep_curve(
+        [Decimal("1000"), Decimal("4000")],
+        [Decimal("0.1"), Decimal("0.01")],
+        years=400,
+        seed=1,
+    )
+    assert curve["eal"] == "140.00"
+    assert curve["stochastic"] is True
+    assert set(curve["var"]) == {"0.95", "0.99", "0.995", "0.998"}
+    assert Decimal(curve["tvar_995"]) >= Decimal(curve["var"]["0.995"])
 
 
 def test_ep_module_does_not_import_vectors_or_ml():

@@ -20,8 +20,8 @@ def test_occupancy_office_and_sfd():
 def test_clean_warehouse_routes_to_finance():
     claim = RawClaim(
         asset_id="A-1",
-        latitude=25.76,
-        longitude=-80.19,
+        latitude=-1.2921,
+        longitude=36.8219,
         occupancy_raw="whse",
         tiv=5_000_000,
         ground_up_loss=1_000_000,
@@ -52,8 +52,8 @@ def test_batch_under_500ms():
     claims = [
         RawClaim(
             asset_id=f"A-{i}",
-            latitude=25.7 + i * 0.001,
-            longitude=-80.2,
+            latitude=-1.2921 + i * 0.001,
+            longitude=36.8219,
             occupancy_raw=raw,
             tiv=1_000_000,
             ground_up_loss=100_000,

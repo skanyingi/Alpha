@@ -40,30 +40,6 @@ def _grid(
     return values
 
 
-def miami_surge_raster() -> HazardRaster:
-    """100-year synthetic surge depth (metres), deeper toward the Atlantic."""
-    west, south, east, north = -80.32, 25.70, -80.10, 25.86
-
-    def sample(lat: float, lon: float) -> float:
-        coastal = (lon - west) / (east - west)
-        southness = (north - lat) / (north - south)
-        depth = 0.25 + 5.6 * (coastal**1.35) + 0.35 * southness
-        return max(0.0, min(8.0, depth))
-
-    return HazardRaster(
-        values=_grid(west=west, south=south, east=east, north=north, rows=32, cols=32, sample=sample),
-        west=west,
-        south=south,
-        east=east,
-        north=north,
-        name="miami",
-        source="synthetic:miami_surge_100y",
-        synthetic=True,
-        proxy=True,
-        value_kind="depth_m",
-    )
-
-
 def nairobi_susceptibility_raster() -> HazardRaster:
     """Synthetic pluvial susceptibility for Nairobi. Score in [0, 1]."""
     west, south, east, north = 36.66, -1.45, 37.10, -1.15
@@ -124,5 +100,4 @@ def default_surfaces() -> list[HazardRaster]:
     surfaces.extend(nzoia or [nzoia_depth_raster()])
     surfaces.extend(nairobi or [nairobi_susceptibility_raster()])
     surfaces.extend(hotspots)
-    surfaces.append(miami_surge_raster())
     return surfaces

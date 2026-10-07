@@ -14,6 +14,7 @@ from catmod.hazard.service import (
     default_hazard_service,
     lookup_hazard,
 )
+from catmod.hazard.stochastic import HazardFootprint, StochasticEvent, StochasticHazardGenerator
 
 __all__ = [
     "IS_OUT_OF_BOUNDS",
@@ -22,7 +23,10 @@ __all__ = [
     "HazardFormatError",
     "HazardHit",
     "HazardRaster",
+    "HazardFootprint",
     "HazardService",
+    "StochasticEvent",
+    "StochasticHazardGenerator",
     "default_hazard_service",
     "load_hazard_file",
     "lookup_hazard",

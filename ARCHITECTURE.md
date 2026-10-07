@@ -24,17 +24,12 @@ Exposure → hazard depth → damage ratio → TIV × DR → ground-up loss (Dec
         → FHRR memory update and EP / Leaflet export
 ```
 
-Sample job on `data/sample_bordereau.csv` (7 Miami locations, default `$100M xs $40M` at 90% share, `loss_basis=auto`):
+Default treaty on every sample: `$100M xs $40M`, 90% share, one reinstatement at 100% of the layer premium. `python scripts/run_sample_job.py` runs the Nairobi modeled portfolio. Both portfolios stay below the $40M attachment, so the reinsurer payout and reinstatement are zero. Both are tagged synthetic for hazard, vulnerability curves, and exposure. Jev batch budget is 500 ms. Full pipeline budget is 1000 ms.
 
-- Gross claim after primary terms: **$139,045,000** (reported bordereau losses)
-- Reinsurer payout: **$89,140,500**
-- Cedant retention: **$49,904,500**
-- Reinstatement premium due: **$4,952,250**
-- Fraud flags: **1** (null-island `A-005`, audited as `NULL_ISLAND`)
-- Synthetic 100-year modeled ground-up: **$131,807,594.50**
-- Synthetic catalog EAL: **$30,964,904.88**
-- Jev batch latency: **~1 ms** (budget 500 ms)
-- Full pipeline: **~320 ms** (budget 1000 ms)
+| Portfolio | File | Basis | Locations | Gross after terms | Reinsurer | Cedant retention | Modeled ground-up | Catalog EAL |
+|-----------|------|-------|-----------|-------------------|-----------|------------------|-------------------|-------------|
+| Nairobi modeled | `data/sample_nairobi_bordereau.csv` | `modeled` | 4 | $7,732,953.60 | $0 | $7,732,953.60 | $8,152,953.60 | $2,082,966.31 |
+| Nzoia modeled | `data/sample_nzoia_bordereau.csv` | `modeled` | 3 | $7,483,979.00 | $0 | $7,483,979.00 | $7,733,979.00 | $2,049,010.73 |
 
 ---
 
@@ -175,14 +170,17 @@ HDC interpolation **never** overwrites `ground_up_loss`, `reinsurer_payout`, or 
 ```text
 Hypervector RAG/
 ├── main.py                      FastAPI entry; re-exports FHRR + XL + GeoJSON
-├── appsscript.js                Layer 1 Gmail / Sheets / Docs / Gmail PDF
+├── appsscript.js                Layer 1 Gmail / Sheets / Docs / Slides / Tasks
 ├── appsscript.json              OAuth scopes
+├── setup.js                     one-shot Apps Script environment bootstrap
+├── render.yaml                  Render Starter blueprint (service name alpha)
 ├── requirements.txt
 ├── pytest.ini
 ├── .env.example
 ├── ARCHITECTURE.md              this file
 ├── README.md
 ├── FULL_CODEBASE.txt            concatenated source dump
+├── save-the-earth.html          public flood leaflet page
 ├── catmod/
 │   ├── api.py                   HTTP surface
 │   ├── pipeline.py              job orchestrator
@@ -191,21 +189,30 @@ Hypervector RAG/
 │   ├── audit.py                 JSONL layer verification
 │   ├── ingestion/               parse CSV / XLSX / PDF + IDs
 │   ├── jev/                     Choice / Score / Noul harness
-│   ├── hazard/                  raster, GeoTIFF, synthetic atlases
-│   ├── vulnerability/           depth-damage curves, Decimal GUL
-│   ├── analytics/               OEP curve, EAL, TVaR, PML
+│   ├── hazard/                  raster, GeoTIFF, provenance, stochastic catalog
+│   ├── vulnerability/           depth-damage curves, Beta samples, Decimal GUL
+│   ├── analytics/               OEP/AEP curve, EAL, VaR, TVaR, PML
 │   ├── hdc/                     FHRR algebra, memory, physics
 │   ├── finance/                 treaty, waterfall, empirical TVaR/PML
 │   ├── leaflet/                 GeoJSON + style
 │   ├── flood/                   map sidecar (geocode, vision, footprints)
 │   ├── geo/                     open-stack fallbacks
-│   └── spatial/                 elevation, 3D Tiles, Blender
-├── data/sample_bordereau.csv
-├── data/flood_hazard/           sample surge polygon
+│   └── spatial/                 elevation, 3D Tiles, Blender, presets
+├── data/
+│   ├── sample_nairobi_bordereau.csv     Nairobi modeled
+│   ├── sample_nzoia_bordereau.csv       Nzoia modeled
+│   ├── exposure_*_synthetic.csv
+│   ├── flood_hazard/                    sample surge polygon
+│   └── open_buildings/                  local footprint sample
 ├── templates/reinsurance_audit_report.txt
-├── static/index.html            CatMod desk: search, event queue, toasts
-├── static/map.html              Leaflet loss map
-├── scripts/run_sample_job.py
+├── static/
+│   ├── index.html               CatMod desk: search, event queue, toasts
+│   ├── map.html                 Leaflet loss map
+│   ├── modes.js                 answer-card tabs
+│   ├── renderPresets.js         browser mirror of spatial presets
+│   └── samples/                 desk CSV fixtures
+├── scripts/run_sample_job.py    Nairobi modeled job
+├── scripts/dump_codebase.py     regenerates FULL_CODEBASE.txt
 ├── tests/
 └── audit_logs/                  per-event JSONL
 ```
@@ -254,7 +261,14 @@ flowchart TB
     raster[raster.py]
     geotiff[geotiff.py]
     surfaces[surfaces.py]
+    prov[provenance.py]
     hsvc[service.py]
+  end
+
+  subgraph side["Sidecar — not contractual money"]
+    flood[flood/]
+    fallback[geo/fallback.py]
+    spatial[spatial/]
   end
 
   subgraph vuln["vulnerability/"]
@@ -288,7 +302,13 @@ flowchart TB
   pipe --> audit
   hsvc --> raster
   hsvc --> surfaces
+  hsvc --> prov
   raster --> geotiff
+  surfaces --> prov
+  api --> flood
+  api --> spatial
+  flood --> fallback
+  spatial --> fallback
   veng --> curves
   ep --> hsvc
   ep --> veng
@@ -314,24 +334,37 @@ flowchart TB
 | Method | Path | Role |
 |--------|------|------|
 | GET | `/health` | Liveness |
+| GET | `/` | Redirect to `/map/` |
 | POST | `/v1/process-bordereau` | Apps Script / CLI webhook |
 | GET | `/api/v1/leaflet-export?event_id=` | GeoJSON for the map |
 | GET | `/api/v1/audit/{event_id}` | Layer verification |
-| GET | `/api/v1/events` | In-memory job index |
+| GET | `/api/v1/events` | In-memory job index (last 32) |
+| GET | `/api/v1/flood/status` | Maps, Gemini, and fallback names |
+| GET | `/api/v1/flood/geocode?q=` | Address to coordinates |
+| POST | `/api/v1/flood/evaluate` | Geocode, footprint, imagery, flood score |
+| GET | `/api/v1/flood/footprints?event_id=` | Footprints for a job |
+| GET | `/api/v1/flood/hazard` | Surge polygon |
+| GET | `/api/v1/flood/buildings` | Viewport footprints |
+| GET | `/api/v1/flood/imagery/aerial` | Aerial image bytes |
+| GET | `/api/v1/flood/imagery/street` | Street-level image bytes |
+| GET, POST | `/api/spatial/elevation` | Point or grid heights |
+| GET, POST | `/api/spatial/3d-tiles-session` | Cesium session or procedural fallback |
+| GET | `/api/spatial/render-presets` | Shader presets |
+| GET, POST | `/api/export/blender-manifest` | Blender scene JSON |
 | GET | `/map/` | CatMod desk (`static/index.html`) |
 | GET | `/map/map.html` | Leaflet loss map for one event |
 
-Webhook body (`BordereauWebhook`): `client_email`, `filename`, `data` (CSV text) or `data_base64` (xlsx/pdf), optional `treaty`, `hazard_polygon`, `client_index_id`, `source_urls` (Drive or document links taken from the email body). Catastrophe-model fields: `loss_basis` (`auto` | `reported` | `modeled`), `return_period` (10, 25, 50, 100, 250, 500; default 100), `hazard_region` (`miami`, `nairobi`, `nzoia`), `hazard_raster_path` (CSV, ESRI ASCII `.asc`, or uncompressed GeoTIFF).
+Webhook body (`BordereauWebhook`): `client_email`, `filename`, `data` (CSV text) or `data_base64` (xlsx/pdf), optional `treaty`, `hazard_polygon`, `client_index_id`, `source_urls` (Drive or document links taken from the email body). Catastrophe-model fields: `loss_basis` (`auto` | `reported` | `modeled`), `return_period` (10, 25, 50, 100, 250, 500; default 100), `hazard_region` (`nairobi`, `nzoia`), `hazard_raster_path` (CSV, ESRI ASCII `.asc`, or uncompressed GeoTIFF).
 
 Job JSON adds `modeled_ground_up_loss`, `modeled_waterfall`, `ep_curve`, `treaty` (`attachment_point`, `limit`, `label`), `source_urls`, and a `synthetic` object. Leaflet metadata carries `synthetic: true` and the same EP curve.
 
 Report placeholders filled by Apps Script:
 
-`{{CLIENT_NAME}}` `{{EVENT_ID}}` `{{GROUND_UP_LOSS}}` `{{REINSURER_PAYOUT}}` `{{CEDANT_RETENTION}}` `{{FRAUD_FLAG_COUNT}}` `{{MODELED_GROUND_UP_LOSS}}` `{{EXPECTED_ANNUAL_LOSS}}` `{{SYNTHETIC}}`
+`{{CLIENT_NAME}}` `{{EVENT_ID}}` `{{GROUND_UP_LOSS}}` `{{REINSURER_PAYOUT}}` `{{CEDANT_RETENTION}}` `{{FRAUD_FLAG_COUNT}}` `{{MODELED_GROUND_UP_LOSS}}` `{{EXPECTED_ANNUAL_LOSS}}` `{{SYNTHETIC}}` `{{SYNTHETIC_HAZARD}}` `{{SYNTHETIC_VULNERABILITY}}` `{{SYNTHETIC_EXPOSURE}}` `{{HAZARD_REGION}}`
 
 ### Desk
 
-`static/index.html` is the CatMod search desk. The bar and answer card fill the viewport with a small edge inset. Phrase commands open a book, the hazard catalogue, desk status, an audit, or the event queue. A free-text string of eight or more characters that is not one of those commands is geocoded. Jev classifies occupancy on each bordereau line; it does not answer open questions about the job list. Gemini is used only for flood-imagery occupancy, and a missing key falls back to the local heuristic.
+`static/index.html` is the CatMod search desk. The bar and answer card fill the viewport with a small edge inset. The apps menu runs the Nairobi modeled portfolio, the Nzoia depth portfolio, the hazard catalogue, desk status, the event queue, or a folder upload. A free-text string of eight or more characters that is not one of those commands is geocoded. Jev classifies occupancy on each bordereau line; it does not answer open questions about the job list. Gemini is used only for flood-imagery occupancy, and a missing key falls back to the local heuristic. Google geocoding, elevation, imagery, and 3D Tiles fall through `catmod/geo/fallback.py` to Nominatim, Open-Meteo, Esri imagery, a heuristic inundation card, and a procedural OSM scene.
 
 **Modeled events**, **Events**, and **Upload** open the event dashboard (the queue layout: rail, search, tabs, rows). Upload reads a real folder in the browser. File text stays in that tab until refresh. A bordereau CSV in the folder is posted to `/v1/process-bordereau` and joins the in-memory event list. The dashboard search, and the main bar, match names and text in that session library.
 
@@ -358,12 +391,23 @@ Routing: occupancy confidence **and** clean Noul **> 0.95** and no spatial flag 
 
 ### Hazard lookup
 
-`catmod/hazard/` samples a north-up grid (bilinear) or a nearest coordinate index.
+`catmod/hazard/` samples a north-up grid (bilinear) or a nearest coordinate index. `catmod/hazard/provenance.py` decides whether a file is synthetic, a proxy, a depth grid, or a susceptibility score.
 
-- Bundled synthetic atlases: Miami surge depth, Nairobi susceptibility, Nzoia basin susceptibility. Susceptibility in `[0, 1]` becomes an equivalent depth of `score × 6 m`, then clipped to `[0, 10] m`.
-- Return-period scales on the stored 100-year field: 10 → 0.35, 25 → 0.55, 50 → 0.78, 100 → 1, 250 → 1.28, 500 → 1.55.
+- Bundled synthetic atlases: Nairobi pluvial susceptibility and a Nzoia corridor depth stand-in. Nairobi susceptibility in `[0, 1]` becomes `depth_m = score × 4.0`, then the return-period scale, then a clip to `[0, 10] m`. Nzoia’s bundled grid is already depth in metres.
+- Mounted files under `data/` replace a bundled atlas when present: `nzoia_rp*.tif` keeps JRC metre depths (`synthetic: false`, no extra return-period scale; the return period is in the filename), `nairobi_pluvial_proxy_*.tif` stays a synthetic susceptibility proxy, and `nairobi_hotspots_geocoded.csv` is a county hotspot product (`synthetic: false`) that still uses the 4.0 m conversion.
+- Return-period scales on a stored 100-year field, used only when `apply_return_period_scale` is true: 10 → 0.35, 25 → 0.55, 50 → 0.78, 100 → 1, 250 → 1.28, 500 → 1.55.
+- When the webhook omits `hazard_region`, the job uses `CATMOD_HAZARD_REGION`. The Render host sets that to `nairobi`.
 - `(0, 0)` is `NULL_ISLAND` (“Null Island”) before any raster test. Coordinates outside the selected surface are `IS_OUT_OF_BOUNDS`. Both are JSONL audit rows on layer 8.
 - Loaders: `load_hazard_file` for `.csv`, `.asc`, and classic uncompressed GeoTIFF (ModelPixelScale + ModelTiepoint). No GDAL dependency.
+
+### Stochastic catalog
+
+`execution_mode` defaults to `deterministic`, which is the contractual job. `stochastic` adds an Oasis-style catalog beside it and does not replace the reported waterfall.
+
+- `catmod/hazard/stochastic.py` builds a synthetic event set for `nairobi` or `nzoia`. Each return-period bin’s rates sum to `1 / RP`. Intensity is a Gumbel magnitude times a symmetric RBF random field. Footprint depths are Decimal metres at a `0.01` quantum, tagged `synthetic: true` and `stochastic: true`.
+- `catmod/vulnerability/stochastic_engine.py` interpolates mean damage and a stddev `0.20 × √(μ(1−μ))`, draws a Beta sample, and returns `TIV × DR` in cents. It does not apply deductibles or treaty terms.
+- The pipeline runs one Decimal waterfall per event, stores up to 48 event footprints in the FHRR memory, and writes audit steps `stochastic_hazard_simulated` (layer 8), `secondary_uncertainty_evaluated` (layer 9), and `stochastic_ep_curve_generated` (layer 10). The catalog curve reports OEP, AEP, EAL (`Σ rate × loss`), VaR, and TVaR at 95%, 99%, 99.5%, and 99.8%.
+- Webhook fields: `stochastic_event_count` (default 36, maximum 10,000) and `stochastic_samples` (default 24). The generator’s own default catalog size is 10,000.
 
 ### Vulnerability
 
@@ -377,7 +421,8 @@ Linear interpolation on `Decimal` knots stays inside `[0, 1]`. Ground-up loss is
 
 - EAL is the trapezoid of loss versus exceedance probability, with loss 0 at probability 1 and a flat tail from the rarest scenario down to probability 0.
 - PML at a return period is the scenario loss (interpolated in exceedance space when the period is not a catalog knot).
-- TVaR at α is the mean of the piecewise-linear quantile from α to 1.
+- TVaR at α is the mean of the piecewise-linear quantile from α to 1. VaR at the same α is the loss at exceedance `1 − α`.
+- The return-period curve also carries an AEP column, `1 − exp(−1/RP)`, beside the OEP frequency `1/RP`.
 - The curve is embedded in the job payload and in Leaflet `metadata.ep_curve`, and audited on layer 10.
 
 ### Layer 3 — FHRR
@@ -421,11 +466,15 @@ Money uses `Decimal` quantized to cents, `ROUND_HALF_EVEN`. `catmod/finance/wate
 | 3 | `hdc_fhrr_spatial_memory` | `hdc_portfolio_encoded` or `hdc_query_complete` |
 | 4 | `deterministic_reinsurance_finance` | `financial_waterfall_complete` |
 | 5 | `leaflet_geojson_export` | `leaflet_geojson_emitted` |
+| 6 | `flood_exposure_vulnerability` | Flood sidecar. Not required on a bordereau job |
+| 7 | `spatial_3d_game_engine_export` | Elevation, 3D Tiles, Blender manifest. Not required on a bordereau job |
 | 8 | `hazard_raster_lookup` | `hazard_lookup_complete` (anomalies use status `NULL_ISLAND` or `IS_OUT_OF_BOUNDS`) |
 | 9 | `vulnerability_damage_function` | `vulnerability_complete` |
 | 10 | `exceedance_probability_analytics` | `ep_curve_complete` |
 
-Layers 6 and 7 remain the flood sidecar and the 3D export. The verifier still requires layers 1–5. Layers 8–10 are written on every bordereau job.
+The verifier still requires layers 1–5. Layers 8–10 are written on every bordereau job. Layers 6 and 7 are reserved names for the flood sidecar and the 3D export. A bordereau job does not record them, and neither path writes `ground_up_loss`, `reinsurer_payout`, or `cedant_retained_loss`.
+
+Shader presets (`VICE_CITY_NEON`, `GTA_STYLIZED`, `PHOTOREAL_DEFAULT`) live in `catmod/spatial/presets.py`. `static/renderPresets.js` mirrors them for the browser. The default is `PHOTOREAL_DEFAULT`. Storey height in the Blender manifest defaults to 3.5 m.
 
 ### Layer 5 — Map style
 
@@ -447,10 +496,10 @@ flowchart LR
     Code[appsscript.js]
   end
 
-  subgraph Py["Python 3.14 host"]
-    UV[uvicorn main:app :8000]
-    Disk[audit_logs/*.jsonl]
-    Mem[(in-memory last N jobs)]
+  subgraph Py["Render Starter — Python 3.12.8"]
+    UV[uvicorn main:app workers 1]
+    Disk["/var/data/audit_logs"]
+    Mem[(in-memory last 32 jobs)]
   end
 
   subgraph GCloud["Google APIs"]
@@ -482,7 +531,9 @@ Script properties (Apps Script project settings):
 | `TASKS_LIST_ID` | Tasks list id. Blank uses `@default` |
 | `UNDERWRITER_EMAIL` | Fallback recipient when the message has no Reply-To |
 
-Gmail label `Catastrophe-Bordereaux`, 5-minute trigger on `processIncomingBordereaux`. Editor checks: `testTasksIntegration`, `testDriveArchiving`, `testSlidesGeneration`. Manifest: `appsscript.json`.
+Gmail label `Catastrophe-Bordereaux`, 5-minute trigger on `processIncomingBordereaux`. Editor checks: `testTasksIntegration`, `testDriveArchiving`, `testSlidesGeneration`. Manifest: `appsscript.json`. Paste `setup.js` as `setup.gs` and run `setupEnvironment` once to create the archive folder, registry, report template, and slides template, then write those script properties. A second run reuses the same files.
+
+Live host: [https://alpha.onrender.com](https://alpha.onrender.com), Render plan `starter`, one instance, health check `GET /health`, audit disk mounted at `/var/data`. Blueprint: `render.yaml`. Jobs stay in process memory, so the service must stay at one instance.
 
 ---
 

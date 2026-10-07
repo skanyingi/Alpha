@@ -25,7 +25,7 @@ from catmod.flood.maps import (
 
 
 def _hazard_path() -> Path:
-    return Path(__file__).resolve().parents[2] / "data" / "flood_hazard" / "miami_surge.geojson"
+    return Path(__file__).resolve().parents[2] / "data" / "flood_hazard" / "nairobi_pluvial.geojson"
 
 
 def heuristic_gemini(occupancy_hint: str = "", elevation_m: float = 0.0) -> dict[str, Any]:
@@ -240,13 +240,12 @@ def hazard_collection(settings: Settings | None = None) -> dict[str, Any]:
         raw.setdefault("metadata", {})
         raw["metadata"]["legend"] = flood_legend()
         return raw
-    # Fallback Miami-ish box around the sample bordereau cluster.
     ring = [
-        [-80.25, 25.72],
-        [-80.12, 25.72],
-        [-80.12, 25.84],
-        [-80.25, 25.84],
-        [-80.25, 25.72],
+        [36.78, -1.32],
+        [36.86, -1.32],
+        [36.86, -1.26],
+        [36.78, -1.26],
+        [36.78, -1.32],
     ]
     return hazard_polygon_collection([ring], water_surface_m=settings.flood_wse_m)
 

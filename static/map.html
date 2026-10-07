@@ -94,8 +94,7 @@
     );
 
     const region = (params.get("region") || "").toLowerCase();
-    const miamiOverride = region === "miami" || params.get("center") === "miami";
-    const openingView = miamiOverride ? [25.78, -80.20] : [-1.28, 36.82];
+    const openingView = region === "nzoia" ? [0.45, 34.22] : [-1.28, 36.82];
     const map = L.map("map", { layers: [satellite] }).setView(openingView, 12);
     let esriErrors = 0;
     satellite.on("tileerror", () => {

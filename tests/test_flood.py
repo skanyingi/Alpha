@@ -4,14 +4,14 @@ from catmod.flood.service import evaluate_asset, footprints_for_points, hazard_c
 
 
 def test_open_buildings_contains_sample_warehouse():
-    hit = match_footprint(25.7617, -80.1918)
+    hit = match_footprint(-1.2921, 36.8219)
     assert hit["geometry"]["type"] == "Polygon"
     assert hit["properties"]["match"] in {"contains", "nearest"}
     assert hit["properties"]["area_m2"] > 100
     ring = hit["geometry"]["coordinates"][0]
-    assert point_in_ring(25.7617, -80.1918, ring)
+    assert point_in_ring(-1.2921, 36.8219, ring)
     lat_c, lon_c = ring_centroid(ring)
-    assert abs(lat_c - 25.7617) < 0.01
+    assert abs(lat_c - -1.2921) < 0.01
     assert ring_area_m2(ring) > 100
 
 
@@ -23,8 +23,8 @@ def test_null_island_gets_estimated_footprint():
 
 def test_heuristic_evaluate_without_api_keys():
     result = evaluate_asset(
-        latitude=25.7617,
-        longitude=-80.1918,
+        latitude=-1.2921,
+        longitude=36.8219,
         occupancy_hint="whse",
         ground_elevation_m=2.0,
         asset_id="A-001",
@@ -61,13 +61,13 @@ def test_risk_colors_and_inundation():
 def test_footprints_skip_null_island_and_emit_collection():
     geo = footprints_for_points(
         [
-            {"asset_id": "A-001", "latitude": 25.7617, "longitude": -80.1918, "occupancy": "whse", "elevation": 2},
+            {"asset_id": "N-001", "latitude": -1.2921, "longitude": 36.8219, "occupancy": "whse", "elevation": 2},
             {"asset_id": "A-005", "latitude": 0.0, "longitude": 0.0, "occupancy": "res", "elevation": 0},
         ]
     )
     assert geo["type"] == "FeatureCollection"
     assert len(geo["features"]) == 1
-    assert geo["features"][0]["properties"]["asset_id"] == "A-001"
+    assert geo["features"][0]["properties"]["asset_id"] == "N-001"
 
 
 def test_hazard_extent_present():
