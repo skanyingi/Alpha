@@ -1634,6 +1634,8 @@ Report placeholders filled by Apps Script:
 
 The desk polls `GET /api/v1/events` every four seconds. The first response is the baseline. Each event id that appears after that — the Apps Script webhook, or a folder upload — drops a card from the top center. The card uses the same icon, title, and subtitle layout as the home shortcuts. Clean jobs are green, flagged jobs are amber, and a positive reinsurer payout is blue. The card leaves on its own. If the queue is already open, it refreshes with the new row.
 
+The answer card does not repeat the query or the webhook path. **Categories** lays each figure out as its own rounded card with a distinct icon, beside Answer, the EP curve, and the map. The query icons sit after the full search text.
+
 ---
 
 ## 7. Layer internals
@@ -10771,8 +10773,11 @@ FILE: static/index.html
     flex:0 1 auto;
     width:auto;
     min-width:4ch;
-    max-width:46%;
+    max-width:calc(100% - 220px);
     field-sizing:content;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
   }
   .search input::-webkit-search-cancel-button{appearance:none;display:none;}
   .ai-mode{
@@ -10955,13 +10960,12 @@ FILE: static/index.html
     position:relative;
     display:none;
     align-items:center;
-    flex:1 1 96px;
-    min-width:72px;
+    justify-content:flex-start;
+    flex:1 1 auto;
+    min-width:0;
     height:40px;
-    margin:0 4px 0 2px;
+    margin:0 8px 0 4px;
     overflow:hidden;
-    -webkit-mask-image:linear-gradient(90deg, #000 0%, #000 78%, transparent 100%);
-    mask-image:linear-gradient(90deg, #000 0%, #000 78%, transparent 100%);
   }
   .search.is-querying .query-rail,
   body.has-result .query-rail{display:flex;}
@@ -10986,7 +10990,7 @@ FILE: static/index.html
   @keyframes bombard{
     0%{transform:translateX(12px) scale(.45) rotate(-18deg);opacity:0;}
     14%{opacity:1;transform:translateX(-18px) scale(1.08) rotate(8deg);}
-    100%{transform:translateX(calc(-100vw + 180px)) scale(1) rotate(0deg);opacity:.9;}
+    100%{transform:translateX(-64px) scale(1) rotate(0deg);opacity:.9;}
   }
   .query-pip.is-settled{
     position:relative;
@@ -11056,14 +11060,27 @@ FILE: static/index.html
     white-space:nowrap;
     max-width:100%;
   }
-  .quote-card .status{
-    margin:8px 0 0;
-    font-size:14px;
-    color:var(--muted);
-    line-height:1.45;
-    min-height:1.45em;
-    flex:none;
+  body.has-result #resultTitle,
+  body.has-result #resultStatus{display:none;}
+  .cat-grid{
+    display:flex;flex-wrap:wrap;gap:12px;
+    margin-top:4px;overflow:auto;align-content:flex-start;
   }
+  .cat-card{
+    display:flex;align-items:center;gap:12px;
+    flex:1 1 240px;max-width:420px;min-width:200px;
+    padding:12px 16px 12px 12px;border-radius:16px;
+    background:#f6f8fa;
+    box-shadow:0 1px 3px rgba(60,64,67,.16), 0 2px 8px rgba(0,0,0,.05);
+  }
+  .cat-ico{
+    width:36px;height:36px;border-radius:12px;flex:none;
+    display:grid;place-items:center;
+  }
+  .cat-ico svg{width:18px;height:18px;display:block;}
+  .cat-card strong{display:block;font-size:13px;font-weight:500;color:#5f6368;line-height:1.25;}
+  .cat-card b{display:block;margin-top:2px;font-size:16px;font-weight:600;color:#202124;letter-spacing:-.02em;}
+  .cat-empty{margin:8px 0 0;color:var(--muted);font-size:14px;}
   .result-answer{
     margin:18px 0 0;
     font-size:16px;
@@ -11489,12 +11506,16 @@ FILE: static/index.html
         <p class="status" id="resultStatus">Running the catastrophe desk…</p>
         <div class="mode-bar" id="modeBar" hidden>
           <button class="mode-tab is-on" type="button" data-tab="answer">Answer</button>
+          <button class="mode-tab" type="button" data-tab="categories">Categories</button>
           <button class="mode-tab" type="button" data-tab="graphs">EP curve</button>
           <button class="mode-tab" type="button" data-tab="map">Map</button>
         </div>
         <div class="mode-panels">
           <div class="mode-panel is-on" data-panel="answer">
             <p class="result-answer" id="resultAnswer"></p>
+          </div>
+          <div class="mode-panel" data-panel="categories">
+            <div class="cat-grid" id="categoryCards"></div>
           </div>
           <div class="mode-panel" data-panel="graphs">
             <svg id="graphSvg" viewBox="0 0 640 280" role="img" aria-label="Exceedance probability curve"></svg>
@@ -11878,8 +11899,10 @@ FILE: static/index.html
     return el;
   }
   function fitQuery(){
-    var n = Math.min(22, Math.max(3, String(q.value || "").length + 1));
-    q.style.width = n + "ch";
+    q.style.width = "0px";
+    var room = Math.max(160, (q.parentElement ? q.parentElement.clientWidth : 800) - 250);
+    var w = Math.min(q.scrollWidth + 12, room);
+    q.style.width = Math.max(48, w) + "px";
   }
   function clearQueryFit(){
     q.style.width = "";
@@ -12015,11 +12038,67 @@ FILE: static/index.html
     frame.src = "map.html?event_id=" + encodeURIComponent(lastEventId) + "&t=" + Date.now();
   }
   window.showCatmodMap = showCatmodMap;
+  function categoryIcon(label, used){
+    var key = String(label || "").toLowerCase();
+    var icons = [
+      {id:"loss", test:/ground-up|modeled loss/, bg:"#e8f0fe", svg:'<svg viewBox="0 0 24 24" fill="none"><path d="M12 3.2 13.4 8.4 18.6 9.8 13.4 11.2 12 16.4 10.6 11.2 5.4 9.8 10.6 8.4 12 3.2Z" fill="#1a73e8"/></svg>'},
+      {id:"gross", test:/gross/, bg:"#e6f4ea", svg:'<svg viewBox="0 0 24 24" fill="none" stroke="#137333" stroke-width="1.8"><path d="M12 5v14M15.5 7.5c0-1.4-1.6-2.5-3.5-2.5S8.5 6.1 8.5 7.6 9.8 10 12 10.5s3.5.9 3.5 2.4-1.6 2.6-3.5 2.6-3.5-1-3.5-2.4"/></svg>'},
+      {id:"re", test:/reinsurer/, bg:"#f3e8fd", svg:'<svg viewBox="0 0 24 24" fill="none" stroke="#7b1fa2" stroke-width="1.8"><path d="M12 3 5 6v6c0 4.2 2.8 7.2 7 9 4.2-1.8 7-4.8 7-9V6l-7-3Z"/></svg>'},
+      {id:"cedant", test:/cedant|retained/, bg:"#fff4e5", svg:'<svg viewBox="0 0 24 24" fill="none" stroke="#e37400" stroke-width="1.8"><path d="M4 20V10l8-6 8 6v10"/><path d="M10 20v-6h4v6"/></svg>'},
+      {id:"reinstate", test:/reinstatement/, bg:"#e0f7fa", svg:'<svg viewBox="0 0 24 24" fill="none" stroke="#00838f" stroke-width="1.8"><path d="M20 12a8 8 0 1 1-2.2-5.5"/><path d="M20 5v5h-5"/></svg>'},
+      {id:"eal", test:/expected|annual|eal/, bg:"#e8f5e9", svg:'<svg viewBox="0 0 24 24" fill="none" stroke="#2e7d32" stroke-width="1.8"><path d="M4 16c2.2-1 3.4-4 4.2-6.2C9 7 10 5 12 5s3 2 3.8 4.8C16.6 12 17.8 15 20 16"/></svg>'},
+      {id:"claims", test:/claim|flag/, bg:"#fce8e6", svg:'<svg viewBox="0 0 24 24" fill="none" stroke="#c5221f" stroke-width="1.8"><path d="M6 4h9l3 3v13H6Z"/><path d="M9 12h6M9 16h4"/></svg>'},
+      {id:"event", test:/^event\b/, bg:"#e8eaf6", svg:'<svg viewBox="0 0 24 24" fill="none" stroke="#3949ab" stroke-width="1.8"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg>'},
+      {id:"region", test:/region|hazard/, bg:"#e1f5fe", svg:'<svg viewBox="0 0 24 24" fill="none" stroke="#0277bd" stroke-width="1.8"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11Z"/><circle cx="12" cy="10" r="2.2"/></svg>'},
+      {id:"treaty", test:/treaty|synthetic|primary/, bg:"#f3e5f5", svg:'<svg viewBox="0 0 24 24" fill="none" stroke="#8e24aa" stroke-width="1.8"><path d="M7 3h8l4 4v14H7Z"/><path d="M15 3v4h4"/></svg>'}
+    ];
+    var pick = null;
+    for(var i = 0; i < icons.length; i++){
+      if(icons[i].test.test(key) && !used[icons[i].id]){ pick = icons[i]; break; }
+    }
+    if(!pick){
+      for(var j = 0; j < icons.length; j++){
+        if(!used[icons[j].id]){ pick = icons[j]; break; }
+      }
+    }
+    if(!pick) pick = icons[Object.keys(used).length % icons.length];
+    used[pick.id] = true;
+    return pick;
+  }
+  function renderCategoryCards(answer){
+    var host = document.getElementById("categoryCards");
+    if(!host) return;
+    var lines = String(answer || "").split(/\n/).map(function(line){ return line.trim(); }).filter(Boolean);
+    var used = {};
+    if(!lines.length){
+      host.innerHTML = '<p class="cat-empty">No figures in this answer.</p>';
+      return;
+    }
+    host.innerHTML = lines.map(function(line){
+      var label = line;
+      var value = "";
+      var money = line.match(/^(.*?)(\$[\d,]+(?:\.\d+)?)\s*$/);
+      if(money && money[1].trim()){
+        label = money[1].trim();
+        value = money[2];
+      }else{
+        var lead = line.match(/^([A-Za-z][A-Za-z /-]{2,}?)\s+(\d.*)$/);
+        if(lead){
+          label = lead[1].trim();
+          value = lead[2].trim();
+        }
+      }
+      var icon = categoryIcon(label, used);
+      return '<article class="cat-card"><span class="cat-ico" style="background:' + icon.bg + '" aria-hidden="true">' + icon.svg + '</span><span><strong>' + esc(label) + '</strong>' + (value ? '<b>' + esc(value) + '</b>' : '') + '</span></article>';
+    }).join("");
+  }
   function present(view){
     window.clearInterval(statusTimer);
     settlePips(view.sources || []);
     resultStatus.textContent = view.status || "Desk response";
     resultAnswer.textContent = view.answer || "";
+    renderCategoryCards(view.answer || "");
+    fitQuery();
     if(view.eventId) lastEventId = view.eventId;
     applyModes(view.modes || {});
   }
@@ -12056,7 +12135,7 @@ FILE: static/index.html
         {publication_title:"Exceedance curve", source_origin:"https://ep-curve"}
       ],
       modes: {
-        default_tab: openMap ? "map" : "answer",
+        default_tab: openMap ? "map" : "categories",
         note: "Occurrence EP curve from the return-period catalogue. Vulnerability curves are proxy functions. Hazard synthetic is " + yn(syn.hazard) + ".",
         graph: {
           labels: labels,
@@ -12880,7 +12959,7 @@ FILE: static/index.html
   }
 })();
 </script>
-<script src="modes.js?v=catmod2"></script>
+<script src="modes.js?v=catmod3"></script>
 </body>
 </html>
 
@@ -13373,7 +13452,8 @@ FILE: static/modes.js
   window.renderAquaModes = function (root, modes) {
     if (!root) return;
     modes = modes || {};
-    var startTab = modes.default_tab === "graphs" || modes.default_tab === "map" ? modes.default_tab : "answer";
+    var startTab = modes.default_tab || "answer";
+    if(["answer","categories","graphs","map"].indexOf(startTab) < 0) startTab = "answer";
     setTab(root, startTab);
     graphTip = root.querySelector("#graphTip");
     var graphSvg = root.querySelector("#graphSvg");

@@ -337,6 +337,8 @@ Report placeholders filled by Apps Script:
 
 The desk polls `GET /api/v1/events` every four seconds. The first response is the baseline. Each event id that appears after that — the Apps Script webhook, or a folder upload — drops a card from the top center. The card uses the same icon, title, and subtitle layout as the home shortcuts. Clean jobs are green, flagged jobs are amber, and a positive reinsurer payout is blue. The card leaves on its own. If the queue is already open, it refreshes with the new row.
 
+The answer card does not repeat the query or the webhook path. **Categories** lays each figure out as its own rounded card with a distinct icon, beside Answer, the EP curve, and the map. The query icons sit after the full search text.
+
 ---
 
 ## 7. Layer internals

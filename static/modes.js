@@ -96,7 +96,8 @@
   window.renderAquaModes = function (root, modes) {
     if (!root) return;
     modes = modes || {};
-    var startTab = modes.default_tab === "graphs" || modes.default_tab === "map" ? modes.default_tab : "answer";
+    var startTab = modes.default_tab || "answer";
+    if(["answer","categories","graphs","map"].indexOf(startTab) < 0) startTab = "answer";
     setTab(root, startTab);
     graphTip = root.querySelector("#graphTip");
     var graphSvg = root.querySelector("#graphSvg");
