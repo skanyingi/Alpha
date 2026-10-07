@@ -458,7 +458,7 @@ Script properties (Apps Script project settings):
 
 | Property | Purpose |
 |----------|---------|
-| `BACKEND_URL` | FastAPI origin, for example `https://your-api.example.com` |
+| `BACKEND_URL` | `https://alpha.onrender.com` |
 | `REGISTRY_SHEET_ID` | Master registry spreadsheet id |
 | `REPORT_TEMPLATE_ID` | Google Doc template id |
 | `SLIDES_TEMPLATE_ID` | Slides template id, or blank to auto-build the four-slide deck |

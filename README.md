@@ -18,6 +18,8 @@ python -m pytest tests -q
 uvicorn main:app --port 8000
 ```
 
+Live service: [https://alpha.onrender.com](https://alpha.onrender.com) (`GET /health`, map at `/map/`).
+
 - Webhook: `POST /v1/process-bordereau`
 - Map payload: `GET /api/v1/leaflet-export`
 - Flood evaluate: `POST /api/v1/flood/evaluate`
@@ -35,7 +37,7 @@ Google Apps Script: copy `appsscript.js` into the project and replace the manife
 
 | Property | What to paste |
 |----------|----------------|
-| `BACKEND_URL` | Public FastAPI origin, no path (`https://your-api.example.com`) |
+| `BACKEND_URL` | `https://alpha.onrender.com` |
 | `REGISTRY_SHEET_ID` | Spreadsheet id from `docs.google.com/spreadsheets/d/<id>/edit` |
 | `REPORT_TEMPLATE_ID` | Doc id from `docs.google.com/document/d/<id>/edit` |
 | `SLIDES_TEMPLATE_ID` | Slides id, or leave blank to auto-build the four-slide deck |

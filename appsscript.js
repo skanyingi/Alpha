@@ -4,7 +4,7 @@
  * Drive archive, Docs audit PDF, Slides executive deck, Tasks, thread reply.
  *
  * Script properties (Project Settings > Script Properties):
- *   BACKEND_URL          https://your-api.example.com
+ *   BACKEND_URL          https://alpha.onrender.com
  *   REGISTRY_SHEET_ID    Google Sheet id for the master registry
  *   REPORT_TEMPLATE_ID   Google Doc template with {{PLACEHOLDERS}}
  *   SLIDES_TEMPLATE_ID   Google Slides template id, or blank to auto-create
@@ -73,10 +73,7 @@ var THEME = {
 };
 
 function processIncomingBordereaux() {
-  var backend = PropertiesService.getScriptProperties().getProperty('BACKEND_URL');
-  if (!backend) {
-    throw new Error('Set script property BACKEND_URL');
-  }
+  var backend = PropertiesService.getScriptProperties().getProperty('BACKEND_URL') || 'https://alpha.onrender.com';
   var endpoint = backend.replace(/\/$/, '') + '/v1/process-bordereau';
 
   ensureLabel_(LABEL_INBOX);
