@@ -1,4 +1,8 @@
-"""Hazard evaluation: raster or coordinate lookup, then return-period scaling."""
+"""Hazard evaluation: raster or coordinate lookup, then return-period scaling.
+
+Nairobi susceptibility uses ``NAIROBI_SUSCEPTIBILITY_DEPTH_M`` (4.0 m):
+``depth_m = score × 4.0``, then the return-period scale.
+"""
 
 from __future__ import annotations
 

@@ -483,10 +483,17 @@ function generateExecutiveSlidesReport(analyticsResult, destinationFolder) {
   };
 }
 
+function placeholderText_(value) {
+  if (value == null) return '';
+  if (value === true) return 'true';
+  if (value === false) return 'false';
+  return String(value);
+}
+
 function replacePlaceholders_(doc, values) {
   var body = doc.getBody();
   PLACEHOLDERS.forEach(function (key) {
-    body.replaceText('\\{\\{' + key + '\\}\\}', values[key] != null ? String(values[key]) : '');
+    body.replaceText('\\{\\{' + key + '\\}\\}', placeholderText_(values[key]));
   });
 }
 
@@ -494,7 +501,7 @@ function replaceSlidePlaceholders_(presentation, values) {
   var slides = presentation.getSlides();
   for (var i = 0; i < slides.length; i++) {
     PLACEHOLDERS.forEach(function (key) {
-      slides[i].replaceAllText('{{' + key + '}}', values[key] != null ? String(values[key]) : '');
+      slides[i].replaceAllText('{{' + key + '}}', placeholderText_(values[key]));
     });
   }
 }
@@ -973,17 +980,17 @@ function placeholderValues_(ctx, result) {
     FRAUD_FLAG_COUNT: String(ctx.flags),
     MODELED_GROUND_UP_LOSS: moneyCell_(ctx.modeled),
     EXPECTED_ANNUAL_LOSS: moneyCell_(ctx.eal),
-    SYNTHETIC: ctx.syntheticLabel,
-    SYNTHETIC_HAZARD: String(placeholders.SYNTHETIC_HAZARD || ''),
-    SYNTHETIC_VULNERABILITY: String(placeholders.SYNTHETIC_VULNERABILITY || 'true'),
-    SYNTHETIC_EXPOSURE: String(placeholders.SYNTHETIC_EXPOSURE || ''),
+    SYNTHETIC: placeholderText_(ctx.syntheticLabel),
+    SYNTHETIC_HAZARD: placeholderText_(placeholders.SYNTHETIC_HAZARD),
+    SYNTHETIC_VULNERABILITY: placeholderText_(placeholders.SYNTHETIC_VULNERABILITY || 'true'),
+    SYNTHETIC_EXPOSURE: placeholderText_(placeholders.SYNTHETIC_EXPOSURE),
     HAZARD_REGION: String(placeholders.HAZARD_REGION || result.hazard_region || '')
   };
 }
 
 function syntheticLabel_(result, placeholders) {
   if (placeholders.SYNTHETIC != null && typeof placeholders.SYNTHETIC !== 'object') {
-    return String(placeholders.SYNTHETIC);
+    return placeholderText_(placeholders.SYNTHETIC);
   }
   var synthetic = result.synthetic;
   if (!synthetic || typeof synthetic !== 'object') {
@@ -1129,7 +1136,7 @@ function sampleAnalytics_() {
       FRAUD_FLAG_COUNT: 0,
       MODELED_GROUND_UP_LOSS: '8152953.60',
       EXPECTED_ANNUAL_LOSS: '2500000.00',
-      SYNTHETIC: true,
+      SYNTHETIC: 'true',
       SYNTHETIC_HAZARD: 'true',
       SYNTHETIC_VULNERABILITY: 'true',
       SYNTHETIC_EXPOSURE: 'true',
@@ -2709,6 +2716,11 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Interactive jobs use a 36-event batch so the pipeline stays inside the 1,000 ms budget.
+# Offline catalog generation uses the 10,000-event set.
+STOCHASTIC_BATCH_SIZE = 36
+STOCHASTIC_FULL_CATALOG_SIZE = 10_000
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -2745,6 +2757,8 @@ class Settings(BaseSettings):
     open_buildings_url: str = ""
     default_shader_preset: str = "PHOTOREAL_DEFAULT"
     default_hazard_region: str = "nairobi"
+    stochastic_batch_size: int = STOCHASTIC_BATCH_SIZE
+    stochastic_full_catalog_size: int = STOCHASTIC_FULL_CATALOG_SIZE
     default_map_latitude: float = -1.28
     default_map_longitude: float = 36.82
     default_map_zoom: int = 12
@@ -2775,6 +2789,8 @@ class Settings(BaseSettings):
             "OPEN_BUILDINGS_GEOJSON_URL": ("open_buildings_url", str),
             "CATMOD_SHADER_PRESET": ("default_shader_preset", str),
             "CATMOD_HAZARD_REGION": ("default_hazard_region", str),
+            "CATMOD_STOCHASTIC_BATCH_SIZE": ("stochastic_batch_size", int),
+            "CATMOD_STOCHASTIC_FULL_CATALOG_SIZE": ("stochastic_full_catalog_size", int),
             "CATMOD_MAP_LATITUDE": ("default_map_latitude", float),
             "CATMOD_MAP_LONGITUDE": ("default_map_longitude", float),
             "CATMOD_MAP_ZOOM": ("default_map_zoom", int),
@@ -4709,6 +4725,8 @@ FILE: catmod/hazard/provenance.py
 
 Real JRC depth grids and Nairobi County hotspots stay ``synthetic: false``.
 The Nairobi pluvial proxy and generated portfolios stay ``synthetic: true``.
+Susceptibility becomes depth only through ``NAIROBI_SUSCEPTIBILITY_DEPTH_M``
+(4.0 m): ``depth_m = score × 4.0``.
 """
 
 from __future__ import annotations
@@ -5193,7 +5211,11 @@ def _as_regular_grid(
 ========================================================================================
 FILE: catmod/hazard/service.py
 ========================================================================================
-"""Hazard evaluation: raster or coordinate lookup, then return-period scaling."""
+"""Hazard evaluation: raster or coordinate lookup, then return-period scaling.
+
+Nairobi susceptibility uses ``NAIROBI_SUSCEPTIBILITY_DEPTH_M`` (4.0 m):
+``depth_m = score × 4.0``, then the return-period scale.
+"""
 
 from __future__ import annotations
 
@@ -5431,6 +5453,7 @@ from decimal import ROUND_HALF_EVEN, Decimal
 
 import numpy as np
 
+from catmod.config import STOCHASTIC_FULL_CATALOG_SIZE
 from catmod.hazard.service import STANDARD_RETURN_PERIODS
 
 DEPTH_QUANTUM = Decimal("0.01")
@@ -5573,7 +5596,7 @@ class StochasticHazardGenerator:
     def generate_event_set(
         self,
         region: str,
-        num_events: int = 10_000,
+        num_events: int = STOCHASTIC_FULL_CATALOG_SIZE,
         seed: int = 42,
     ) -> list[StochasticEvent]:
         spec = _region(region)
@@ -5683,7 +5706,8 @@ FILE: catmod/hazard/surfaces.py
 ========================================================================================
 """Synthetic and mounted flood atlases.
 
-Nairobi's bundled grid is a susceptibility proxy (``depth = score × 4 m``).
+Nairobi's bundled grid is a susceptibility proxy
+(``depth_m = score × NAIROBI_SUSCEPTIBILITY_DEPTH_M``, 4.0 m).
 Nzoia's bundled grid is a synthetic depth stand-in. Mounted ``nzoia_rp*.tif``
 files replace that stand-in and keep JRC metre depths with ``synthetic: false``.
 """
@@ -5724,7 +5748,11 @@ def _grid(
 
 
 def nairobi_susceptibility_raster() -> HazardRaster:
-    """Synthetic pluvial susceptibility for Nairobi. Score in [0, 1]."""
+    """Synthetic pluvial susceptibility for Nairobi. Score in [0, 1].
+
+    Depth is ``score × NAIROBI_SUSCEPTIBILITY_DEPTH_M`` (4.0 m), applied in
+    ``HazardService`` rather than stored on this grid.
+    """
     west, south, east, north = 36.66, -1.45, 37.10, -1.15
 
     def sample(lat: float, lon: float) -> float:
@@ -5857,10 +5885,16 @@ def _norm_time(t: float) -> float:
     return float(t)
 
 
-def _norm_cost(cost: float) -> float:
+# 100 billion currency units. KES portfolios sit above the old 1e9 ceiling.
+COST_NORM_CEILING = 1.0e11
+
+
+def _norm_cost(cost: float, max_cost: float = COST_NORM_CEILING) -> float:
     if cost <= 0:
         return 0.0
-    return float(np.log1p(cost) / np.log1p(1.0e9))
+    if max_cost <= 0:
+        raise ValueError("max_cost must be positive")
+    return float(np.log1p(cost) / np.log1p(max_cost))
 
 
 def _norm_damage(damage_ratio: float) -> float:
@@ -6035,7 +6069,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 import catmod.hdc.fhrr as fhrr
-from catmod.hdc.encoding import ItemMemory, _norm_time
+from catmod.hdc.encoding import COST_NORM_CEILING, ItemMemory, _norm_time
 from catmod.hdc.fhrr import Array
 
 
@@ -6095,7 +6129,7 @@ class PortfolioMemory:
         cost_hv = fhrr.unbind(fhrr.unbind(assoc, v_lat), v_lon)
         x_hat = fhrr.decode_exponent(fhrr.cleanup(cost_hv), self.items.bases["cost"])
         x_hat = float(np.clip(x_hat, 0.0, 1.5))
-        return float(np.expm1(x_hat * np.log1p(1.0e9)))
+        return float(np.expm1(x_hat * np.log1p(COST_NORM_CEILING)))
 
     def exposure_clusters(
         self,
@@ -7172,6 +7206,10 @@ def _stochastic_catalog(
 ) -> dict[str, Any]:
     """Event catalog, Beta ground-up samples, and one Decimal waterfall per event.
 
+    The webhook batch size (``stochastic_batch_size``, 36) is the interactive path
+    and is sized for the 1,000 ms pipeline budget. ``stochastic_full_catalog_size``
+    (10,000) is reserved for offline calls to ``StochasticHazardGenerator``.
+
     The returned losses are the financial view. Hypervector encoding is left to
     the caller so this function never touches FHRR memory.
     """
@@ -7271,10 +7309,36 @@ def default_treaty(settings: Settings, incoming: BordereauWebhook) -> XLTreaty:
     )
 
 
+# Atlas extents. A job with no hazard_region is assigned by where its claims sit.
+_REGION_BOXES: tuple[tuple[str, float, float, float, float], ...] = (
+    ("nairobi", 36.66, -1.45, 37.10, -1.15),
+    ("nzoia", 33.95, 0.05, 34.85, 0.85),
+)
+
+
+def _infer_hazard_region(claims, fallback: str) -> str:
+    """Pick nairobi or nzoia from claim coordinates when the webhook omits a region.
+
+    Null Island does not vote. If no claim falls in an atlas, the settings default is used.
+    """
+    votes = {"nairobi": 0, "nzoia": 0}
+    for claim in claims:
+        if abs(claim.latitude) < 1e-6 and abs(claim.longitude) < 1e-6:
+            continue
+        for name, west, south, east, north in _REGION_BOXES:
+            if south <= claim.latitude <= north and west <= claim.longitude <= east:
+                votes[name] += 1
+                break
+    if votes["nzoia"] > votes["nairobi"]:
+        return "nzoia"
+    if votes["nairobi"] > 0:
+        return "nairobi"
+    return fallback
+
+
 def run_pipeline(payload: BordereauWebhook, settings: Settings | None = None) -> dict[str, Any]:
     started = time.perf_counter()
     settings = settings or get_settings()
-    hazard_region = payload.hazard_region or settings.default_hazard_region
     exposure_synthetic = exposure_portfolio_synthetic(payload.filename)
     if payload.return_period not in STANDARD_RETURN_PERIODS:
         known = ", ".join(str(rp) for rp in STANDARD_RETURN_PERIODS)
@@ -7313,6 +7377,7 @@ def run_pipeline(payload: BordereauWebhook, settings: Settings | None = None) ->
         status="ok",
         detail={"claim_count": len(claims), "filename": payload.filename},
     )
+    hazard_region = payload.hazard_region or _infer_hazard_region(claims, settings.default_hazard_region)
 
     harness = JevHarness(settings)
     t0 = time.perf_counter()
@@ -7763,10 +7828,10 @@ def run_pipeline(payload: BordereauWebhook, settings: Settings | None = None) ->
             "FRAUD_FLAG_COUNT": flagged_count,
             "MODELED_GROUND_UP_LOSS": format(modeled_total, "f"),
             "EXPECTED_ANNUAL_LOSS": ep_curve["eal"],
-            "SYNTHETIC": True,
-            "SYNTHETIC_HAZARD": str(hazard_synthetic).lower(),
+            "SYNTHETIC": "true",
+            "SYNTHETIC_HAZARD": "true" if hazard_synthetic else "false",
             "SYNTHETIC_VULNERABILITY": "true",
-            "SYNTHETIC_EXPOSURE": str(exposure_synthetic).lower(),
+            "SYNTHETIC_EXPOSURE": "true" if exposure_synthetic else "false",
             "HAZARD_REGION": hazard_region,
         },
         "claims": [e.model_dump() for e in enriched],
@@ -7790,6 +7855,8 @@ from __future__ import annotations
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+from catmod.config import STOCHASTIC_BATCH_SIZE, STOCHASTIC_FULL_CATALOG_SIZE
 
 
 class XLTreatyIn(BaseModel):
@@ -7820,10 +7887,10 @@ class BordereauWebhook(BaseModel):
     loss_basis: Literal["auto", "reported", "modeled"] = "auto"
     execution_mode: Literal["deterministic", "stochastic"] = "deterministic"
     stochastic_event_count: int = Field(
-        36,
-        ge=6,
-        le=10_000,
-        description="Catalog size when execution_mode is stochastic. The generator itself defaults to 10,000.",
+        STOCHASTIC_BATCH_SIZE,
+        ge=1,
+        le=STOCHASTIC_FULL_CATALOG_SIZE,
+        description="Number of stochastic events to evaluate per batch",
     )
     stochastic_samples: int = Field(
         24,
@@ -7832,7 +7899,7 @@ class BordereauWebhook(BaseModel):
         description="Beta draws per location per event. The vulnerability sampler defaults to 100.",
     )
     return_period: int = 100
-    hazard_region: str | None = None
+    hazard_region: Literal["nairobi", "nzoia"] | None = None
     hazard_raster_path: str | None = None
 
 
@@ -14904,7 +14971,7 @@ FILE: tests/test_hdc.py
 ========================================================================================
 import numpy as np
 
-from catmod.hdc.encoding import ItemMemory
+from catmod.hdc.encoding import COST_NORM_CEILING, ItemMemory, _norm_cost
 from catmod.hdc.fhrr import bind, exponentiate, random_hypervector, similarity, unbind
 from catmod.hdc.memory import PortfolioMemory
 
@@ -14924,6 +14991,13 @@ def test_continuous_exponent_recovers_nearby_scalars():
     v2 = exponentiate(basis, 0.41)
     v_far = exponentiate(basis, 0.90)
     assert similarity(v1, v2) > similarity(v1, v_far)
+
+
+def test_cost_normalization_reaches_one_at_one_hundred_billion():
+    assert COST_NORM_CEILING == 1.0e11
+    assert _norm_cost(0) == 0.0
+    assert _norm_cost(COST_NORM_CEILING) == 1.0
+    assert _norm_cost(1.0e9) < 1.0
 
 
 def test_temporal_projection_is_bind_with_phase_power():
@@ -15101,6 +15175,10 @@ def test_end_to_end_pipeline_audit_layers():
     assert result["client_index_id"].startswith("CID-")
     assert result["claim_count"] == 5
     assert result["placeholders"]["CLIENT_NAME"] == "Nairobi County Mutual"
+    assert result["placeholders"]["SYNTHETIC"] == "true"
+    assert result["placeholders"]["SYNTHETIC_HAZARD"] in {"true", "false"}
+    assert result["placeholders"]["SYNTHETIC_VULNERABILITY"] == "true"
+    assert result["placeholders"]["SYNTHETIC_EXPOSURE"] in {"true", "false"}
     assert "GROUND_UP_LOSS" in result["placeholders"]
     assert result["total_gross_claim"] > 0
     assert result["geojson"]["type"] == "FeatureCollection"
@@ -15259,6 +15337,26 @@ def test_stochastic_mode_audits_the_catalog_without_changing_the_contractual_los
     assert "stochastic_ep_curve_generated" in steps
     encoded = [entry for entry in stochastic["audit"]["entries"] if entry["step"] == "hdc_portfolio_encoded"][0]
     assert encoded["detail"]["claims_in_superposition"] == 13
+
+
+def test_omitted_hazard_region_follows_the_claim_coordinates():
+    nzoia = Path(__file__).resolve().parents[1] / "data" / "sample_nzoia_bordereau.csv"
+    result = run_pipeline(
+        BordereauWebhook(
+            client_email="desk@kenya.example",
+            filename="sample_nzoia_bordereau.csv",
+            data=nzoia.read_text(encoding="utf-8"),
+        )
+    )
+    assert result["hazard_region"] == "nzoia"
+    nairobi = run_pipeline(
+        BordereauWebhook(
+            client_email="desk@kenya.example",
+            filename="sample_nairobi_bordereau.csv",
+            data=SAMPLE.read_text(encoding="utf-8"),
+        )
+    )
+    assert nairobi["hazard_region"] == "nairobi"
 
 
 def test_bordereau_webhook_keeps_source_urls():

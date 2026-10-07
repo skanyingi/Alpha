@@ -2,6 +2,11 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Interactive jobs use a 36-event batch so the pipeline stays inside the 1,000 ms budget.
+# Offline catalog generation uses the 10,000-event set.
+STOCHASTIC_BATCH_SIZE = 36
+STOCHASTIC_FULL_CATALOG_SIZE = 10_000
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -38,6 +43,8 @@ class Settings(BaseSettings):
     open_buildings_url: str = ""
     default_shader_preset: str = "PHOTOREAL_DEFAULT"
     default_hazard_region: str = "nairobi"
+    stochastic_batch_size: int = STOCHASTIC_BATCH_SIZE
+    stochastic_full_catalog_size: int = STOCHASTIC_FULL_CATALOG_SIZE
     default_map_latitude: float = -1.28
     default_map_longitude: float = 36.82
     default_map_zoom: int = 12
@@ -68,6 +75,8 @@ class Settings(BaseSettings):
             "OPEN_BUILDINGS_GEOJSON_URL": ("open_buildings_url", str),
             "CATMOD_SHADER_PRESET": ("default_shader_preset", str),
             "CATMOD_HAZARD_REGION": ("default_hazard_region", str),
+            "CATMOD_STOCHASTIC_BATCH_SIZE": ("stochastic_batch_size", int),
+            "CATMOD_STOCHASTIC_FULL_CATALOG_SIZE": ("stochastic_full_catalog_size", int),
             "CATMOD_MAP_LATITUDE": ("default_map_latitude", float),
             "CATMOD_MAP_LONGITUDE": ("default_map_longitude", float),
             "CATMOD_MAP_ZOOM": ("default_map_zoom", int),

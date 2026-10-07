@@ -6,6 +6,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from catmod.config import STOCHASTIC_BATCH_SIZE, STOCHASTIC_FULL_CATALOG_SIZE
+
 
 class XLTreatyIn(BaseModel):
     attachment_point: float = Field(..., ge=0, description="Retention / attachment, e.g. 40e6")
@@ -35,10 +37,10 @@ class BordereauWebhook(BaseModel):
     loss_basis: Literal["auto", "reported", "modeled"] = "auto"
     execution_mode: Literal["deterministic", "stochastic"] = "deterministic"
     stochastic_event_count: int = Field(
-        36,
-        ge=6,
-        le=10_000,
-        description="Catalog size when execution_mode is stochastic. The generator itself defaults to 10,000.",
+        STOCHASTIC_BATCH_SIZE,
+        ge=1,
+        le=STOCHASTIC_FULL_CATALOG_SIZE,
+        description="Number of stochastic events to evaluate per batch",
     )
     stochastic_samples: int = Field(
         24,
@@ -47,7 +49,7 @@ class BordereauWebhook(BaseModel):
         description="Beta draws per location per event. The vulnerability sampler defaults to 100.",
     )
     return_period: int = 100
-    hazard_region: str | None = None
+    hazard_region: Literal["nairobi", "nzoia"] | None = None
     hazard_raster_path: str | None = None
 
 

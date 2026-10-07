@@ -13,6 +13,7 @@ from decimal import ROUND_HALF_EVEN, Decimal
 
 import numpy as np
 
+from catmod.config import STOCHASTIC_FULL_CATALOG_SIZE
 from catmod.hazard.service import STANDARD_RETURN_PERIODS
 
 DEPTH_QUANTUM = Decimal("0.01")
@@ -155,7 +156,7 @@ class StochasticHazardGenerator:
     def generate_event_set(
         self,
         region: str,
-        num_events: int = 10_000,
+        num_events: int = STOCHASTIC_FULL_CATALOG_SIZE,
         seed: int = 42,
     ) -> list[StochasticEvent]:
         spec = _region(region)

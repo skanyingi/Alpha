@@ -2,6 +2,8 @@
 
 Real JRC depth grids and Nairobi County hotspots stay ``synthetic: false``.
 The Nairobi pluvial proxy and generated portfolios stay ``synthetic: true``.
+Susceptibility becomes depth only through ``NAIROBI_SUSCEPTIBILITY_DEPTH_M``
+(4.0 m): ``depth_m = score × 4.0``.
 """
 
 from __future__ import annotations

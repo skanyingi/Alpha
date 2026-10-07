@@ -35,10 +35,16 @@ def _norm_time(t: float) -> float:
     return float(t)
 
 
-def _norm_cost(cost: float) -> float:
+# 100 billion currency units. KES portfolios sit above the old 1e9 ceiling.
+COST_NORM_CEILING = 1.0e11
+
+
+def _norm_cost(cost: float, max_cost: float = COST_NORM_CEILING) -> float:
     if cost <= 0:
         return 0.0
-    return float(np.log1p(cost) / np.log1p(1.0e9))
+    if max_cost <= 0:
+        raise ValueError("max_cost must be positive")
+    return float(np.log1p(cost) / np.log1p(max_cost))
 
 
 def _norm_damage(damage_ratio: float) -> float:

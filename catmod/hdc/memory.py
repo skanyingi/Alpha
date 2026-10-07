@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 import catmod.hdc.fhrr as fhrr
-from catmod.hdc.encoding import ItemMemory, _norm_time
+from catmod.hdc.encoding import COST_NORM_CEILING, ItemMemory, _norm_time
 from catmod.hdc.fhrr import Array
 
 
@@ -67,7 +67,7 @@ class PortfolioMemory:
         cost_hv = fhrr.unbind(fhrr.unbind(assoc, v_lat), v_lon)
         x_hat = fhrr.decode_exponent(fhrr.cleanup(cost_hv), self.items.bases["cost"])
         x_hat = float(np.clip(x_hat, 0.0, 1.5))
-        return float(np.expm1(x_hat * np.log1p(1.0e9)))
+        return float(np.expm1(x_hat * np.log1p(COST_NORM_CEILING)))
 
     def exposure_clusters(
         self,

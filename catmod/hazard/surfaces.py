@@ -1,6 +1,7 @@
 """Synthetic and mounted flood atlases.
 
-Nairobi's bundled grid is a susceptibility proxy (``depth = score × 4 m``).
+Nairobi's bundled grid is a susceptibility proxy
+(``depth_m = score × NAIROBI_SUSCEPTIBILITY_DEPTH_M``, 4.0 m).
 Nzoia's bundled grid is a synthetic depth stand-in. Mounted ``nzoia_rp*.tif``
 files replace that stand-in and keep JRC metre depths with ``synthetic: false``.
 """
@@ -41,7 +42,11 @@ def _grid(
 
 
 def nairobi_susceptibility_raster() -> HazardRaster:
-    """Synthetic pluvial susceptibility for Nairobi. Score in [0, 1]."""
+    """Synthetic pluvial susceptibility for Nairobi. Score in [0, 1].
+
+    Depth is ``score × NAIROBI_SUSCEPTIBILITY_DEPTH_M`` (4.0 m), applied in
+    ``HazardService`` rather than stored on this grid.
+    """
     west, south, east, north = 36.66, -1.45, 37.10, -1.15
 
     def sample(lat: float, lon: float) -> float:

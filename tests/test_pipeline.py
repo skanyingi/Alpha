@@ -49,6 +49,10 @@ def test_end_to_end_pipeline_audit_layers():
     assert result["client_index_id"].startswith("CID-")
     assert result["claim_count"] == 5
     assert result["placeholders"]["CLIENT_NAME"] == "Nairobi County Mutual"
+    assert result["placeholders"]["SYNTHETIC"] == "true"
+    assert result["placeholders"]["SYNTHETIC_HAZARD"] in {"true", "false"}
+    assert result["placeholders"]["SYNTHETIC_VULNERABILITY"] == "true"
+    assert result["placeholders"]["SYNTHETIC_EXPOSURE"] in {"true", "false"}
     assert "GROUND_UP_LOSS" in result["placeholders"]
     assert result["total_gross_claim"] > 0
     assert result["geojson"]["type"] == "FeatureCollection"
@@ -207,6 +211,26 @@ def test_stochastic_mode_audits_the_catalog_without_changing_the_contractual_los
     assert "stochastic_ep_curve_generated" in steps
     encoded = [entry for entry in stochastic["audit"]["entries"] if entry["step"] == "hdc_portfolio_encoded"][0]
     assert encoded["detail"]["claims_in_superposition"] == 13
+
+
+def test_omitted_hazard_region_follows_the_claim_coordinates():
+    nzoia = Path(__file__).resolve().parents[1] / "data" / "sample_nzoia_bordereau.csv"
+    result = run_pipeline(
+        BordereauWebhook(
+            client_email="desk@kenya.example",
+            filename="sample_nzoia_bordereau.csv",
+            data=nzoia.read_text(encoding="utf-8"),
+        )
+    )
+    assert result["hazard_region"] == "nzoia"
+    nairobi = run_pipeline(
+        BordereauWebhook(
+            client_email="desk@kenya.example",
+            filename="sample_nairobi_bordereau.csv",
+            data=SAMPLE.read_text(encoding="utf-8"),
+        )
+    )
+    assert nairobi["hazard_region"] == "nairobi"
 
 
 def test_bordereau_webhook_keeps_source_urls():

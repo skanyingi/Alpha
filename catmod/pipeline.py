@@ -90,6 +90,10 @@ def _stochastic_catalog(
 ) -> dict[str, Any]:
     """Event catalog, Beta ground-up samples, and one Decimal waterfall per event.
 
+    The webhook batch size (``stochastic_batch_size``, 36) is the interactive path
+    and is sized for the 1,000 ms pipeline budget. ``stochastic_full_catalog_size``
+    (10,000) is reserved for offline calls to ``StochasticHazardGenerator``.
+
     The returned losses are the financial view. Hypervector encoding is left to
     the caller so this function never touches FHRR memory.
     """
@@ -189,10 +193,36 @@ def default_treaty(settings: Settings, incoming: BordereauWebhook) -> XLTreaty:
     )
 
 
+# Atlas extents. A job with no hazard_region is assigned by where its claims sit.
+_REGION_BOXES: tuple[tuple[str, float, float, float, float], ...] = (
+    ("nairobi", 36.66, -1.45, 37.10, -1.15),
+    ("nzoia", 33.95, 0.05, 34.85, 0.85),
+)
+
+
+def _infer_hazard_region(claims, fallback: str) -> str:
+    """Pick nairobi or nzoia from claim coordinates when the webhook omits a region.
+
+    Null Island does not vote. If no claim falls in an atlas, the settings default is used.
+    """
+    votes = {"nairobi": 0, "nzoia": 0}
+    for claim in claims:
+        if abs(claim.latitude) < 1e-6 and abs(claim.longitude) < 1e-6:
+            continue
+        for name, west, south, east, north in _REGION_BOXES:
+            if south <= claim.latitude <= north and west <= claim.longitude <= east:
+                votes[name] += 1
+                break
+    if votes["nzoia"] > votes["nairobi"]:
+        return "nzoia"
+    if votes["nairobi"] > 0:
+        return "nairobi"
+    return fallback
+
+
 def run_pipeline(payload: BordereauWebhook, settings: Settings | None = None) -> dict[str, Any]:
     started = time.perf_counter()
     settings = settings or get_settings()
-    hazard_region = payload.hazard_region or settings.default_hazard_region
     exposure_synthetic = exposure_portfolio_synthetic(payload.filename)
     if payload.return_period not in STANDARD_RETURN_PERIODS:
         known = ", ".join(str(rp) for rp in STANDARD_RETURN_PERIODS)
@@ -231,6 +261,7 @@ def run_pipeline(payload: BordereauWebhook, settings: Settings | None = None) ->
         status="ok",
         detail={"claim_count": len(claims), "filename": payload.filename},
     )
+    hazard_region = payload.hazard_region or _infer_hazard_region(claims, settings.default_hazard_region)
 
     harness = JevHarness(settings)
     t0 = time.perf_counter()
@@ -681,10 +712,10 @@ def run_pipeline(payload: BordereauWebhook, settings: Settings | None = None) ->
             "FRAUD_FLAG_COUNT": flagged_count,
             "MODELED_GROUND_UP_LOSS": format(modeled_total, "f"),
             "EXPECTED_ANNUAL_LOSS": ep_curve["eal"],
-            "SYNTHETIC": True,
-            "SYNTHETIC_HAZARD": str(hazard_synthetic).lower(),
+            "SYNTHETIC": "true",
+            "SYNTHETIC_HAZARD": "true" if hazard_synthetic else "false",
             "SYNTHETIC_VULNERABILITY": "true",
-            "SYNTHETIC_EXPOSURE": str(exposure_synthetic).lower(),
+            "SYNTHETIC_EXPOSURE": "true" if exposure_synthetic else "false",
             "HAZARD_REGION": hazard_region,
         },
         "claims": [e.model_dump() for e in enriched],

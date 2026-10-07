@@ -332,10 +332,17 @@ function generateExecutiveSlidesReport(analyticsResult, destinationFolder) {
   };
 }
 
+function placeholderText_(value) {
+  if (value == null) return '';
+  if (value === true) return 'true';
+  if (value === false) return 'false';
+  return String(value);
+}
+
 function replacePlaceholders_(doc, values) {
   var body = doc.getBody();
   PLACEHOLDERS.forEach(function (key) {
-    body.replaceText('\\{\\{' + key + '\\}\\}', values[key] != null ? String(values[key]) : '');
+    body.replaceText('\\{\\{' + key + '\\}\\}', placeholderText_(values[key]));
   });
 }
 
@@ -343,7 +350,7 @@ function replaceSlidePlaceholders_(presentation, values) {
   var slides = presentation.getSlides();
   for (var i = 0; i < slides.length; i++) {
     PLACEHOLDERS.forEach(function (key) {
-      slides[i].replaceAllText('{{' + key + '}}', values[key] != null ? String(values[key]) : '');
+      slides[i].replaceAllText('{{' + key + '}}', placeholderText_(values[key]));
     });
   }
 }
@@ -822,17 +829,17 @@ function placeholderValues_(ctx, result) {
     FRAUD_FLAG_COUNT: String(ctx.flags),
     MODELED_GROUND_UP_LOSS: moneyCell_(ctx.modeled),
     EXPECTED_ANNUAL_LOSS: moneyCell_(ctx.eal),
-    SYNTHETIC: ctx.syntheticLabel,
-    SYNTHETIC_HAZARD: String(placeholders.SYNTHETIC_HAZARD || ''),
-    SYNTHETIC_VULNERABILITY: String(placeholders.SYNTHETIC_VULNERABILITY || 'true'),
-    SYNTHETIC_EXPOSURE: String(placeholders.SYNTHETIC_EXPOSURE || ''),
+    SYNTHETIC: placeholderText_(ctx.syntheticLabel),
+    SYNTHETIC_HAZARD: placeholderText_(placeholders.SYNTHETIC_HAZARD),
+    SYNTHETIC_VULNERABILITY: placeholderText_(placeholders.SYNTHETIC_VULNERABILITY || 'true'),
+    SYNTHETIC_EXPOSURE: placeholderText_(placeholders.SYNTHETIC_EXPOSURE),
     HAZARD_REGION: String(placeholders.HAZARD_REGION || result.hazard_region || '')
   };
 }
 
 function syntheticLabel_(result, placeholders) {
   if (placeholders.SYNTHETIC != null && typeof placeholders.SYNTHETIC !== 'object') {
-    return String(placeholders.SYNTHETIC);
+    return placeholderText_(placeholders.SYNTHETIC);
   }
   var synthetic = result.synthetic;
   if (!synthetic || typeof synthetic !== 'object') {
@@ -978,7 +985,7 @@ function sampleAnalytics_() {
       FRAUD_FLAG_COUNT: 0,
       MODELED_GROUND_UP_LOSS: '8152953.60',
       EXPECTED_ANNUAL_LOSS: '2500000.00',
-      SYNTHETIC: true,
+      SYNTHETIC: 'true',
       SYNTHETIC_HAZARD: 'true',
       SYNTHETIC_VULNERABILITY: 'true',
       SYNTHETIC_EXPOSURE: 'true',

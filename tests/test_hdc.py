@@ -1,6 +1,6 @@
 import numpy as np
 
-from catmod.hdc.encoding import ItemMemory
+from catmod.hdc.encoding import COST_NORM_CEILING, ItemMemory, _norm_cost
 from catmod.hdc.fhrr import bind, exponentiate, random_hypervector, similarity, unbind
 from catmod.hdc.memory import PortfolioMemory
 
@@ -20,6 +20,13 @@ def test_continuous_exponent_recovers_nearby_scalars():
     v2 = exponentiate(basis, 0.41)
     v_far = exponentiate(basis, 0.90)
     assert similarity(v1, v2) > similarity(v1, v_far)
+
+
+def test_cost_normalization_reaches_one_at_one_hundred_billion():
+    assert COST_NORM_CEILING == 1.0e11
+    assert _norm_cost(0) == 0.0
+    assert _norm_cost(COST_NORM_CEILING) == 1.0
+    assert _norm_cost(1.0e9) < 1.0
 
 
 def test_temporal_projection_is_bind_with_phase_power():
