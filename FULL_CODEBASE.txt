@@ -11047,6 +11047,7 @@ FILE: static/index.html
     display:flex;
     flex-direction:column;
     min-width:0;
+    overflow:hidden;
   }
   .quote-card h2{
     margin:0;
@@ -11094,9 +11095,8 @@ FILE: static/index.html
   .result-answer:empty{display:none;}
   #mapFrame{
     width:100%;
-    flex:1 1 auto;
-    height:460px;
-    min-height:460px;
+    flex:1 1 0;
+    min-height:0;
     border:0;
     border-radius:16px;
     background:#d5dde3;
@@ -11115,9 +11115,9 @@ FILE: static/index.html
   .mode-tab.is-on{
     color:#fff;background:#202124;border-color:#202124;
   }
-  .mode-panels{flex:1 1 auto;min-height:0;position:relative;}
+  .mode-panels{flex:1 1 auto;min-height:0;position:relative;overflow:hidden;}
   .mode-panel{display:none;height:100%;min-height:0;}
-  .mode-panel.is-on{display:flex;flex-direction:column;}
+  .mode-panel.is-on{display:flex;flex-direction:column;overflow:hidden;}
   .mode-fallback{color:var(--muted);font-size:14px;}
   #graphSvg{width:100%;height:min(320px,42vh);flex:none;}
   #graphTip{margin:6px 0 0;font-size:12px;color:var(--muted);min-height:1.2em;}
