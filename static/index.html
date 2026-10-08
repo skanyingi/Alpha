@@ -844,8 +844,12 @@
   .studio-src span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .studio-src small{color:#80868b;font-size:11px;flex:none;}
   .studio-main{
-    display:flex;flex-direction:column;padding:28px 32px 18px;
-    min-height:0;overflow:auto;
+    display:flex;flex-direction:column;padding:0;
+    min-height:0;overflow:hidden;
+  }
+  .studio-scroll{
+    flex:1 1 auto;min-height:0;overflow:auto;
+    padding:28px 32px 0;
   }
   .studio-mark{
     width:42px;height:42px;border-radius:12px;display:grid;place-items:center;
@@ -863,9 +867,22 @@
     margin-top:16px;font:400 15px/1.5 Inter,sans-serif;color:#202124;white-space:pre-wrap;
   }
   .studio-dock{
-    position:sticky;bottom:0;z-index:4;
-    margin-top:auto;padding-top:10px;
-    background:#fff;
+    position:static;flex:0 0 auto;z-index:4;
+    margin-top:0;padding:12px 32px 18px;
+    background:#fff;border-top:1px solid #eef0f4;
+  }
+  .studio-busy{
+    display:flex;align-items:center;gap:8px;margin-bottom:8px;
+    color:#5f6368;font:500 12px Inter,sans-serif;
+  }
+  .studio-busy[hidden]{display:none !important;}
+  .studio-spin{
+    width:16px;height:16px;border-radius:50%;flex:none;
+    border:2px solid #e4e7ec;border-top-color:#1a73e8;
+    animation:upload-spin .7s linear infinite;
+  }
+  .studio-spin.is-inline{
+    display:inline-block;vertical-align:-2px;margin-right:6px;
   }
   .studio-ask{
     display:flex;align-items:center;gap:10px;
@@ -960,8 +977,11 @@
   .panel-x svg{width:20px;height:20px;display:block;}
   .panel-x.in-card{position:absolute;top:12px;right:12px;z-index:6;}
   @media (max-width:980px){
-    #studioPage{grid-template-columns:1fr;overflow:auto;}
+    #studioPage{grid-template-columns:1fr;overflow:auto;align-content:start;grid-auto-rows:max-content;}
     .studio-card{overflow:visible;}
+    .studio-main{overflow:visible;}
+    .studio-scroll{overflow:visible;padding:28px 32px 0;}
+    .studio-dock{position:sticky;bottom:0;}
   }
   #agentsPage{
     position:fixed;inset:0;z-index:15;
@@ -1447,6 +1467,7 @@
     <div class="studio-sources" id="studioSources"></div>
   </aside>
   <section class="studio-card studio-main">
+    <div class="studio-scroll">
     <div class="studio-mark" aria-hidden="true">
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#1a73e8" stroke-width="1.7" stroke-linejoin="round"><path d="M4 18V8h3v10H4zM10.5 18V5h3v13h-3zM17 18v-6h3v6h-3z" stroke="#2fb964"/></svg>
     </div>
@@ -1486,7 +1507,12 @@
       </article>
     </div>
     <p class="studio-reply" id="studioReply"></p>
+    </div>
     <div class="studio-dock">
+      <div class="studio-busy" id="studioBusy" role="status" aria-live="polite" hidden>
+        <span class="studio-spin" aria-hidden="true"></span>
+        <span>Working…</span>
+      </div>
       <form class="studio-ask" id="studioAsk">
         <input id="studioAskQ" type="text" placeholder="Ask a question or create something" autocomplete="off">
         <em id="studioAskCount"></em>
@@ -2320,15 +2346,16 @@
     paintWhatIfLabels(document);
   }
   function writeBriefing(job){
-    var text = "Gemini is writing the executive risk briefing.";
+    var text = '<span class="studio-spin is-inline" aria-hidden="true"></span>Gemini is writing the executive risk briefing.';
     var brief = document.getElementById("riskBriefText");
     var studio = document.getElementById("studioBriefText");
-    if(brief) brief.textContent = text;
-    if(studio) studio.textContent = text;
+    if(brief) brief.innerHTML = text;
+    if(studio) studio.innerHTML = text;
     var card = document.getElementById("riskBrief");
     var studioCard = document.getElementById("studioBrief");
     if(card) card.hidden = false;
     if(studioCard) studioCard.hidden = false;
+    setStudioBusy(true);
     postJSON("/api/v1/nlp/query", {
       query: "Write an executive risk briefing in complete sentences about this modeled book. " +
         "Quote these contractual figures rather than recalculating them. Ground-up loss is " + money(job.modeled_ground_up_loss) +
@@ -2346,6 +2373,8 @@
       var answer = "Gemini could not write the risk briefing for this book.";
       if(brief) brief.textContent = answer;
       if(studio) studio.textContent = answer;
+    }).finally(function(){
+      setStudioBusy(false);
     });
   }
   function bindModeledJob(job){
@@ -2970,6 +2999,14 @@
     writeStudioSummary();
   }
   var summaryKey = "";
+  var lastSummary = "";
+  var studioBusy = 0;
+  function setStudioBusy(on){
+    studioBusy += on ? 1 : -1;
+    if(studioBusy < 0) studioBusy = 0;
+    var el = document.getElementById("studioBusy");
+    if(el) el.hidden = studioBusy === 0;
+  }
   function writeStudioSummary(){
     var summary = document.getElementById("studioSummary");
     if(!summary) return;
@@ -2982,27 +3019,31 @@
     var key = String(csv.length) + ":" + csv.slice(0, 120) + "|" + (lastEventId || "");
     if(key === summaryKey && summary.textContent) return;
     summaryKey = key;
-    var previous = summary.textContent;
-    summary.textContent = "Gemini is writing the portfolio summary.";
+    summary.innerHTML = '<span class="studio-spin is-inline" aria-hidden="true"></span>Gemini is writing the portfolio summary.';
+    setStudioBusy(true);
     postJSON("/api/v1/nlp/summary", {
       csv_text: csv || null,
       event_id: csv ? null : (lastEventId || null),
       dataset_name: studioDatasetName() || null
     }).then(function(data){
       if(summaryKey !== key) return;
-      summary.textContent = data.answer || previous || "Gemini returned an empty summary.";
+      lastSummary = data.answer || lastSummary;
+      summary.textContent = lastSummary || "Gemini returned an empty summary.";
     }).catch(function(){
       if(summaryKey !== key) return;
-      if(!previous) summary.textContent = "Add a portfolio CSV. Gemini writes this summary from the book.";
+      summary.textContent = lastSummary || "Add a portfolio CSV. Gemini writes this summary from the book.";
+    }).finally(function(){
+      setStudioBusy(false);
     });
   }
   function studioAnswer(text){
     var reply = document.getElementById("studioReply");
     text = String(text || "").trim();
     if(!text) return;
-    reply.textContent = "Reading the checked sources…";
+    reply.innerHTML = '<span class="studio-spin is-inline" aria-hidden="true"></span>Reading the checked sources…';
     var csv = sessionCsvText();
     if(csv.length > 120000) csv = csv.slice(0, 120000);
+    setStudioBusy(true);
     postJSON("/api/v1/nlp/query", {
       query: text,
       event_id: csv ? null : (lastEventId || null),
@@ -3012,6 +3053,8 @@
       reply.textContent = data.answer || "No answer came back.";
     }).catch(function(err){
       reply.textContent = (err && err.message) || "The sources did not answer.";
+    }).finally(function(){
+      setStudioBusy(false);
     });
   }
   function studioChart(title, labels, points, color, yLabel){
