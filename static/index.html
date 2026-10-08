@@ -508,6 +508,14 @@
   #graphSvg{width:100%;height:min(320px,42vh);flex:none;}
   #graphTip{margin:6px 0 0;font-size:12px;color:var(--muted);min-height:1.2em;}
   .graph-note{margin:4px 0 0;font-size:11px;color:#80868b;}
+  .chart-hover-tip{
+    position:fixed;z-index:80;pointer-events:none;
+    background:#202124;color:#fff;border-radius:10px;
+    padding:8px 12px;font:600 12px/1.35 Inter,sans-serif;
+    white-space:pre-line;max-width:260px;
+    box-shadow:0 8px 22px rgba(0,0,0,.32);
+  }
+  .chart-hover-tip[hidden]{display:none !important;}
   .prov-banner{
     margin:12px 0 0;padding:10px 12px;border-radius:12px;
     background:#fff4e5;color:#7a4b00;font:500 13px/1.45 Poppins,sans-serif;
@@ -896,6 +904,19 @@
     margin:0;padding:8px 32px 0;
     background:#fff;
   }
+  .studio-busy{
+    display:flex;align-items:center;gap:8px;margin-bottom:8px;
+    color:#5f6368;font:500 12px Inter,sans-serif;
+  }
+  .studio-busy[hidden]{display:none !important;}
+  .studio-spin{
+    width:16px;height:16px;border-radius:50%;flex:none;
+    border:2px solid #e4e7ec;border-top-color:#1a73e8;
+    animation:upload-spin .7s linear infinite;
+  }
+  .studio-spin.is-inline{
+    display:inline-block;vertical-align:-2px;margin-right:6px;
+  }
   .studio-ask{
     display:flex;align-items:center;gap:10px;
     background:#fff;border:1px solid #e6e8ee;border-radius:999px;
@@ -1001,9 +1022,12 @@
   .panel-x svg{width:20px;height:20px;display:block;}
   .panel-x.in-card{position:absolute;top:12px;right:12px;z-index:6;}
   @media (max-width:980px){
-    #studioPage{grid-template-columns:1fr;overflow:auto;}
+    #studioPage{grid-template-columns:1fr;overflow:auto;align-content:start;grid-auto-rows:max-content;}
     .studio-side{overflow:visible;}
-    .studio-main{overflow:hidden;}
+    .studio-card{overflow:visible;}
+    .studio-main{overflow:visible;}
+    .studio-scroll{overflow:visible;padding:28px 32px 0;}
+    .studio-dock{position:sticky;bottom:0;}
   }
   #agentsPage{
     position:fixed;inset:0;z-index:15;
@@ -1532,6 +1556,10 @@
     <p class="studio-reply" id="studioReply"></p>
     </div>
     <div class="studio-dock">
+      <div class="studio-busy" id="studioBusy" role="status" aria-live="polite" hidden>
+        <span class="studio-spin" aria-hidden="true"></span>
+        <span>Working…</span>
+      </div>
       <form class="studio-ask" id="studioAsk">
         <input id="studioAskQ" type="text" placeholder="Ask a question or create something" autocomplete="off">
         <em id="studioAskCount"></em>
@@ -1963,6 +1991,13 @@
     if(!isFinite(x)) return String(n == null ? "" : n);
     return x.toLocaleString("en-US", {style:"currency", currency:bookCurrency, maximumFractionDigits:2});
   }
+  function moneyTip(n){
+    var x = Number(n);
+    if(!isFinite(x)) return String(n == null ? "" : n);
+    var sign = x < 0 ? "-" : "";
+    var mark = bookCurrency === "KES" ? "Kshs " : "$";
+    return sign + mark + Math.abs(Math.round(x)).toLocaleString("en-US");
+  }
   function compact(n){
     var x = Number(n);
     if(!isFinite(x)) return "";
@@ -2121,18 +2156,15 @@
   }
   function paintCurve(svg, tip, points){
     if(!svg) return;
-    var labels = points.map(function(p){ return "RP " + p.return_period; });
+    var labels = points.map(function(p){ return p.return_period + "y"; });
     var gul = points.map(function(p){ return Number(p.gul); });
     var net = points.map(function(p){ return Number(p.net); });
     var tips = points.map(function(p){
-      var audit = (p.audit || []).map(function(row){
-        return "L" + row.layer + " " + (row.name || row.step || "") + " " + (row.status || "");
-      }).join(" · ");
-      return "RP " + p.return_period + " ground-up " + money(p.gul) + " · net " + money(p.net) + (audit ? " · " + audit : "");
+      return "1-in-" + p.return_period + " year loss\n" + moneyTip(p.gul);
     });
     var spec = {
       labels: labels,
-      x_label: "Return period",
+      x_label: "Return Period",
       y_label: "Loss (" + bookCurrency + ")",
       series: [
         {name:"Ground-up loss", color:"#1a73e8", points: gul},
@@ -2141,7 +2173,7 @@
       tips: tips
     };
     if(window.drawAquaGraph) window.drawAquaGraph(svg, spec, tip);
-    if(tip) tip.textContent = tips[0] || "";
+    if(tip) tip.textContent = "";
   }
   function svgText(ns, attrs, value){
     var text = document.createElementNS(ns, "text");
@@ -2376,15 +2408,16 @@
     paintWhatIfLabels(document);
   }
   function writeBriefing(job){
-    var text = "Gemini is writing the executive risk briefing.";
+    var text = '<span class="studio-spin is-inline" aria-hidden="true"></span>Gemini is writing the executive risk briefing.';
     var brief = document.getElementById("riskBriefText");
     var studio = document.getElementById("studioBriefText");
-    if(brief) brief.textContent = text;
-    if(studio) studio.textContent = text;
+    if(brief) brief.innerHTML = text;
+    if(studio) studio.innerHTML = text;
     var card = document.getElementById("riskBrief");
     var studioCard = document.getElementById("studioBrief");
     if(card) card.hidden = false;
     if(studioCard) studioCard.hidden = false;
+    setStudioBusy(true);
     postJSON("/api/v1/nlp/query", {
       query: "Write an executive risk briefing in complete sentences about this modeled book. " +
         "Quote these contractual figures rather than recalculating them. Ground-up loss is " + money(job.modeled_ground_up_loss) +
@@ -2402,6 +2435,8 @@
       var answer = "Gemini could not write the risk briefing for this book.";
       if(brief) brief.textContent = answer;
       if(studio) studio.textContent = answer;
+    }).finally(function(){
+      setStudioBusy(false);
     });
   }
   function bindModeledJob(job){
@@ -2447,7 +2482,7 @@
     var syn = data.synthetic || {};
     var ep = data.ep_curve || {};
     var curve = ep.curve || [];
-    var labels = curve.map(function(p){ return "RP " + p.return_period; });
+    var labels = curve.map(function(p){ return p.return_period + "y"; });
     var points = curve.map(function(p){ return Number(p.loss_float != null ? p.loss_float : p.loss); });
     var lines = [
       "Event " + data.event_id,
@@ -2481,7 +2516,11 @@
         note: "Occurrence EP curve from the return-period catalogue. Vulnerability curves are proxy functions. Hazard synthetic is " + yn(syn.hazard) + ".",
         graph: {
           labels: labels,
+          x_label: "Return Period",
           series: [{name:"OEP loss", color:"#1a73e8", points: points}],
+          tips: curve.map(function(p){
+            return "1-in-" + p.return_period + " year loss\n" + moneyTip(Number(p.loss_float != null ? p.loss_float : p.loss));
+          }),
           highlight_value: compact(ep.eal),
           highlight_label: labels[Math.min(labels.length - 1, 3)] || "",
           highlight_unit: "EAL"
@@ -3036,6 +3075,14 @@
     });
   }
   var summaryKey = "";
+  var lastSummary = "";
+  var studioBusy = 0;
+  function setStudioBusy(on){
+    studioBusy += on ? 1 : -1;
+    if(studioBusy < 0) studioBusy = 0;
+    var el = document.getElementById("studioBusy");
+    if(el) el.hidden = studioBusy === 0;
+  }
   var summaryBar = 0;
   function setSummaryBar(on){
     var bar = document.getElementById("studioProgress");
@@ -3100,11 +3147,12 @@
       dataset_name: studioDatasetName() || null
     }).then(function(data){
       if(summaryKey !== key) return;
-      summary.textContent = singleSummary(data.answer) || previous || "Gemini returned an empty summary.";
+      lastSummary = singleSummary(data.answer) || previous;
+      summary.textContent = lastSummary || "Gemini returned an empty summary.";
       setSummaryBar(false);
     }).catch(function(){
       if(summaryKey !== key) return;
-      if(!previous) summary.textContent = "Add a portfolio CSV. Gemini writes this summary from the book.";
+      summary.textContent = (previous && previous.indexOf("Gemini is writing") !== 0) ? previous : (lastSummary || "Add a portfolio CSV. Gemini writes this summary from the book.");
       setSummaryBar(false);
     });
   }
@@ -3112,9 +3160,10 @@
     var reply = document.getElementById("studioReply");
     text = String(text || "").trim();
     if(!text) return;
-    reply.textContent = "Reading the checked sources…";
+    reply.innerHTML = '<span class="studio-spin is-inline" aria-hidden="true"></span>Reading the checked sources…';
     var csv = sessionCsvText();
     if(csv.length > 120000) csv = csv.slice(0, 120000);
+    setStudioBusy(true);
     postJSON("/api/v1/nlp/query", {
       query: text,
       event_id: csv ? null : (lastEventId || null),
@@ -3124,9 +3173,11 @@
       reply.textContent = data.answer || "No answer came back.";
     }).catch(function(err){
       reply.textContent = (err && err.message) || "The sources did not answer.";
+    }).finally(function(){
+      setStudioBusy(false);
     });
   }
-  function studioChart(title, labels, points, color, yLabel){
+  function studioChart(title, labels, points, color, yLabel, xLabel){
     labels = labels || [];
     points = points || [];
     if(!labels.length) return "";
@@ -3157,7 +3208,7 @@
     var mid = padT + plotH / 2;
     var axes = ticks + bars +
       '<text x="14" y="' + mid + '" fill="#5f6368" font-size="11" text-anchor="middle" transform="rotate(-90 14 ' + mid + ')">' + esc(yLabel || "Value") + '</text>' +
-      '<text x="' + (padL + plotW / 2) + '" y="' + (h - 3) + '" fill="#5f6368" font-size="11" text-anchor="middle">' + esc(title) + '</text>';
+      '<text x="' + (padL + plotW / 2) + '" y="' + (h - 3) + '" fill="#5f6368" font-size="11" text-anchor="middle">' + esc(xLabel || title) + '</text>';
     return '<p class="studio-chart-label">' + esc(title) + '</p><svg class="studio-chart" viewBox="0 0 ' + w + ' ' + h + '" role="img">' + axes + '</svg>';
   }
   function studioCurve(title, labels, points, color, yLabel){
