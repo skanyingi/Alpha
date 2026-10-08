@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 import json
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from catmod.audit import AuditLog
@@ -79,8 +80,8 @@ def health() -> dict[str, str]:
 
 
 @app.get("/")
-def desk_home() -> RedirectResponse:
-    return RedirectResponse(url="/map/")
+def desk_home() -> FileResponse:
+    return FileResponse(Path(__file__).resolve().parents[1] / "static" / "landing.html")
 
 
 @app.post("/v1/process-bordereau")
