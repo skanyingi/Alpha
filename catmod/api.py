@@ -8,7 +8,7 @@ import json
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from catmod.analytics.desk import (
@@ -103,8 +103,8 @@ def health() -> dict[str, str]:
 
 
 @app.get("/")
-def desk_home() -> FileResponse:
-    return FileResponse(Path(__file__).resolve().parents[1] / "static" / "landing.html")
+def desk_home() -> RedirectResponse:
+    return RedirectResponse("/map/", status_code=307)
 
 
 @app.post("/v1/process-bordereau")
