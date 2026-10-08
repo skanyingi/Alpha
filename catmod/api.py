@@ -11,16 +11,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from catmod.agents.orchestrator import execute_workflow
+from catmod.agents.status import agent_status
 from catmod.audit import AuditLog
 from catmod.config import get_settings
 from catmod.jobs import JobStore
 from catmod.nlp.gemini_rag import (
     build_dataset_context,
-    load_named_dataset,
     parse_csv_text,
     query_dataset_rag,
     rows_from_claims,
+    summarize_dataset,
 )
+from catmod.studio import build_studio_preview
 from catmod.flood.gemini import gemini_configured
 from catmod.flood.maps import MapsError, fetch_aerial, fetch_street_view, geocode_address, maps_configured
 from catmod.spatial.elevation import lookup_elevation_m
@@ -37,6 +40,7 @@ from catmod.schemas import (
     ElevationIn,
     FloodEvaluateIn,
     RAGQueryIn,
+    SummaryIn,
     TilesSessionIn,
 )
 from catmod.spatial.blender import build_blender_manifest
@@ -115,6 +119,45 @@ def audit(event_id: str) -> JSONResponse:
     return JSONResponse(job["audit"])
 
 
+def _workspace_kind(name: str, url: str = "") -> str:
+    text = f"{name} {url}".lower()
+    base = name.lower().strip()
+    if "docs.google.com/document" in text or ".gdoc" in text or base.endswith((".docx", ".doc", ".pdf")):
+        return "docs"
+    if any(token in text for token in ("spreadsheet", "sheets.google", ".csv", ".xlsx", ".xls")):
+        return "sheets"
+    if "mail.google" in text or "gmail" in text:
+        return "gmail"
+    return "drive"
+
+
+@app.get("/api/v1/workspace/events")
+def workspace_events() -> dict[str, Any]:
+    """Recent Workspace arrivals: the file, the sending mailbox, and any source link."""
+    rows: list[dict[str, str]] = []
+    for job in reversed(job_store().values()):
+        filename = str(job.get("filename") or "Bordereau")
+        event_id = str(job.get("event_id") or "")
+        email = str(job.get("client_email") or "")
+        when = str((job.get("audit") or {}).get("started_at") or "")
+        gross = job.get("total_gross_claim")
+        detail = event_id
+        if isinstance(gross, (int, float)):
+            detail = f"{event_id} · gross ${float(gross):,.2f}"
+        rows.append({"kind": _workspace_kind(filename), "title": filename, "detail": detail, "when": when})
+        if email:
+            rows.append({
+                "kind": "gmail",
+                "title": email,
+                "detail": f"Workspace message for {event_id}",
+                "when": when,
+            })
+        for url in job.get("source_urls") or []:
+            link = str(url)
+            rows.append({"kind": _workspace_kind(link, link), "title": link, "detail": event_id, "when": when})
+    return {"events": rows[:40]}
+
+
 @app.get("/api/v1/events")
 def events() -> dict[str, Any]:
     return {
@@ -132,6 +175,12 @@ def events() -> dict[str, Any]:
 
 
 def _rag_context(payload: RAGQueryIn) -> dict[str, Any]:
+    """Answer from an uploaded CSV or a job the desk already modeled. Never a bundled sample."""
+    if payload.csv_text and payload.csv_text.strip():
+        rows = parse_csv_text(payload.csv_text)
+        if not rows:
+            raise ValueError("The uploaded CSV has no data rows.")
+        return build_dataset_context(rows, name="uploaded-session.csv", event_id=payload.event_id)
     store = job_store()
     if payload.event_id:
         job = store.get(payload.event_id)
@@ -142,11 +191,6 @@ def _rag_context(payload: RAGQueryIn) -> dict[str, Any]:
                 name=str(job.get("filename") or payload.event_id),
                 event_id=str(job.get("event_id") or payload.event_id),
             )
-    if payload.csv_text and payload.csv_text.strip():
-        return build_dataset_context(parse_csv_text(payload.csv_text), name="uploaded-session.csv", event_id=payload.event_id)
-    if payload.dataset_name:
-        filename, rows = load_named_dataset(payload.dataset_name)
-        return build_dataset_context(rows, name=filename, event_id=payload.event_id)
     latest = store.latest()
     if latest is not None:
         claims = rows_from_claims(list(latest.get("claims") or []))
@@ -155,12 +199,7 @@ def _rag_context(payload: RAGQueryIn) -> dict[str, Any]:
             name=str(latest.get("filename") or latest.get("event_id")),
             event_id=str(latest.get("event_id")),
         )
-    query = payload.query.lower()
-    if "nzoia" in query:
-        filename, rows = load_named_dataset("sample_nzoia_bordereau")
-    else:
-        filename, rows = load_named_dataset("sample_nairobi_bordereau")
-    return build_dataset_context(rows, name=filename, event_id=None)
+    raise ValueError("Upload a portfolio CSV before asking about a dataset.")
 
 
 def _record_rag(event_id: str, detail: dict[str, Any]) -> None:
@@ -201,9 +240,50 @@ def nlp_query(payload: RAGQueryIn) -> JSONResponse:
             "source": result.get("source"),
             "event_id": context.get("event_id"),
             "dataset_name": context.get("name"),
-            "tab": "map" if matched and context.get("event_id") else "answer",
+            "tab": "answer",
         }
     )
+
+
+@app.post("/api/v1/nlp/summary")
+def nlp_summary(payload: SummaryIn) -> JSONResponse:
+    """Gemini writes the studio summary. This route does not call Jev."""
+    try:
+        context = _rag_context(
+            RAGQueryIn(query="summarize the portfolio", event_id=payload.event_id, csv_text=payload.csv_text)
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    result = summarize_dataset(context, get_settings())
+    event_id = str(context.get("event_id") or "NLP-SESSION")
+    try:
+        _record_rag(
+            event_id,
+            {
+                "query": "studio summary",
+                "dataset": context.get("name"),
+                "source": result.get("source"),
+                "confidence": result.get("confidence"),
+                "path": "gemini_nlp",
+            },
+        )
+    except Exception:
+        pass
+    return JSONResponse(
+        {
+            "answer": result.get("answer") or "",
+            "summary_stats": result.get("summary_stats") or {},
+            "confidence": result.get("confidence"),
+            "source": result.get("source"),
+            "event_id": context.get("event_id"),
+            "dataset_name": context.get("name"),
+        }
+    )
+
+
+@app.get("/api/v1/studio/preview")
+def studio_preview() -> JSONResponse:
+    return JSONResponse(build_studio_preview(job_store().latest()))
 
 
 @app.get("/api/v1/flood/status")
@@ -430,6 +510,19 @@ def blender_manifest_post(
 ) -> Response:
     body = _blender_payload(payload.event_id, payload.shader_preset, payload.storey_height_m)
     return _blender_response(body, download)
+
+
+@app.post("/api/v1/agents/execute")
+def agents_execute(payload: BordereauWebhook) -> JSONResponse:
+    try:
+        return JSONResponse(execute_workflow(payload))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/v1/agents/status")
+def agents_status() -> JSONResponse:
+    return JSONResponse(agent_status())
 
 
 try:

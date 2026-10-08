@@ -100,6 +100,15 @@ class RAGQueryIn(BaseModel):
     )
 
 
+class SummaryIn(BaseModel):
+    event_id: str | None = None
+    csv_text: str | None = Field(
+        default=None,
+        max_length=400_000,
+        description="Optional CSV text from the open studio tab",
+    )
+
+
 class BlenderManifestIn(BaseModel):
     event_id: str | None = None
     shader_preset: str = "PHOTOREAL_DEFAULT"

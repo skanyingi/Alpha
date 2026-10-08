@@ -22,12 +22,16 @@ REQUIRED_STEPS = {
 
 
 def main() -> None:
-    sample = ROOT / "data" / "sample_nairobi_bordereau.csv"
+    if len(sys.argv) < 2:
+        raise SystemExit("Pass a bordereau CSV path. The repository does not ship a sample portfolio.")
+    sample = Path(sys.argv[1])
+    if not sample.is_file():
+        raise SystemExit(f"Bordereau not found: {sample}")
     result = run_pipeline(
         BordereauWebhook(
             client_email="desk@nairobi.example",
-            client_name="Nairobi County Mutual",
-            filename="sample_nairobi_bordereau.csv",
+            client_name="Catastrophe desk",
+            filename=sample.name,
             data=sample.read_text(encoding="utf-8"),
             loss_basis="modeled",
             hazard_region="nairobi",

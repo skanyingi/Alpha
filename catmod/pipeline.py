@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
+from catmod.agents.trail import record_agent_trail
 from catmod.analytics.ep_curve import catalog_ep_curve, portfolio_ep_curve
 from catmod.audit import AuditLog
 from catmod.config import Settings, get_settings
@@ -139,13 +140,15 @@ def _stochastic_catalog(
         reinsurer_losses.append(Decimal(str(waterfall["reinsurer_payout"])))
         rates.append(event.rate)
         if event_index < 48:
+            for claim, occupancy, gul, damage in zip(claims, occupancies, event_guls, damage_values):
                 footprints.append(
                     {
-                        "latitude": sum(claim.latitude for claim in claims) / len(claims),
-                        "longitude": sum(claim.longitude for claim in claims) / len(claims),
-                        "damage_ratio": sum(damage_values) / len(damage_values),
-                        "cost": float(sum(event_guls, Decimal("0"))),
-                        "occupancy": occupancies[0],
+                        "latitude": claim.latitude,
+                        "longitude": claim.longitude,
+                        "elevation": claim.elevation,
+                        "damage_ratio": damage,
+                        "cost": gul,
+                        "occupancy": occupancy,
                         "event_id": event.event_id,
                     }
                 )
@@ -394,7 +397,7 @@ def run_pipeline(payload: BordereauWebhook, settings: Settings | None = None) ->
             memory.encode_and_add(
                 latitude=float(footprint["latitude"]),
                 longitude=float(footprint["longitude"]),
-                elevation=0.0,
+                elevation=float(footprint.get("elevation") or 0.0),
                 time_t=float(index),
                 cost=float(footprint["cost"]),
                 occupancy=str(footprint["occupancy"]),
@@ -653,6 +656,14 @@ def run_pipeline(payload: BordereauWebhook, settings: Settings | None = None) ->
         },
     )
     elapsed_ms = (time.perf_counter() - started) * 1000.0
+    record_agent_trail(
+        audit,
+        elapsed_ms=elapsed_ms,
+        jev_ms=jev_ms,
+        finance_routes=finance_routes,
+        hdc_routes=hdc_routes,
+        claim_count=len(claims),
+    )
     audit.record(
         layer=5,
         name="pipeline_sla",

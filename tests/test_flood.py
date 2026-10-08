@@ -3,16 +3,16 @@ from catmod.flood.hazard import risk_color, risk_level, score_asset
 from catmod.flood.service import evaluate_asset, footprints_for_points, hazard_collection
 
 
-def test_open_buildings_contains_sample_warehouse():
+def test_missing_local_buildings_estimates_a_footprint():
     hit = match_footprint(-1.2921, 36.8219)
     assert hit["geometry"]["type"] == "Polygon"
-    assert hit["properties"]["match"] in {"contains", "nearest"}
-    assert hit["properties"]["area_m2"] > 100
+    assert hit["properties"]["match"] == "estimated"
+    assert hit["properties"]["source"] == "estimated_rectangle"
     ring = hit["geometry"]["coordinates"][0]
     assert point_in_ring(-1.2921, 36.8219, ring)
     lat_c, lon_c = ring_centroid(ring)
     assert abs(lat_c - -1.2921) < 0.01
-    assert ring_area_m2(ring) > 100
+    assert ring_area_m2(ring) > 0
 
 
 def test_null_island_gets_estimated_footprint():

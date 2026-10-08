@@ -99,6 +99,7 @@ def create_map_tiles_session(
 
 
 def fetch_3d_tiles_root(settings: Settings | None = None) -> dict[str, Any]:
+    key = _key(settings)
     with httpx.Client(timeout=8.0) as client:
         response = client.get(TILES_ROOT, params={"key": key})
         if response.status_code in {400, 401, 403, 429}:
