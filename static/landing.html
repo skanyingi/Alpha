@@ -18,18 +18,8 @@
   .titles{
     position:fixed;inset:0;z-index:2;
     display:flex;flex-direction:column;align-items:center;justify-content:center;
-    text-align:center;color:#f4efe6;
+    text-align:center;color:#fff;
     padding:0 6vw 14vh;
-  }
-  .titles::before{
-    content:"";
-    position:absolute;
-    width:min(980px, 86vw);
-    height:46vh;
-    border-radius:50%;
-    background:radial-gradient(ellipse at center, rgba(6,12,20,.42) 0%, rgba(6,12,20,0) 70%);
-    z-index:-1;
-    pointer-events:none;
   }
   .hero,.sub{
     margin:0;
@@ -37,31 +27,30 @@
     font-optical-sizing:auto;
     font-weight:500;
     font-variation-settings:"opsz" 96;
-    text-shadow:0 2px 18px rgba(4,10,18,.4);
+    color:#fff;
+    text-shadow:0 0 22px rgba(255,252,246,.72), 0 0 2px rgba(255,255,255,.95);
   }
   .hero{
     font-size:clamp(76px, 15vw, 188px);
     line-height:.86;
     opacity:0;
-    animation:hero-in 2.8s cubic-bezier(.16,.84,.24,1) .45s forwards;
+    animation:fade-bright 4s cubic-bezier(.16,.7,.2,1) forwards;
   }
   .sub{
     margin-top:.28em;
     font-size:clamp(22px, 3.2vw, 48px);
     font-weight:400;
     line-height:1.15;
+    letter-spacing:.04em;
     opacity:0;
-    animation:sub-in 2.4s cubic-bezier(.16,.84,.24,1) 1.85s forwards;
+    animation:fade-bright 3.4s cubic-bezier(.16,.7,.2,1) .6s forwards;
   }
-  @keyframes hero-in{
-    0%{opacity:0;letter-spacing:.48em;transform:translateY(16px);}
-    100%{opacity:1;letter-spacing:.01em;transform:none;}
+  @keyframes fade-bright{
+    0%{opacity:0;filter:brightness(2.4);transform:translateY(8px);}
+    55%{opacity:.92;filter:brightness(1.45);}
+    100%{opacity:1;filter:brightness(1.2);transform:none;}
   }
-  @keyframes sub-in{
-    0%{opacity:0;letter-spacing:.55em;transform:translateY(12px);}
-    100%{opacity:1;letter-spacing:.04em;transform:none;}
-  }
-  .titles.is-leave{animation:titles-out 1.15s cubic-bezier(.4,0,.2,1) forwards;}
+  .titles.is-leave{animation:titles-out .8s cubic-bezier(.4,0,.2,1) forwards;}
   @keyframes titles-out{
     to{opacity:0;transform:translateY(-10px);}
   }
@@ -87,10 +76,10 @@
     if(gone) return;
     gone = true;
     titles.classList.add("is-leave");
-    setTimeout(function(){ location.assign("/map/"); }, reduce ? 0 : 1000);
+    setTimeout(function(){ location.assign("/map/"); }, reduce ? 0 : 400);
   }
   titles.addEventListener("click", enter);
-  setTimeout(enter, reduce ? 1600 : 6200);
+  setTimeout(enter, reduce ? 400 : 4000);
 })();
 </script>
 </body>

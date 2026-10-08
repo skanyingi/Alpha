@@ -12069,7 +12069,7 @@ FILE: static/index.html
     position:relative;z-index:5;
     min-height:100vh;min-height:100dvh;
     display:flex;flex-direction:column;align-items:center;
-    padding:18vh 32px 40px;
+    padding:72px 32px 28px;
     transition:padding .8s cubic-bezier(.22,1,.36,1);
   }
   body.is-thinking .cluster,
@@ -12114,8 +12114,9 @@ FILE: static/index.html
     min-height:0;
   }
   .search{
+    display:none;
     width:100%;height:56px;
-    display:flex;align-items:center;
+    align-items:center;
     background:#fff;color:var(--ink);
     border-radius:999px;
     box-shadow:var(--shadow);
@@ -12165,13 +12166,17 @@ FILE: static/index.html
   .plus-menu svg{width:20px;height:20px;color:#5f6368;}
 
   .cards{
-    margin-top:26px;
-    display:flex;gap:12px;justify-content:center;flex-wrap:wrap;
-    max-height:220px;
+    margin-top:8px;
+    width:min(1040px, 100%);
+    display:grid;
+    grid-template-columns:repeat(4, minmax(0, 1fr));
+    gap:12px 14px;
+    justify-content:center;
+    max-height:none;
   }
   .gcard{
     display:flex;align-items:center;gap:12px;
-    min-width:228px;max-width:280px;
+    min-width:0;max-width:none;
     padding:12px 18px 12px 14px;
     background:#fff;color:var(--ink);
     border-radius:16px;text-decoration:none;
@@ -12716,8 +12721,8 @@ FILE: static/index.html
     .search-wrap{width:100%;}
     .ai-mode span{font-size:12px;max-width:108px;overflow:hidden;text-overflow:ellipsis;}
     .ai-mode{padding:0 10px;}
-    .cards{max-height:none;gap:10px;}
-    .gcard{min-width:0;width:min(320px,100%);}
+    .cards{max-height:none;gap:10px;grid-template-columns:repeat(2, minmax(0, 1fr));}
+    .gcard{min-width:0;width:auto;}
     .shortcuts{max-height:none;gap:18px;margin-top:22px;}
     .top{gap:10px;padding:max(10px, env(safe-area-inset-top, 0px)) 10px 0 0;}
     .apps{right:12px;width:min(320px,calc(100vw - 24px));}
@@ -12732,6 +12737,128 @@ FILE: static/index.html
     .top{padding-top:max(12px, env(safe-area-inset-top, 0px));}
     body.has-result .cluster{padding-top:max(52px, env(safe-area-inset-top, 0px) + 32px);}
   }
+  #studioPage{
+    position:fixed;inset:0;z-index:15;
+    display:none;
+    grid-template-columns:minmax(240px,300px) minmax(0,1fr) minmax(250px,320px);
+    gap:16px;
+    padding:78px 22px 18px;
+    box-sizing:border-box;
+    pointer-events:none;
+  }
+  body.has-studio #studioPage{display:grid;pointer-events:auto;}
+  #studioPage[hidden]{display:none !important;}
+  body.has-studio .cluster{visibility:hidden;pointer-events:none;}
+  .studio-card{
+    background:#fff;color:#202124;
+    border-radius:22px;
+    box-shadow:0 1px 3px rgba(60,64,67,.2), 0 12px 32px rgba(0,0,0,.16);
+    min-height:0;overflow:auto;
+  }
+  .studio-side{padding:16px 14px 18px;display:flex;flex-direction:column;gap:12px;}
+  .studio-head{
+    display:flex;align-items:center;justify-content:space-between;
+    font:600 14px Inter,sans-serif;
+  }
+  .studio-head button{
+    all:unset;cursor:pointer;width:28px;height:28px;border-radius:8px;
+    display:grid;place-items:center;color:#5f6368;
+  }
+  .studio-head button:hover{background:#f1f3f4;}
+  .studio-add{
+    all:unset;cursor:pointer;box-sizing:border-box;
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    height:42px;border-radius:999px;
+    background:#e9fff4;color:#067a3a;
+    font:600 14px Inter,sans-serif;
+  }
+  .studio-add:hover{background:#d7ffe9;}
+  .studio-web{
+    display:flex;flex-direction:column;gap:8px;
+    background:#f7f8fa;border-radius:16px;padding:10px;
+  }
+  .studio-web input{
+    width:100%;border:0;outline:0;background:transparent;
+    font:400 13px Inter,sans-serif;color:#202124;
+  }
+  .studio-web-row{display:flex;align-items:center;gap:8px;}
+  .studio-chip{
+    all:unset;cursor:pointer;width:32px;height:32px;border-radius:999px;
+    display:grid;place-items:center;background:#fff;color:#5f6368;
+    box-shadow:0 1px 2px rgba(0,0,0,.08);
+  }
+  .studio-chip svg,.studio-go svg{width:16px;height:16px;display:block;}
+  .studio-go{
+    all:unset;cursor:pointer;margin-left:auto;width:32px;height:32px;border-radius:999px;
+    display:grid;place-items:center;background:#202124;color:#fff;
+  }
+  .studio-sources{display:flex;flex-direction:column;gap:2px;min-height:0;}
+  .studio-src,.studio-all{
+    display:flex;align-items:center;gap:10px;
+    padding:8px 6px;border-radius:10px;font:500 13px Inter,sans-serif;
+  }
+  .studio-src:hover{background:#f7f8fa;}
+  .studio-src input,.studio-all input{margin:0;accent-color:#1a73e8;}
+  .studio-src span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .studio-src small{color:#80868b;font-size:11px;flex:none;}
+  .studio-main{
+    display:flex;flex-direction:column;padding:28px 32px 18px;
+  }
+  .studio-mark{
+    width:42px;height:42px;border-radius:12px;display:grid;place-items:center;
+    background:#f4f7fb;margin-bottom:18px;
+  }
+  .studio-main h2{
+    margin:0;font:500 clamp(28px,4vw,44px)/1.05 Outfit,sans-serif;letter-spacing:-.03em;
+  }
+  .studio-meta{margin:8px 0 18px;color:#5f6368;font:500 13px Inter,sans-serif;}
+  .studio-summary{
+    margin:0;font:400 16px/1.55 Inter,sans-serif;color:#202124;
+    white-space:pre-wrap;
+  }
+  .studio-reply{
+    margin-top:16px;font:400 15px/1.5 Inter,sans-serif;color:#202124;white-space:pre-wrap;
+  }
+  .studio-ask{
+    margin-top:auto;padding-top:18px;
+    display:flex;align-items:center;gap:10px;
+    background:#fff;border:1px solid #e6e8ee;border-radius:999px;
+    box-shadow:0 8px 24px rgba(0,0,0,.08);
+    padding:8px 8px 8px 18px;
+  }
+  .studio-ask input{
+    flex:1;min-width:0;border:0;outline:0;background:transparent;
+    font:400 15px Inter,sans-serif;color:#202124;
+  }
+  .studio-ask em{font-style:normal;color:#80868b;font-size:12px;white-space:nowrap;}
+  .studio-note{margin:10px 0 0;text-align:center;color:#80868b;font:400 12px Inter,sans-serif;}
+  .studio-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .studio-out{
+    all:unset;cursor:pointer;box-sizing:border-box;
+    display:flex;align-items:center;gap:8px;
+    min-height:46px;padding:8px 10px;border-radius:14px;
+    background:#f7f8fa;color:#202124;font:500 13px Inter,sans-serif;
+  }
+  .studio-out:hover{background:#eef1f6;}
+  .studio-out svg{width:18px;height:18px;flex:none;}
+  .studio-out b{font-weight:500;line-height:1.2;}
+  .studio-out small{display:block;color:#80868b;font-size:11px;font-weight:400;}
+  .studio-new{
+    margin-left:auto;background:#e8f0fe;color:#1a73e8;
+    border-radius:999px;padding:1px 6px;font:700 10px Inter,sans-serif;
+  }
+  .studio-saved{display:flex;flex-direction:column;gap:8px;margin-top:8px;}
+  .studio-saved p{margin:0;color:#5f6368;font:400 13px/1.45 Inter,sans-serif;}
+  .studio-saved article{
+    background:#f7f8fa;border-radius:14px;padding:10px 12px;
+    font:500 13px Inter,sans-serif;
+  }
+  .studio-saved article small{display:block;color:#80868b;font-weight:400;margin-top:2px;}
+  @media (max-width:980px){
+    #studioPage{grid-template-columns:1fr;overflow:auto;}
+    .studio-card{overflow:visible;}
+  }
+
   .toast-stack{
     position:fixed;top:16px;left:50%;transform:translateX(-50%);
     z-index:70;display:flex;flex-direction:column;align-items:center;gap:10px;
@@ -12782,10 +12909,54 @@ FILE: static/index.html
   }
   @keyframes upload-spin{to{transform:rotate(360deg);}}
 
+  #homeFlip{
+    position:fixed;inset:0;z-index:90;
+    display:grid;place-items:center;
+    perspective:1400px;
+    background:rgba(8,10,22,.42);
+    pointer-events:none;
+  }
+  #homeFlip[hidden]{display:none !important;}
+  #homeFlip.is-on{animation:home-flip-veil 1.25s ease forwards;}
+  .flip-card{
+    width:min(980px, 88vw);
+    height:min(520px, 62vh);
+    position:relative;
+    transform-style:preserve-3d;
+  }
+  #homeFlip.is-on .flip-card{
+    animation:home-card-flip 1.05s cubic-bezier(.65,.02,.25,1) forwards;
+  }
+  .flip-face{
+    position:absolute;inset:0;border-radius:18px;
+    background:url("h2o-assets/desk-bg.jpg") center/cover no-repeat;
+    backface-visibility:hidden;
+    box-shadow:0 28px 70px rgba(0,0,0,.48);
+  }
+  .flip-back{
+    transform:rotateY(180deg);
+    background-position:72% center;
+  }
+  .flip-edge{
+    position:absolute;top:1.5%;bottom:1.5%;left:50%;
+    width:18px;margin-left:-9px;border-radius:3px;
+    background:linear-gradient(90deg,#1a140e,#d7c2a4 46%,#1a140e);
+    transform:rotateY(90deg);
+  }
+  @keyframes home-card-flip{
+    0%{transform:rotateY(0deg) scale(.97);}
+    100%{transform:rotateY(180deg) scale(1);}
+  }
+  @keyframes home-flip-veil{
+    0%,78%{opacity:1;}
+    100%{opacity:0;}
+  }
+
   @media (prefers-reduced-motion:reduce){
     .gem-glow::after,body.is-thinking .gem-glow{animation:none;}
     .query-pip.is-fly,.query-pip.is-settled{animation:none;opacity:1;transform:none;}
     .toast-card,.toast-card.is-leave{animation:none;}
+    #homeFlip.is-on,#homeFlip.is-on .flip-card{animation:none;}
   }
 </style>
 </head>
@@ -12797,6 +12968,13 @@ FILE: static/index.html
 <div class="toast-stack" id="toastStack" aria-live="polite" aria-label="Apps Script events"></div>
 <div class="upload-anim" id="uploadAnim" hidden>
   <div class="upload-card"><span class="upload-spin" aria-hidden="true"></span>Uploading</div>
+</div>
+<div id="homeFlip" hidden>
+  <div class="flip-card" aria-hidden="true">
+    <div class="flip-face flip-front"></div>
+    <div class="flip-edge"></div>
+    <div class="flip-face flip-back"></div>
+  </div>
 </div>
 
 <header class="top">
@@ -12955,6 +13133,50 @@ FILE: static/index.html
   </div>
 
   <div class="cards">
+    <a class="gcard gem-glow" href="#ask" data-query="Show the flood hazard catalogue">
+      <span class="gcard-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="1.7" stroke-linejoin="round">
+          <path d="M12 3s6 6.2 6 10.2A6 6 0 0 1 6 13.2C6 9.2 12 3 12 3z"/>
+        </svg>
+      </span>
+      <span>
+        <strong>Hazard</strong>
+        <em>Flood catalogue and depth</em>
+      </span>
+    </a>
+    <a class="gcard gem-glow" href="#ask" data-query="Show the exposure portfolio">
+      <span class="gcard-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="1.7" stroke-linejoin="round">
+          <path d="M4 20V10l5-3v3l6-3v13H4z"/><path d="M15 20v-7h5v7"/>
+        </svg>
+      </span>
+      <span>
+        <strong>Exposure</strong>
+        <em>Locations in the uploaded book</em>
+      </span>
+    </a>
+    <a class="gcard gem-glow" href="#ask" data-query="Show the vulnerability curves">
+      <span class="gcard-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#e8a317" stroke-width="1.7" stroke-linecap="round">
+          <path d="M4 16c2.2-4 4.2-6 8-6s5.8 2 8 6"/><path d="M4 10c2.2-3 4.2-4.5 8-4.5S17.8 7 20 10"/>
+        </svg>
+      </span>
+      <span>
+        <strong>Vulnerability</strong>
+        <em>Damage curves on the modeled book</em>
+      </span>
+    </a>
+    <a class="gcard gem-glow" href="#ask" data-query="Open the financial engine">
+      <span class="gcard-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#2fb964" stroke-width="1.7" stroke-linejoin="round">
+          <path d="M4 18V8h3v10H4zM10.5 18V5h3v13h-3zM17 18v-6h3v6h-3z"/>
+        </svg>
+      </span>
+      <span>
+        <strong>Financial engine</strong>
+        <em>Decimal waterfall, gross and reinsurer</em>
+      </span>
+    </a>
     <a class="gcard gem-glow" href="#ask" data-query="Run the Nairobi modeled portfolio">
       <span class="gcard-ico" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none">
@@ -12967,16 +13189,15 @@ FILE: static/index.html
         <em>Models your uploaded Nairobi CSV</em>
       </span>
     </a>
-    <a class="gcard gem-glow" href="#ask" data-query="Run the Nzoia depth portfolio">
+    <a class="gcard gem-glow" href="#ask" data-upload>
       <span class="gcard-ico" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#e8a317" stroke-width="1.6" stroke-linejoin="round">
-          <rect x="3.5" y="5" width="12" height="10" rx="1.5"/>
-          <path d="M8 19h8M15.5 8.5 20.5 6v10l-5-2.5"/>
+        <svg viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 16V6M8 9.5 12 5.5 16 9.5"/><path d="M5 19h14"/>
         </svg>
       </span>
       <span>
-        <strong>Nzoia book</strong>
-        <em>Models your uploaded Nzoia CSV</em>
+        <strong>Upload</strong>
+        <em>Pick files from the desktop</em>
       </span>
     </a>
     <a class="gcard gem-glow" href="#ask" data-query="List modeled events">
@@ -12987,26 +13208,90 @@ FILE: static/index.html
         </svg>
       </span>
       <span>
-        <strong>Modeled events</strong>
+        <strong>Model events</strong>
         <em>Gross, reinsurer, flags</em>
       </span>
     </a>
-    <a class="gcard gem-glow" href="#ask" data-query="Open the Nairobi loss map">
+    <a class="gcard gem-glow" href="https://workspace.google.com/" data-href="https://workspace.google.com/" target="_blank" rel="noopener">
       <span class="gcard-ico" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="1.7" stroke-linejoin="round">
-          <rect x="6.5" y="2.5" width="11" height="19" rx="2.4"/>
-          <path d="M10.5 18.5h3"/>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="3" y="3" width="8" height="8" rx="1.6" fill="#1a73e8"/>
+          <rect x="13" y="3" width="8" height="8" rx="1.6" fill="#e8453c"/>
+          <rect x="3" y="13" width="8" height="8" rx="1.6" fill="#f9ab00"/>
+          <rect x="13" y="13" width="8" height="8" rx="1.6" fill="#34a853"/>
         </svg>
       </span>
       <span>
-        <strong>Loss map</strong>
-        <em>Leaflet export for the latest book</em>
+        <strong>Google Workspace</strong>
+        <em>Sheets, Docs, and Drive</em>
       </span>
     </a>
   </div>
 
   <div class="shortcuts" id="shortcuts"></div>
 </main>
+
+<div id="studioPage" hidden>
+  <aside class="studio-card studio-side">
+    <div class="studio-head">
+      <span>Sources</span>
+      <button type="button" id="studioSourcesToggle" aria-label="Source list">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M8 9h8M8 13h5"/></svg>
+      </button>
+    </div>
+    <button type="button" class="studio-add" id="studioAdd">+ Add sources</button>
+    <form class="studio-web" id="studioWeb">
+      <input id="studioWebQ" type="search" placeholder="Search the web for new sources" autocomplete="off">
+      <div class="studio-web-row">
+        <button type="button" class="studio-chip" aria-label="Web">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2 2.2 3 5 3 8s-1 5.8-3 8c-2-2.2-3-5-3-8s1-5.8 3-8z"/></svg>
+        </button>
+        <button type="button" class="studio-chip" aria-label="Refresh sources">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg>
+        </button>
+        <button type="submit" class="studio-go" aria-label="Search sources">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+      </div>
+    </form>
+    <div class="studio-sources" id="studioSources"></div>
+  </aside>
+  <section class="studio-card studio-main">
+    <div class="studio-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#1a73e8" stroke-width="1.7" stroke-linejoin="round"><path d="M4 18V8h3v10H4zM10.5 18V5h3v13h-3zM17 18v-6h3v6h-3z" stroke="#2fb964"/></svg>
+    </div>
+    <h2 id="studioTitle">Catastrophe desk</h2>
+    <p class="studio-meta" id="studioMeta"></p>
+    <p class="studio-summary" id="studioSummary"></p>
+    <p class="studio-reply" id="studioReply"></p>
+    <form class="studio-ask" id="studioAsk">
+      <input id="studioAskQ" type="text" placeholder="Ask a question or create something" autocomplete="off">
+      <em id="studioAskCount"></em>
+      <button type="submit" class="studio-go" aria-label="Ask">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 19V6M6.5 11 12 5.5 17.5 11"/></svg>
+      </button>
+    </form>
+    <p class="studio-note">CatMod can make mistakes, so double-check it.</p>
+  </section>
+  <aside class="studio-card studio-side">
+    <div class="studio-head"><span>Studio</span></div>
+    <div class="studio-grid" id="studioGrid">
+      <button type="button" class="studio-out" data-out="Audio Overview"><svg viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="1.7"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/></svg><b>Audio Overview</b></button>
+      <button type="button" class="studio-out" data-out="Slide Deck"><svg viewBox="0 0 24 24" fill="none" stroke="#e8a317" stroke-width="1.7"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/></svg><span><b>Slide Deck</b><small>Google Slides</small></span></button>
+      <button type="button" class="studio-out" data-out="Video Overview"><svg viewBox="0 0 24 24" fill="none" stroke="#e8453c" stroke-width="1.7"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M10 9.5v5l5-2.5-5-2.5z" fill="#e8453c" stroke="none"/></svg><b>Video Overview</b></button>
+      <button type="button" class="studio-out" data-out="Mind Map"><svg viewBox="0 0 24 24" fill="none" stroke="#9334e6" stroke-width="1.7"><circle cx="12" cy="12" r="2.2"/><circle cx="5" cy="7" r="1.6"/><circle cx="19" cy="7" r="1.6"/><circle cx="6" cy="18" r="1.6"/><circle cx="18" cy="18" r="1.6"/><path d="M7 8.2 10.2 11M17 8.2 13.8 11M7.4 16.8 10.4 13.4M16.6 16.8 13.6 13.4"/></svg><b>Mind Map</b></button>
+      <button type="button" class="studio-out" data-out="Reports"><svg viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="1.7"><path d="M7 3.5h7l5 5V20a1.5 1.5 0 0 1-1.5 1.5h-10.5A1.5 1.5 0 0 1 5.5 20V5A1.5 1.5 0 0 1 7 3.5z"/><path d="M14 3.5V9h5M8 13h8M8 17h5"/></svg><span><b>Reports</b><small>Google Docs</small></span><span class="studio-new">New</span></button>
+      <button type="button" class="studio-out" data-out="Flashcards"><svg viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="1.7"><rect x="5" y="6" width="12" height="12" rx="2"/><path d="M8 4h11a1 1 0 0 1 1 1v11"/></svg><b>Flashcards</b></button>
+      <button type="button" class="studio-out" data-out="Quiz"><svg viewBox="0 0 24 24" fill="none" stroke="#e8a317" stroke-width="1.7"><circle cx="12" cy="12" r="8"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.2 2.4c-.7.3-1.2.9-1.2 1.6V14"/><path d="M12 17h.01"/></svg><b>Quiz</b></button>
+      <button type="button" class="studio-out" data-out="Infographic"><svg viewBox="0 0 24 24" fill="none" stroke="#e8453c" stroke-width="1.7"><path d="M4 19h16M7 16V10M12 16V6M17 16v-4"/></svg><b>Infographic</b></button>
+      <button type="button" class="studio-out" data-out="Data Table"><svg viewBox="0 0 24 24" fill="none" stroke="#34a853" stroke-width="1.7"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M4 15h16M10 5v14"/></svg><span><b>Data Table</b><small>Google Sheets</small></span></button>
+    </div>
+    <div class="studio-saved" id="studioSaved">
+      <p>Studio output will be saved here.</p>
+      <p>After adding sources, click to add Audio Overview, Slide Deck, and more.</p>
+    </div>
+  </aside>
+</div>
 
 <div class="sheet" id="sheet">
   <form class="dialog" id="addForm">
@@ -13169,6 +13454,7 @@ FILE: static/index.html
         return String(a.ingested || "").localeCompare(String(b.ingested || ""));
       });
       if(document.body.classList.contains("has-desk")) renderDesk();
+      if(document.body.classList.contains("has-studio")) renderStudio();
     }).catch(function(){});
   }
   function saveSessionFile(row){
@@ -13345,7 +13631,9 @@ FILE: static/index.html
     stopBombard();
     window.clearInterval(statusTimer);
     window.clearTimeout(revealTimer);
-    document.body.classList.remove("is-thinking","is-leaving","has-result","has-desk");
+    document.body.classList.remove("is-thinking","is-leaving","has-result","has-desk","has-studio");
+    var studio = document.getElementById("studioPage");
+    if(studio) studio.hidden = true;
     askForm.classList.remove("is-querying");
     queryRail.innerHTML = "";
     queryRail.setAttribute("aria-hidden","true");
@@ -13937,6 +14225,116 @@ FILE: static/index.html
     var el = document.getElementById("uploadAnim");
     if(el) el.hidden = !on;
   }
+  var studioSaved = [];
+  var STUDIO_WHERE = {
+    "Slide Deck": "Google Slides",
+    "Reports": "Google Docs",
+    "Data Table": "Google Sheets"
+  };
+  function openStudio(){
+    document.body.classList.remove("has-desk","has-result","is-thinking");
+    document.body.classList.add("has-studio");
+    var page = document.getElementById("studioPage");
+    page.hidden = false;
+    renderStudio();
+  }
+  function checkedSourceCount(){
+    return document.querySelectorAll("#studioSources .studio-src input:checked").length;
+  }
+  function paintStudioCount(){
+    var n = checkedSourceCount();
+    var count = document.getElementById("studioAskCount");
+    if(count) count.textContent = n + " source" + (n === 1 ? "" : "s");
+  }
+  function renderStudio(){
+    var box = document.getElementById("studioSources");
+    if(!box) return;
+    var files = sessionFiles.slice();
+    getJSON("/api/v1/events").then(function(data){
+      var events = (data && data.events) || [];
+      var sources = files.map(function(file){
+        return {id: file.id, name: file.name, kind: file.kind || "File"};
+      });
+      if(!sources.length){
+        sources = events.slice(0, 8).map(function(ev){
+          return {id: ev.event_id, name: ev.event_id, kind: "Modeled"};
+        });
+      }
+      var today = new Date().toLocaleDateString("en-US", {month:"short", day:"numeric", year:"numeric"});
+      document.getElementById("studioTitle").textContent = sources.length === 1 ? sources[0].name : "Catastrophe desk";
+      document.getElementById("studioMeta").textContent = sources.length + " source" + (sources.length === 1 ? "" : "s") + " · " + today;
+      box.innerHTML = '<label class="studio-all"><input type="checkbox" id="studioAll" checked> Select all</label>' + sources.map(function(src){
+        return '<label class="studio-src"><input type="checkbox" checked data-src="' + esc(src.id) + '"><span>' + esc(src.name) + '</span><small>' + esc(src.kind) + '</small></label>';
+      }).join("") || '<p class="studio-note">Add a source to start.</p>';
+      var latest = events[0];
+      var summary;
+      if(latest){
+        summary = "The uploaded sources are already analyzed. " + sources.length + " source" + (sources.length === 1 ? " is" : "s are") + " checked for this notebook. The latest modeled book " + latest.event_id + " shows a gross claim of " + money(latest.total_gross_claim) + " and a reinsurer payout of " + money(latest.reinsurer_payout) + ", with " + latest.flagged_count + " flag" + (Number(latest.flagged_count) === 1 ? "" : "s") + ". Hazard, exposure, and vulnerability feed the decimal excess-of-loss waterfall, and the money stays in decimal cents.";
+      }else if(sources.length){
+        summary = "The notebook is holding " + sources.map(function(src){ return src.name; }).slice(0, 6).join(", ") + ". These sources are ready to summarize. Run the Nairobi book to turn an uploaded bordereau into hazard, vulnerability, and a decimal waterfall.";
+      }else{
+        summary = "No portfolio is in this notebook yet. Add sources on the left. CatMod summarizes the upload here, then Studio can turn it into a report, a sheet, a slide deck, or an audio overview.";
+      }
+      document.getElementById("studioSummary").textContent = summary;
+      paintStudioCount();
+    }).catch(function(){
+      document.getElementById("studioSummary").textContent = "The source list could not be read. Add a file and try again.";
+      paintStudioCount();
+    });
+  }
+  function studioAnswer(text){
+    var reply = document.getElementById("studioReply");
+    text = String(text || "").trim();
+    if(!text) return;
+    reply.textContent = "Reading the checked sources…";
+    var csv = sessionCsvText();
+    var job = csv
+      ? postJSON("/api/v1/nlp/query", {query: text, event_id: null, csv_text: csv.length > 120000 ? csv.slice(0, 120000) : csv}).then(function(data){
+          return data.answer || "No answer came back.";
+        })
+      : dispatch(text, false).then(function(view){ return (view && view.answer) || "No answer came back."; });
+    job.then(function(answer){ reply.textContent = answer; }).catch(function(err){
+      reply.textContent = (err && err.message) || "The sources did not answer.";
+    });
+  }
+  function bindStudio(){
+    if(bindStudio.done) return;
+    bindStudio.done = true;
+    document.getElementById("studioAdd").addEventListener("click", function(){ startDesktopUpload(); });
+    document.getElementById("studioWeb").addEventListener("submit", function(e){
+      e.preventDefault();
+      var qbox = document.getElementById("studioWebQ");
+      studioAnswer(qbox.value);
+      qbox.value = "";
+    });
+    document.getElementById("studioAsk").addEventListener("submit", function(e){
+      e.preventDefault();
+      var qbox = document.getElementById("studioAskQ");
+      studioAnswer(qbox.value);
+      qbox.value = "";
+    });
+    document.getElementById("studioSources").addEventListener("change", function(e){
+      if(e.target.id === "studioAll"){
+        var on = e.target.checked;
+        document.querySelectorAll("#studioSources .studio-src input").forEach(function(box){ box.checked = on; });
+      }
+      paintStudioCount();
+    });
+    document.getElementById("studioGrid").addEventListener("click", function(e){
+      var btn = e.target.closest("[data-out]");
+      if(!btn) return;
+      var name = btn.getAttribute("data-out");
+      var where = STUDIO_WHERE[name] || "this notebook";
+      studioSaved.unshift({name: name, where: where});
+      var host = document.getElementById("studioSaved");
+      host.innerHTML = studioSaved.map(function(item){
+        return '<article><b>' + esc(item.name) + '</b><small>Saved for ' + esc(item.where) + ' from the analyzed sources.</small></article>';
+      }).join("");
+    });
+    var refresh = document.querySelector("#studioWeb .studio-chip[aria-label='Refresh sources']");
+    if(refresh) refresh.addEventListener("click", function(){ renderStudio(); });
+  }
+  bindStudio();
   function startDesktopUpload(){
     var input = document.getElementById("desktopPick");
     input.value = "";
@@ -13965,6 +14363,7 @@ FILE: static/index.html
       sessionFiles = sessionFiles.concat(rows);
       rows.forEach(saveSessionFile);
       renderDesk();
+      if(document.body.classList.contains("has-studio")) renderStudio();
       var books = rows.filter(function(row){ return row.kind === "Bordereau" && row.text; });
       return books.reduce(function(chain, row){
         return chain.then(function(){ return postBordereauFile(row); });
@@ -14107,6 +14506,60 @@ FILE: static/index.html
     if(book) return runBook(book, basis, openMap);
     if(lower === "list modeled events"){
       return openEventsDesk({tab:"queue", query:""});
+    }
+    if(/\bexposure\b/.test(lower)){
+      return getJSON("/api/v1/flood/footprints").then(function(fc){
+        var n = ((fc && fc.features) || []).length;
+        return {
+          status: "Read /api/v1/flood/footprints.",
+          answer: n
+            ? "Exposure locations " + n + "\nFootprints come from the latest modeled book."
+            : "No exposure locations yet.\nUpload a portfolio CSV, then run the Nairobi book.",
+          sources: [{publication_title:"Exposure footprints", source_origin:"footprints"}],
+          modes: {note:"Exposure is the uploaded portfolio, not a bundled sample."}
+        };
+      });
+    }
+    if(/vulnerab/.test(lower)){
+      return getJSON("/api/v1/events").then(function(payload){
+        var rows = (payload && payload.events) || [];
+        if(!rows.length){
+          return {
+            status: "No modeled book yet.",
+            answer: "Vulnerability curves run when a Nairobi book is modeled.\nUpload a portfolio CSV, then open Nairobi book.",
+            modes: {note:"Vulnerability stays on the modeled damage ratio. It does not replace the decimal payout."}
+          };
+        }
+        return getJSON("/api/v1/audit/" + encodeURIComponent(rows[0].event_id)).then(function(audit){
+          var steps = (audit.entries || []).filter(function(entry){
+            return /vulnerab|damage/i.test(String(entry.step || ""));
+          });
+          var lines = steps.length ? steps.map(function(entry){
+            return "L" + entry.layer + " " + entry.step + "  " + entry.status;
+          }) : ["Vulnerability is recorded on the audit for " + rows[0].event_id + "."];
+          return {
+            status: "Read vulnerability steps for " + rows[0].event_id + ".",
+            answer: lines.join("\n"),
+            eventId: rows[0].event_id,
+            sources: [{publication_title:"Vulnerability curves", source_origin:"damage.csv"}],
+            modes: {note:"Vulnerability curves are proxy functions on the modeled book."}
+          };
+        });
+      });
+    }
+    if(/financial/.test(lower)){
+      return getJSON("/api/v1/events").then(function(data){
+        var rows = (data && data.events) || [];
+        var lines = rows.length ? rows.map(function(ev){
+          return ev.event_id + "  gross " + money(ev.total_gross_claim) + "  reinsurer " + money(ev.reinsurer_payout);
+        }) : ["No modeled book yet. The financial engine runs after Nairobi book."];
+        return {
+          status: "Decimal waterfall on " + rows.length + " modeled event" + (rows.length === 1 ? "" : "s") + ".",
+          answer: lines.join("\n"),
+          sources: [{publication_title:"Decimal waterfall", source_origin:"treaty.pdf"}],
+          modes: {note:"Layer 4 money stays in decimal cents. HDC does not replace payouts."}
+        };
+      });
     }
     var hits = sessionHits(text);
     if(hits.length){
@@ -14307,7 +14760,23 @@ FILE: static/index.html
   });
   document.getElementById("homeLink").addEventListener("click", function(e){
     e.preventDefault();
-    location.assign("/");
+    var flip = document.getElementById("homeFlip");
+    if(window.matchMedia("(prefers-reduced-motion: reduce)").matches){
+      resetHome();
+      q.value = "";
+      return;
+    }
+    if(flip.classList.contains("is-on")) return;
+    flip.hidden = false;
+    flip.classList.remove("is-on");
+    void flip.offsetWidth;
+    flip.classList.add("is-on");
+    resetHome();
+    q.value = "";
+    window.setTimeout(function(){
+      flip.classList.remove("is-on");
+      flip.hidden = true;
+    }, 1250);
   });
   document.getElementById("askLink").addEventListener("click", function(e){
     e.preventDefault();
@@ -14321,6 +14790,15 @@ FILE: static/index.html
     flashGlow(card);
     if(card.hasAttribute("data-pwa")){
       if(window.openAquaPwa) window.openAquaPwa(false);
+      return;
+    }
+    if(card.hasAttribute("data-upload")){
+      openStudio();
+      return;
+    }
+    var href = card.getAttribute("data-href");
+    if(href){
+      window.open(href, "_blank", "noopener");
       return;
     }
     runSearch(card.getAttribute("data-query") || "", false);
@@ -14516,18 +14994,8 @@ FILE: static/landing.html
   .titles{
     position:fixed;inset:0;z-index:2;
     display:flex;flex-direction:column;align-items:center;justify-content:center;
-    text-align:center;color:#f4efe6;
+    text-align:center;color:#fff;
     padding:0 6vw 14vh;
-  }
-  .titles::before{
-    content:"";
-    position:absolute;
-    width:min(980px, 86vw);
-    height:46vh;
-    border-radius:50%;
-    background:radial-gradient(ellipse at center, rgba(6,12,20,.42) 0%, rgba(6,12,20,0) 70%);
-    z-index:-1;
-    pointer-events:none;
   }
   .hero,.sub{
     margin:0;
@@ -14535,31 +15003,30 @@ FILE: static/landing.html
     font-optical-sizing:auto;
     font-weight:500;
     font-variation-settings:"opsz" 96;
-    text-shadow:0 2px 18px rgba(4,10,18,.4);
+    color:#fff;
+    text-shadow:0 0 22px rgba(255,252,246,.72), 0 0 2px rgba(255,255,255,.95);
   }
   .hero{
     font-size:clamp(76px, 15vw, 188px);
     line-height:.86;
     opacity:0;
-    animation:hero-in 2.8s cubic-bezier(.16,.84,.24,1) .45s forwards;
+    animation:fade-bright 4s cubic-bezier(.16,.7,.2,1) forwards;
   }
   .sub{
     margin-top:.28em;
     font-size:clamp(22px, 3.2vw, 48px);
     font-weight:400;
     line-height:1.15;
+    letter-spacing:.04em;
     opacity:0;
-    animation:sub-in 2.4s cubic-bezier(.16,.84,.24,1) 1.85s forwards;
+    animation:fade-bright 3.4s cubic-bezier(.16,.7,.2,1) .6s forwards;
   }
-  @keyframes hero-in{
-    0%{opacity:0;letter-spacing:.48em;transform:translateY(16px);}
-    100%{opacity:1;letter-spacing:.01em;transform:none;}
+  @keyframes fade-bright{
+    0%{opacity:0;filter:brightness(2.4);transform:translateY(8px);}
+    55%{opacity:.92;filter:brightness(1.45);}
+    100%{opacity:1;filter:brightness(1.2);transform:none;}
   }
-  @keyframes sub-in{
-    0%{opacity:0;letter-spacing:.55em;transform:translateY(12px);}
-    100%{opacity:1;letter-spacing:.04em;transform:none;}
-  }
-  .titles.is-leave{animation:titles-out 1.15s cubic-bezier(.4,0,.2,1) forwards;}
+  .titles.is-leave{animation:titles-out .8s cubic-bezier(.4,0,.2,1) forwards;}
   @keyframes titles-out{
     to{opacity:0;transform:translateY(-10px);}
   }
@@ -14585,10 +15052,10 @@ FILE: static/landing.html
     if(gone) return;
     gone = true;
     titles.classList.add("is-leave");
-    setTimeout(function(){ location.assign("/map/"); }, reduce ? 0 : 1000);
+    setTimeout(function(){ location.assign("/map/"); }, reduce ? 0 : 400);
   }
   titles.addEventListener("click", enter);
-  setTimeout(enter, reduce ? 1600 : 6200);
+  setTimeout(enter, reduce ? 400 : 4000);
 })();
 </script>
 </body>
