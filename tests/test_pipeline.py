@@ -82,9 +82,9 @@ def test_end_to_end_pipeline_audit_layers():
     assert finance["detail"]["llm_used"] is False
     assert finance["detail"]["vector_approximation_used"] is False
     assert finance["detail"]["synthetic"] is True
-    assert result["total_gross_claim"] == 7_732_953.6
+    assert result["total_gross_claim"] == Decimal("7732953.60")
     assert result["reinsurer_payout"] == 0
-    assert result["cedant_retained_loss"] == 7_732_953.6
+    assert result["cedant_retained_loss"] == Decimal("7732953.60")
     assert result["reinstatement_premium_due"] == 0
     assert result["synthetic"]["hazard"] is True
     assert result["synthetic"]["vulnerability_curves"] is True

@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from catmod.finance import XLTreaty, calculate_reinsurance_waterfall, ground_up_to_covered, pml, tvar
 
 
@@ -45,6 +47,19 @@ def test_layer_exhaustion_caps_reinstatement_at_purchased_count():
     assert out["layer_loss"] == 5_000_000
     assert out["exhaustion_ratio"] == 1.0
     assert out["reinstatement_premium_due"] == 2_000_000.00
+
+
+def test_policy_allocations_sum_to_the_contractual_totals():
+    treaty = XLTreaty(10, 1_000, Decimal("0.33"), 1, 1, 0)
+    out = calculate_reinsurance_waterfall(
+        [100.004, 200.006, 50.002],
+        [0, 0, 0],
+        [0, 0, 0],
+        treaty,
+    )
+    assert sum(out["allocated_reinsurer_payout"], Decimal("0")) == out["reinsurer_payout"]
+    assert sum(out["allocated_cedant_retention"], Decimal("0")) == out["cedant_retained_loss"]
+    assert isinstance(out["total_gross_claim"], Decimal)
 
 
 def test_finance_does_not_import_ml_layers():

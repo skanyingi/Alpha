@@ -59,7 +59,7 @@ def test_finance_executor_matches_decimal_cents():
     assert result.outputs["total_gross_claim"] == direct["total_gross_claim"]
     assert result.outputs["reinsurer_payout"] == direct["reinsurer_payout"]
     cents = Decimal(str(result.outputs["total_gross_claim"])).quantize(Decimal("0.01"))
-    assert float(cents) == result.outputs["total_gross_claim"]
+    assert cents == result.outputs["total_gross_claim"]
 
 
 def test_jev_router_sends_clean_nairobi_lines_to_finance():

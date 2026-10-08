@@ -140,13 +140,15 @@ def _stochastic_catalog(
         reinsurer_losses.append(Decimal(str(waterfall["reinsurer_payout"])))
         rates.append(event.rate)
         if event_index < 48:
+            for claim, occupancy, gul, damage in zip(claims, occupancies, event_guls, damage_values):
                 footprints.append(
                     {
-                        "latitude": sum(claim.latitude for claim in claims) / len(claims),
-                        "longitude": sum(claim.longitude for claim in claims) / len(claims),
-                        "damage_ratio": sum(damage_values) / len(damage_values),
-                        "cost": float(sum(event_guls, Decimal("0"))),
-                        "occupancy": occupancies[0],
+                        "latitude": claim.latitude,
+                        "longitude": claim.longitude,
+                        "elevation": claim.elevation,
+                        "damage_ratio": damage,
+                        "cost": gul,
+                        "occupancy": occupancy,
                         "event_id": event.event_id,
                     }
                 )
@@ -395,7 +397,7 @@ def run_pipeline(payload: BordereauWebhook, settings: Settings | None = None) ->
             memory.encode_and_add(
                 latitude=float(footprint["latitude"]),
                 longitude=float(footprint["longitude"]),
-                elevation=0.0,
+                elevation=float(footprint.get("elevation") or 0.0),
                 time_t=float(index),
                 cost=float(footprint["cost"]),
                 occupancy=str(footprint["occupancy"]),

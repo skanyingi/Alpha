@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -44,8 +45,8 @@ class FinanceExecutorAgent(BaseSubAgent):
             treaty,
             payload.get("coinsurance"),
         )
-        if not isinstance(waterfall["total_gross_claim"], float):
-            raise RuntimeError("waterfall must publish float cents from Decimal math")
+        if not isinstance(waterfall["total_gross_claim"], Decimal):
+            raise RuntimeError("waterfall must publish Decimal cents")
         return AgentResult(
             agent_role=self.role,
             status="ok",
