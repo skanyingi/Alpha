@@ -2940,7 +2940,7 @@
     document.body.classList.add("has-studio");
     var page = document.getElementById("studioPage");
     page.hidden = false;
-    renderStudio();
+    renderStudio(true);
   }
   function checkedSourceCount(){
     return document.querySelectorAll("#studioSources .studio-src input:checked").length;
@@ -2950,32 +2950,24 @@
     var count = document.getElementById("studioAskCount");
     if(count) count.textContent = n + " source" + (n === 1 ? "" : "s");
   }
-  function renderStudio(){
+  function renderStudio(reset){
     var box = document.getElementById("studioSources");
     if(!box) return;
-    var files = sessionFiles.slice();
-    getJSON("/api/v1/events").then(function(data){
-      var events = (data && data.events) || [];
-      var sources = files.map(function(file){
-        return {id: file.id, name: file.name, kind: file.kind || "File"};
-      });
-      if(!sources.length){
-        sources = events.slice(0, 8).map(function(ev){
-          return {id: ev.event_id, name: ev.event_id, kind: "Modeled"};
-        });
-      }
-      var today = new Date().toLocaleDateString("en-US", {month:"short", day:"numeric", year:"numeric"});
-      document.getElementById("studioTitle").textContent = sources.length === 1 ? sources[0].name : "Catastrophe desk";
-      document.getElementById("studioMeta").textContent = sources.length + " source" + (sources.length === 1 ? "" : "s") + " · " + today;
-      box.innerHTML = '<label class="studio-all"><input type="checkbox" id="studioAll" checked> Select all</label>' + sources.map(function(src){
-        return '<label class="studio-src"><input type="checkbox" checked data-src="' + esc(src.id) + '"><span>' + esc(src.name) + '</span><small>' + esc(src.kind) + '</small></label>';
-      }).join("") || '<p class="studio-note">Add a source to start.</p>';
-      paintStudioCount();
-      writeStudioSummary();
-    }).catch(function(){
-      document.getElementById("studioSummary").textContent = "The source list could not be read. Add a file and try again.";
-      paintStudioCount();
+    var sources = reset ? [] : sessionFiles.map(function(file){
+      return {id: file.id, name: file.name, kind: file.kind || "File"};
     });
+    var today = new Date().toLocaleDateString("en-US", {month:"short", day:"numeric", year:"numeric"});
+    document.getElementById("studioTitle").textContent = sources.length === 1 ? sources[0].name : "Catastrophe desk";
+    document.getElementById("studioMeta").textContent = sources.length + " source" + (sources.length === 1 ? "" : "s") + " · " + today;
+    if(!sources.length){
+      box.innerHTML = '<p class="studio-note">Add a source to start.</p>';
+    }else{
+      box.innerHTML = '<label class="studio-all"><input type="checkbox" id="studioAll"> Select all</label>' + sources.map(function(src){
+        return '<label class="studio-src"><input type="checkbox" data-src="' + esc(src.id) + '"><span>' + esc(src.name) + '</span><small>' + esc(src.kind) + '</small></label>';
+      }).join("");
+    }
+    paintStudioCount();
+    writeStudioSummary();
   }
   var summaryKey = "";
   function writeStudioSummary(){
