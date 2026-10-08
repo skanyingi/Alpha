@@ -102,11 +102,24 @@ class RAGQueryIn(BaseModel):
 
 class SummaryIn(BaseModel):
     event_id: str | None = None
+    dataset_name: str | None = None
     csv_text: str | None = Field(
         default=None,
         max_length=400_000,
         description="Optional CSV text from the open studio tab",
     )
+
+
+class SimulateEpIn(BaseModel):
+    event_id: str | None = None
+    execution_mode: Literal["deterministic", "stochastic"] = "deterministic"
+
+
+class WaterfallWhatIfIn(BaseModel):
+    event_id: str | None = None
+    attachment_point: float = Field(..., ge=0)
+    limit: float = Field(..., gt=0)
+    co_participation: float = Field(..., ge=0, le=1)
 
 
 class BlenderManifestIn(BaseModel):

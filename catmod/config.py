@@ -38,7 +38,7 @@ class Settings(BaseSettings):
 
     google_maps_api_key: str | None = None
     gemini_api_key: str | None = None
-    gemini_model: str = "gemini-2.0-flash"
+    gemini_model: str = "gemini-3.8-flash"
     flood_wse_m: float = 2.5
     open_buildings_path: str = ""
     open_buildings_url: str = ""

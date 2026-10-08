@@ -508,6 +508,27 @@
   #graphSvg{width:100%;height:min(320px,42vh);flex:none;}
   #graphTip{margin:6px 0 0;font-size:12px;color:var(--muted);min-height:1.2em;}
   .graph-note{margin:4px 0 0;font-size:11px;color:#80868b;}
+  .prov-banner{
+    margin:12px 0 0;padding:10px 12px;border-radius:12px;
+    background:#fff4e5;color:#7a4b00;font:500 13px/1.45 Poppins,sans-serif;
+  }
+  .deliver-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+  .deliver-row a,.deliver-row button{
+    border:0;cursor:pointer;text-decoration:none;
+    background:#e8f0fe;color:#174ea6;border-radius:999px;
+    padding:6px 12px;font:600 12px Poppins,sans-serif;
+  }
+  .risk-brief{margin-top:14px;padding:12px 14px;border-radius:16px;background:#f6f8fa;}
+  .risk-brief h3{margin:0 0 6px;font:600 14px Poppins,sans-serif;}
+  .risk-brief p{margin:0;font:400 15px/1.6 Poppins,sans-serif;color:#202124;}
+  .whatif{display:flex;flex-direction:column;gap:12px;margin-top:8px;}
+  .whatif label{display:flex;flex-direction:column;gap:4px;font:500 13px Poppins,sans-serif;color:#5f6368;}
+  .whatif input[type=range]{width:100%;}
+  .whatif output{font:600 14px Poppins,sans-serif;color:#202124;}
+  .panel-svg{width:100%;height:min(280px,40vh);background:#fff;border-radius:12px;}
+  #studioAnalytics{margin-top:8px;}
+  #studioAnalytics .mode-panel{display:none;min-height:180px;}
+  #studioAnalytics .mode-panel.is-on{display:block;}
 
   .sheet{
     position:fixed;inset:0;z-index:40;
@@ -1164,15 +1185,24 @@
       <article class="quote-card gem-glow" id="quoteCard">
         <h2 id="resultTitle"></h2>
         <p class="status" id="resultStatus">Running the catastrophe desk…</p>
+        <p class="prov-banner" id="provBanner" hidden>⚠️ DATA PROVENANCE &amp; ASSUMPTIONS: Exposure dataset is SYNTHETIC | Hazard layer is a Susceptibility Proxy (4.0m max depth) | Vulnerability uses adapted JRC/Huizinga curves.</p>
+        <div class="deliver-row" id="deliverRow" hidden></div>
         <div class="mode-bar" id="modeBar" hidden>
           <button class="mode-tab is-on" type="button" data-tab="answer">Answer</button>
           <button class="mode-tab" type="button" data-tab="categories">Categories</button>
           <button class="mode-tab" type="button" data-tab="graphs">EP curve</button>
+          <button class="mode-tab" type="button" data-tab="housing">Housing</button>
+          <button class="mode-tab" type="button" data-tab="treaty">What-if</button>
+          <button class="mode-tab" type="button" data-tab="vulnerability">Vulnerability</button>
           <button class="mode-tab" type="button" data-tab="map">Map</button>
         </div>
         <div class="mode-panels">
           <div class="mode-panel is-on" data-panel="answer">
             <p class="result-answer" id="resultAnswer"></p>
+            <article class="risk-brief" id="riskBrief" hidden>
+              <h3>AI risk briefing</h3>
+              <p id="riskBriefText"></p>
+            </article>
           </div>
           <div class="mode-panel" data-panel="categories">
             <div class="cat-grid" id="categoryCards"></div>
@@ -1181,6 +1211,20 @@
             <svg id="graphSvg" viewBox="0 0 640 280" role="img" aria-label="Exceedance probability curve"></svg>
             <p id="graphTip"></p>
             <p class="graph-note" id="graphNote"></p>
+          </div>
+          <div class="mode-panel" data-panel="housing">
+            <svg id="housingSvg" class="panel-svg" viewBox="0 0 640 280" role="img" aria-label="Housing class breakdown"></svg>
+          </div>
+          <div class="mode-panel" data-panel="treaty">
+            <div class="whatif" data-whatif>
+              <label>Attachment point <input class="whatif-attachment" type="range" min="10000000" max="100000000" step="5000000" value="40000000"><output class="whatif-attachment-out"></output></label>
+              <label>Layer limit <input class="whatif-limit" type="range" min="20000000" max="200000000" step="5000000" value="100000000"><output class="whatif-limit-out"></output></label>
+              <label>Co-participation <input class="whatif-share" type="range" min="0" max="100" step="5" value="90"><output class="whatif-share-out"></output></label>
+            </div>
+            <p id="whatifStatus" class="graph-note"></p>
+          </div>
+          <div class="mode-panel" data-panel="vulnerability">
+            <svg id="vulnSvg" class="panel-svg" viewBox="0 0 640 280" role="img" aria-label="Vulnerability curves"></svg>
           </div>
           <div class="mode-panel" data-panel="map">
             <iframe id="mapFrame" title="Portfolio loss map" src="about:blank"></iframe>
@@ -1232,6 +1276,11 @@
                 </div>
               </header>
               <div class="dk-body">
+                <div id="deskAnalytics" hidden>
+                  <p class="prov-banner">⚠️ DATA PROVENANCE &amp; ASSUMPTIONS: Exposure dataset is SYNTHETIC | Hazard layer is a Susceptibility Proxy (4.0m max depth) | Vulnerability uses adapted JRC/Huizinga curves.</p>
+                  <div class="cat-grid" id="deskMetrics"></div>
+                  <div class="deliver-row" id="deskDeliver"></div>
+                </div>
                 <div class="dk-cols" id="deskCols" aria-hidden="true">
                   <span></span>
                   <span>Event</span>
@@ -1381,6 +1430,38 @@
     <h2 id="studioTitle">Catastrophe desk</h2>
     <p class="studio-meta" id="studioMeta"></p>
     <p class="studio-summary" id="studioSummary"></p>
+    <div id="studioAnalytics" hidden>
+      <p class="prov-banner">⚠️ DATA PROVENANCE &amp; ASSUMPTIONS: Exposure dataset is SYNTHETIC | Hazard layer is a Susceptibility Proxy (4.0m max depth) | Vulnerability uses adapted JRC/Huizinga curves.</p>
+      <div class="cat-grid" id="studioMetrics"></div>
+      <div class="deliver-row" id="studioDeliver"></div>
+      <div class="mode-bar">
+        <button class="mode-tab is-on" type="button" data-studio-tab="ep">EP curve</button>
+        <button class="mode-tab" type="button" data-studio-tab="housing">Housing</button>
+        <button class="mode-tab" type="button" data-studio-tab="treaty">What-if</button>
+        <button class="mode-tab" type="button" data-studio-tab="vulnerability">Vulnerability</button>
+      </div>
+      <div class="mode-panel is-on" data-studio-panel="ep">
+        <svg id="studioEp" class="panel-svg" viewBox="0 0 640 280" role="img" aria-label="Exceedance probability curve"></svg>
+        <p id="studioEpTip" class="graph-note"></p>
+      </div>
+      <div class="mode-panel" data-studio-panel="housing">
+        <svg id="studioHousing" class="panel-svg" viewBox="0 0 640 280" role="img" aria-label="Housing class breakdown"></svg>
+      </div>
+      <div class="mode-panel" data-studio-panel="treaty">
+        <div class="whatif" data-whatif>
+          <label>Attachment point <input class="whatif-attachment" type="range" min="10000000" max="100000000" step="5000000" value="40000000"><output class="whatif-attachment-out"></output></label>
+          <label>Layer limit <input class="whatif-limit" type="range" min="20000000" max="200000000" step="5000000" value="100000000"><output class="whatif-limit-out"></output></label>
+          <label>Co-participation <input class="whatif-share" type="range" min="0" max="100" step="5" value="90"><output class="whatif-share-out"></output></label>
+        </div>
+      </div>
+      <div class="mode-panel" data-studio-panel="vulnerability">
+        <svg id="studioVuln" class="panel-svg" viewBox="0 0 640 280" role="img" aria-label="Vulnerability curves"></svg>
+      </div>
+      <article class="risk-brief" id="studioBrief" hidden>
+        <h3>AI risk briefing</h3>
+        <p id="studioBriefText"></p>
+      </article>
+    </div>
     <p class="studio-reply" id="studioReply"></p>
     <form class="studio-ask" id="studioAsk">
       <input id="studioAskQ" type="text" placeholder="Ask a question or create something" autocomplete="off">
@@ -1897,12 +1978,273 @@
       return '<article class="cat-card"><span class="cat-ico" style="background:' + icon.bg + '" aria-hidden="true">' + icon.svg + '</span><span><strong>' + esc(label) + '</strong>' + (value ? '<b>' + esc(value) + '</b>' : '') + '</span></article>';
     }).join("");
   }
+  var lastBook = null;
+  var whatIfTimer = 0;
+  function studioDatasetName(){
+    var files = sessionFiles.filter(function(file){ return /\.csv$/i.test(file.name || "") && file.text; });
+    return files.length ? files[files.length - 1].name : "";
+  }
+  function metricCards(items){
+    return items.map(function(item){
+      return '<article class="cat-card"><span><strong>' + esc(item.label) + '</strong><b>' + esc(item.value) + '</b></span></article>';
+    }).join("");
+  }
+  function fillMetrics(job){
+    var ep = job.ep_curve || {};
+    var items = [
+      {label:"Ground-up loss", value: money(job.modeled_ground_up_loss)},
+      {label:"Reinsurer payout", value: money(job.reinsurer_payout)},
+      {label:"Cedant retention", value: money(job.cedant_retained_loss)},
+      {label:"Fraud flag count", value: String(job.flagged_count == null ? 0 : job.flagged_count)},
+      {label:"Expected annual loss", value: money(ep.eal)}
+    ];
+    ["categoryCards","deskMetrics","studioMetrics"].forEach(function(id){
+      var host = document.getElementById(id);
+      if(host) host.innerHTML = metricCards(items);
+    });
+  }
+  function deliverableHtml(job){
+    var id = encodeURIComponent(job.event_id || "");
+    var drive = (job.source_urls && job.source_urls[0]) || ("/api/v1/leaflet-export?event_id=" + id);
+    return '<button type="button" data-deliver="reports">Doc Report</button>' +
+      '<button type="button" data-deliver="slides">Slides Deck</button>' +
+      '<a href="' + esc(drive) + '" target="_blank" rel="noopener">Google Drive Archive</a>';
+  }
+  function paintCurve(svg, tip, points){
+    if(!svg) return;
+    var labels = points.map(function(p){ return "RP " + p.return_period; });
+    var gul = points.map(function(p){ return Number(p.gul); });
+    var net = points.map(function(p){ return Number(p.net); });
+    var tips = points.map(function(p){
+      var audit = (p.audit || []).map(function(row){
+        return "L" + row.layer + " " + (row.name || row.step || "") + " " + (row.status || "");
+      }).join(" · ");
+      return "RP " + p.return_period + " ground-up " + money(p.gul) + " · net " + money(p.net) + (audit ? " · " + audit : "");
+    });
+    var spec = {
+      labels: labels,
+      series: [
+        {name:"Ground-up loss", color:"#1a73e8", points: gul},
+        {name:"Net loss", color:"#188038", points: net}
+      ],
+      tips: tips
+    };
+    if(window.drawAquaGraph) window.drawAquaGraph(svg, spec, tip);
+    if(tip) tip.textContent = tips[0] || "";
+  }
+  function drawBars(svg, labels, series){
+    if(!svg) return;
+    var w = 640, h = 280, pad = 36;
+    var all = [];
+    series.forEach(function(s){ (s.points || []).forEach(function(v){ all.push(Number(v) || 0); }); });
+    var max = Math.max.apply(null, all.concat([1]));
+    var group = Math.max(1, (w - pad * 2) / Math.max(1, labels.length));
+    var bw = Math.max(6, (group - 8) / Math.max(1, series.length));
+    var ns = "http://www.w3.org/2000/svg";
+    svg.innerHTML = "";
+    labels.forEach(function(label, i){
+      series.forEach(function(s, si){
+        var value = Number((s.points || [])[i] || 0);
+        var bh = Math.max(2, (value / max) * (h - 58));
+        var rect = document.createElementNS(ns, "rect");
+        rect.setAttribute("x", pad + i * group + si * bw);
+        rect.setAttribute("y", h - 28 - bh);
+        rect.setAttribute("width", bw - 2);
+        rect.setAttribute("height", bh);
+        rect.setAttribute("rx", "3");
+        rect.setAttribute("fill", s.color);
+        svg.appendChild(rect);
+      });
+      var text = document.createElementNS(ns, "text");
+      text.setAttribute("x", pad + i * group + group / 2);
+      text.setAttribute("y", h - 10);
+      text.setAttribute("text-anchor", "middle");
+      text.setAttribute("font-size", "11");
+      text.setAttribute("fill", "#5f6368");
+      text.textContent = label;
+      svg.appendChild(text);
+    });
+  }
+  function paintHousing(housing){
+    var classes = (housing && housing.classes) || [];
+    var labels = classes.map(function(row){ return row.occupancy.replace(/_/g, " "); });
+    var tiv = classes.map(function(row){ return Number(row.tiv); });
+    var gul = classes.map(function(row){ return Number(row.ground_up_loss); });
+    [document.getElementById("housingSvg"), document.getElementById("studioHousing")].forEach(function(svg){
+      drawBars(svg, labels, [
+        {name:"TIV", color:"#1a73e8", points: tiv},
+        {name:"Modeled loss", color:"#c5221f", points: gul}
+      ]);
+    });
+  }
+  function paintVulnerability(payload){
+    var curves = (payload && payload.curves) || [];
+    var colors = ["#c5221f", "#e37400", "#f9ab00", "#1a73e8"];
+    [document.getElementById("vulnSvg"), document.getElementById("studioVuln")].forEach(function(svg){
+      if(!svg) return;
+      var ns = "http://www.w3.org/2000/svg";
+      svg.innerHTML = "";
+      var w = 640, h = 280, pad = 36;
+      function x(depth){ return pad + (depth / 10) * (w - pad * 2); }
+      function y(ratio){ return h - 28 - ratio * (h - 64); }
+      curves.forEach(function(curve, index){
+        var d = "M" + x(0) + " " + y(0);
+        (curve.knots || []).forEach(function(knot){
+          d += " L" + x(Number(knot.depth_m)) + " " + y(Number(knot.damage_ratio));
+        });
+        var last = (curve.knots || []).slice(-1)[0];
+        if(last) d += " L" + x(10) + " " + y(Number(last.damage_ratio));
+        var path = document.createElementNS(ns, "path");
+        path.setAttribute("d", d);
+        path.setAttribute("fill", "none");
+        path.setAttribute("stroke", colors[index % colors.length]);
+        path.setAttribute("stroke-width", "2.4");
+        svg.appendChild(path);
+      });
+    });
+  }
+  function readWhatIf(scope){
+    var root = scope || document;
+    var attachment = root.querySelector(".whatif-attachment");
+    var limit = root.querySelector(".whatif-limit");
+    var share = root.querySelector(".whatif-share");
+    return {
+      attachment_point: attachment ? Number(attachment.value) : 40000000,
+      limit: limit ? Number(limit.value) : 100000000,
+      co_participation: share ? Number(share.value) / 100 : 0.9
+    };
+  }
+  function paintWhatIfLabels(root){
+    var box = root || document;
+    box.querySelectorAll(".whatif-attachment").forEach(function(input){
+      var out = input.parentNode.querySelector(".whatif-attachment-out");
+      if(out) out.textContent = money(input.value);
+    });
+    box.querySelectorAll(".whatif-limit").forEach(function(input){
+      var out = input.parentNode.querySelector(".whatif-limit-out");
+      if(out) out.textContent = money(input.value);
+    });
+    box.querySelectorAll(".whatif-share").forEach(function(input){
+      var out = input.parentNode.querySelector(".whatif-share-out");
+      if(out) out.textContent = input.value + "%";
+    });
+  }
+  function applyWhatIf(scope){
+    if(!lastBook || !lastBook.event_id) return;
+    var terms = readWhatIf(scope);
+    postJSON("/v1/reinsurance-waterfall", {
+      event_id: lastBook.event_id,
+      attachment_point: terms.attachment_point,
+      limit: terms.limit,
+      co_participation: terms.co_participation
+    }).then(function(data){
+      lastBook.reinsurer_payout = data.reinsurer_payout;
+      lastBook.cedant_retained_loss = data.cedant_retained_loss;
+      fillMetrics(lastBook);
+      var points = data.curve || [];
+      paintCurve(document.getElementById("graphSvg"), document.getElementById("graphTip"), points);
+      paintCurve(document.getElementById("studioEp"), document.getElementById("studioEpTip"), points);
+      var note = document.getElementById("whatifStatus");
+      if(note) note.textContent = "Reinsurer " + money(data.reinsurer_payout) + " · cedant " + money(data.cedant_retained_loss) + " · " + (data.treaty_label || "");
+    }).catch(function(err){
+      var note = document.getElementById("whatifStatus");
+      if(note) note.textContent = (err && err.message) || "The waterfall did not recompute.";
+    });
+  }
+  function bindWhatIf(){
+    if(bindWhatIf.done) return;
+    bindWhatIf.done = true;
+    document.addEventListener("input", function(ev){
+      if(!ev.target.closest("[data-whatif]")) return;
+      paintWhatIfLabels(ev.target.closest("[data-whatif]"));
+      window.clearTimeout(whatIfTimer);
+      var scope = ev.target.closest("[data-whatif]");
+      whatIfTimer = window.setTimeout(function(){ applyWhatIf(scope); }, 350);
+    });
+    document.addEventListener("click", function(ev){
+      var deliver = ev.target.closest("[data-deliver]");
+      if(deliver){
+        openStudioPreview(deliver.getAttribute("data-deliver"));
+        return;
+      }
+      var tab = ev.target.closest("[data-studio-tab]");
+      if(!tab) return;
+      var name = tab.getAttribute("data-studio-tab");
+      var box = document.getElementById("studioAnalytics");
+      if(!box) return;
+      box.querySelectorAll("[data-studio-tab]").forEach(function(btn){
+        btn.classList.toggle("is-on", btn === tab);
+      });
+      box.querySelectorAll("[data-studio-panel]").forEach(function(panel){
+        panel.classList.toggle("is-on", panel.getAttribute("data-studio-panel") === name);
+      });
+    });
+    paintWhatIfLabels(document);
+  }
+  function writeBriefing(job){
+    var text = "Gemini is writing the executive risk briefing.";
+    var brief = document.getElementById("riskBriefText");
+    var studio = document.getElementById("studioBriefText");
+    if(brief) brief.textContent = text;
+    if(studio) studio.textContent = text;
+    var card = document.getElementById("riskBrief");
+    var studioCard = document.getElementById("studioBrief");
+    if(card) card.hidden = false;
+    if(studioCard) studioCard.hidden = false;
+    postJSON("/api/v1/nlp/query", {
+      query: "Write an executive risk briefing in complete sentences about this modeled book. " +
+        "Quote these contractual figures rather than recalculating them. Ground-up loss is " + money(job.modeled_ground_up_loss) +
+        ". Reinsurer payout is " + money(job.reinsurer_payout) +
+        ". Cedant retention is " + money(job.cedant_retained_loss) +
+        ". Expected annual loss is " + money((job.ep_curve || {}).eal) +
+        ". Fraud flags number " + (job.flagged_count || 0) +
+        ". Mention the main return-period losses and close with an underwriting recommendation.",
+      event_id: job.event_id
+    }).then(function(data){
+      var answer = data.answer || "Gemini did not return a briefing.";
+      if(brief) brief.textContent = answer;
+      if(studio) studio.textContent = answer;
+    }).catch(function(){
+      var answer = "Gemini could not write the risk briefing for this book.";
+      if(brief) brief.textContent = answer;
+      if(studio) studio.textContent = answer;
+    });
+  }
+  function bindModeledJob(job){
+    if(!job || !job.event_id) return;
+    lastBook = job;
+    lastEventId = job.event_id;
+    var banner = document.getElementById("provBanner");
+    var deliver = document.getElementById("deliverRow");
+    var desk = document.getElementById("deskAnalytics");
+    var studio = document.getElementById("studioAnalytics");
+    if(banner) banner.hidden = false;
+    if(deliver){ deliver.hidden = false; deliver.innerHTML = deliverableHtml(job); }
+    if(desk) desk.hidden = false;
+    if(studio) studio.hidden = false;
+    ["deskDeliver","studioDeliver"].forEach(function(id){
+      var host = document.getElementById(id);
+      if(host) host.innerHTML = deliverableHtml(job);
+    });
+    fillMetrics(job);
+    bindWhatIf();
+    postJSON("/v1/simulate-ep", {event_id: job.event_id, execution_mode: job.execution_mode || "deterministic"}).then(function(data){
+      var points = data.points || [];
+      paintCurve(document.getElementById("graphSvg"), document.getElementById("graphTip"), points);
+      paintCurve(document.getElementById("studioEp"), document.getElementById("studioEpTip"), points);
+      paintHousing(data.housing);
+    }).catch(function(){});
+    getJSON("/v1/vulnerability-curves").then(paintVulnerability).catch(function(){});
+    writeBriefing(job);
+    if(job.event_id) showCatmodMap();
+  }
   function present(view){
     window.clearInterval(statusTimer);
     settlePips(view.sources || []);
     resultStatus.textContent = view.status || "Desk response";
     resultAnswer.textContent = view.answer || "";
     renderCategoryCards(view.answer || "");
+    if(view.job) bindModeledJob(view.job);
     fitQuery();
     if(view.eventId) lastEventId = view.eventId;
     applyModes(view.modes || {});
@@ -1939,6 +2281,7 @@
         {publication_title:"Decimal waterfall", source_origin:"treaty.pdf"},
         {publication_title:"Exceedance curve", source_origin:"https://ep-curve"}
       ],
+      job: data,
       modes: {
         default_tab: "categories",
         note: "Occurrence EP curve from the return-period catalogue. Vulnerability curves are proxy functions. Hazard synthetic is " + yn(syn.hazard) + ".",
@@ -2309,6 +2652,7 @@
       row.eventId = data.event_id || "";
       row.kind = "Bordereau";
       if(data.event_id) lastEventId = data.event_id;
+      bindModeledJob(data);
       return refreshDeskEvents();
     }).catch(function(){
       row.kind = "Bordereau";
@@ -2494,16 +2838,31 @@
       paintStudioCount();
     });
   }
+  var summaryKey = "";
   function writeStudioSummary(){
     var summary = document.getElementById("studioSummary");
     if(!summary) return;
-    summary.textContent = "Writing the portfolio summary…";
     var csv = sessionCsvText();
     if(csv.length > 120000) csv = csv.slice(0, 120000);
-    postJSON("/api/v1/nlp/summary", {csv_text: csv || null, event_id: csv ? null : (lastEventId || null)}).then(function(data){
-      summary.textContent = data.answer || "Gemini returned an empty summary.";
-    }).catch(function(err){
-      summary.textContent = (err && err.message) || "Add a portfolio CSV. Gemini writes this summary from the book.";
+    if(!csv && !lastEventId){
+      if(!summary.textContent) summary.textContent = "Add a portfolio CSV. Gemini writes this summary from the book.";
+      return;
+    }
+    var key = String(csv.length) + ":" + csv.slice(0, 120) + "|" + (lastEventId || "");
+    if(key === summaryKey && summary.textContent) return;
+    summaryKey = key;
+    var previous = summary.textContent;
+    summary.textContent = "Gemini is writing the portfolio summary.";
+    postJSON("/api/v1/nlp/summary", {
+      csv_text: csv || null,
+      event_id: csv ? null : (lastEventId || null),
+      dataset_name: studioDatasetName() || null
+    }).then(function(data){
+      if(summaryKey !== key) return;
+      summary.textContent = data.answer || previous || "Gemini returned an empty summary.";
+    }).catch(function(){
+      if(summaryKey !== key) return;
+      if(!previous) summary.textContent = "Add a portfolio CSV. Gemini writes this summary from the book.";
     });
   }
   function studioAnswer(text){
@@ -2516,6 +2875,7 @@
     postJSON("/api/v1/nlp/query", {
       query: text,
       event_id: csv ? null : (lastEventId || null),
+      dataset_name: studioDatasetName() || null,
       csv_text: csv || null
     }).then(function(data){
       reply.textContent = data.answer || "No answer came back.";
@@ -2668,7 +3028,7 @@
       renderDesk();
       if(document.body.classList.contains("has-studio")) renderStudio();
       var books = rows.filter(function(row){ return row.kind === "Bordereau" && row.text; });
-      return books.reduce(function(chain, row){
+      books.reduce(function(chain, row){
         return chain.then(function(){ return postBordereauFile(row); });
       }, Promise.resolve());
     });

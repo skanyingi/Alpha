@@ -33,6 +33,7 @@ def generate_leaflet_geojson(claims_data: Sequence[dict[str, Any]]) -> dict[str,
                 "properties": {
                     "asset_id": c.get("id") or c.get("asset_id"),
                     "occupancy": c.get("occupancy"),
+                    "tiv": float(c.get("tiv") or 0.0),
                     "ground_up_loss": gul,
                     "reinsured_payout": payout,
                     "cedant_retention": float(c.get("cedant_retention") or 0.0),

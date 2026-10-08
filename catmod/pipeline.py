@@ -595,6 +595,7 @@ def run_pipeline(payload: BordereauWebhook, settings: Settings | None = None) ->
                 "longitude": row.longitude,
                 "occupancy": row.occupancy,
                 "gul": row.covered_loss,
+                "tiv": row.tiv,
                 "ground_up_loss": row.ground_up_loss,
                 "payout": row.allocated_reinsurer_payout,
                 "cedant_retention": row.allocated_cedant_retention,

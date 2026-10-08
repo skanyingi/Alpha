@@ -13,6 +13,13 @@ def test_bind_unbind_roundtrip():
     assert similarity(recovered, a) > 0.99
 
 
+def test_cached_phase_encoding_matches_exponentiate():
+    items = ItemMemory(dim=1024, seed=9)
+    slow = exponentiate(items.bases["cost"], _norm_cost(1_000_000))
+    fast = items.encode_scalar("cost", 1_000_000, _norm_cost)
+    assert similarity(slow, fast) > 0.999
+
+
 def test_continuous_exponent_recovers_nearby_scalars():
     rng = np.random.default_rng(1)
     basis = random_hypervector(2048, rng)
