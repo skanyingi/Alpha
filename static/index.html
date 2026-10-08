@@ -508,6 +508,14 @@
   #graphSvg{width:100%;height:min(320px,42vh);flex:none;}
   #graphTip{margin:6px 0 0;font-size:12px;color:var(--muted);min-height:1.2em;}
   .graph-note{margin:4px 0 0;font-size:11px;color:#80868b;}
+  .chart-hover-tip{
+    position:fixed;z-index:80;pointer-events:none;
+    background:#202124;color:#fff;border-radius:10px;
+    padding:8px 12px;font:600 12px/1.35 Inter,sans-serif;
+    white-space:pre-line;max-width:260px;
+    box-shadow:0 8px 22px rgba(0,0,0,.32);
+  }
+  .chart-hover-tip[hidden]{display:none !important;}
   .prov-banner{
     margin:12px 0 0;padding:10px 12px;border-radius:12px;
     background:#fff4e5;color:#7a4b00;font:500 13px/1.45 Poppins,sans-serif;
@@ -1954,6 +1962,13 @@
     if(!isFinite(x)) return String(n == null ? "" : n);
     return x.toLocaleString("en-US", {style:"currency", currency:bookCurrency, maximumFractionDigits:2});
   }
+  function moneyTip(n){
+    var x = Number(n);
+    if(!isFinite(x)) return String(n == null ? "" : n);
+    var sign = x < 0 ? "-" : "";
+    var mark = bookCurrency === "KES" ? "Kshs " : "$";
+    return sign + mark + Math.abs(Math.round(x)).toLocaleString("en-US");
+  }
   function compact(n){
     var x = Number(n);
     if(!isFinite(x)) return "";
@@ -2116,10 +2131,7 @@
     var gul = points.map(function(p){ return Number(p.gul); });
     var net = points.map(function(p){ return Number(p.net); });
     var tips = points.map(function(p){
-      var audit = (p.audit || []).map(function(row){
-        return "L" + row.layer + " " + (row.name || row.step || "") + " " + (row.status || "");
-      }).join(" · ");
-      return p.return_period + "y · ground-up " + money(p.gul) + " · net " + money(p.net) + (audit ? " · " + audit : "");
+      return "1-in-" + p.return_period + " year loss\n" + moneyTip(p.gul);
     });
     var spec = {
       labels: labels,
@@ -2132,7 +2144,7 @@
       tips: tips
     };
     if(window.drawAquaGraph) window.drawAquaGraph(svg, spec, tip);
-    if(tip) tip.textContent = tips[0] || "";
+    if(tip) tip.textContent = "";
   }
   function svgText(ns, attrs, value){
     var text = document.createElementNS(ns, "text");
@@ -2477,6 +2489,9 @@
           labels: labels,
           x_label: "Return Period",
           series: [{name:"OEP loss", color:"#1a73e8", points: points}],
+          tips: curve.map(function(p){
+            return "1-in-" + p.return_period + " year loss\n" + moneyTip(Number(p.loss_float != null ? p.loss_float : p.loss));
+          }),
           highlight_value: compact(ep.eal),
           highlight_label: labels[Math.min(labels.length - 1, 3)] || "",
           highlight_unit: "EAL"

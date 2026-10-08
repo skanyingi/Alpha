@@ -1,6 +1,36 @@
 /* AquaAsk answer-card modes: Answer text + Graphs */
 (function () {
   var graphTip = null;
+  var chartTip = null;
+
+  function getChartTip() {
+    if (!chartTip) {
+      chartTip = document.createElement("div");
+      chartTip.className = "chart-hover-tip";
+      chartTip.hidden = true;
+      document.body.appendChild(chartTip);
+    }
+    return chartTip;
+  }
+
+  function showChartTip(text, ev) {
+    var el = getChartTip();
+    el.textContent = text;
+    el.hidden = false;
+    var pad = 14;
+    var x = ev.clientX + pad;
+    var y = ev.clientY + pad;
+    var w = el.offsetWidth;
+    var h = el.offsetHeight;
+    if (x + w > window.innerWidth - 8) x = ev.clientX - w - pad;
+    if (y + h > window.innerHeight - 8) y = ev.clientY - h - pad;
+    el.style.left = Math.max(8, x) + "px";
+    el.style.top = Math.max(8, y) + "px";
+  }
+
+  function hideChartTip() {
+    if (chartTip) chartTip.hidden = true;
+  }
 
   function setTab(root, name) {
     root.querySelectorAll(".mode-tab").forEach(function (btn) {
@@ -112,11 +142,10 @@
       var t = (ev.clientX - box.left) / box.width;
       var idx = Math.round(t * (labels.length - 1));
       idx = Math.max(0, Math.min(labels.length - 1, idx));
-      var host = svg._aquaTip || graphTip;
-      if (!host) return;
       var tip = (spec.tips && spec.tips[idx]) || "";
-      host.textContent = tip || (labels[idx] + " · " + series.map(function (s) { return s.name + " " + s.points[idx]; }).join("  ·  "));
+      showChartTip(tip || (labels[idx] + " · " + series.map(function (s) { return s.name + " " + s.points[idx]; }).join("  ·  ")), ev);
     };
+    svg.onmouseleave = hideChartTip;
   }
 
   window.drawAquaGraph = function (svg, spec, tipEl) {
