@@ -25,8 +25,17 @@
     return out;
   }
 
+  function axisTick(value) {
+    var x = Math.abs(Number(value) || 0);
+    if (x >= 1e9) return (value / 1e9).toFixed(1) + "B";
+    if (x >= 1e6) return (value / 1e6).toFixed(1) + "M";
+    if (x >= 1e3) return (value / 1e3).toFixed(0) + "k";
+    if (x >= 10) return String(Math.round(value));
+    return String(Math.round(x * 100) / 100);
+  }
+
   function drawGraph(svg, spec) {
-    var w = 640, h = 280, pad = { l: 36, r: 18, t: 28, b: 36 };
+    var w = 640, h = 280, pad = { l: 64, r: 16, t: 36, b: 48 };
     svg.setAttribute("viewBox", "0 0 " + w + " " + h);
     svg.innerHTML = "";
     var labels = spec.labels || [];
@@ -52,7 +61,22 @@
     for (var g = 0; g < 4; g++) {
       var gy = pad.t + g * (h - pad.t - pad.b) / 3;
       svg.appendChild(el("line", { x1: pad.l, x2: w - pad.r, y1: gy, y2: gy, stroke: "rgba(95,99,104,.18)", "stroke-dasharray": "3 6" }));
+      var tick = el("text", { x: pad.l - 8, y: gy + 4, fill: "#5f6368", "font-size": "10", "text-anchor": "end" });
+      tick.textContent = axisTick(max - g * span / 3);
+      svg.appendChild(tick);
     }
+    var midY = pad.t + (h - pad.t - pad.b) / 2;
+    var yTitle = el("text", {
+      x: 16, y: midY, fill: "#5f6368", "font-size": "11", "text-anchor": "middle",
+      transform: "rotate(-90 16 " + midY + ")"
+    });
+    yTitle.textContent = spec.y_label || "Loss";
+    svg.appendChild(yTitle);
+    var xTitle = el("text", {
+      x: pad.l + (w - pad.l - pad.r) / 2, y: h - 4, fill: "#5f6368", "font-size": "11", "text-anchor": "middle"
+    });
+    xTitle.textContent = spec.x_label || "Return period";
+    svg.appendChild(xTitle);
     series.forEach(function (s, si) {
       var pts = s.points || [];
       var dense = catmull(pts, 48);
@@ -72,7 +96,7 @@
     defs.innerHTML = '<filter id="glow"><feGaussianBlur stdDeviation="2.4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>';
     svg.insertBefore(defs, svg.firstChild);
     labels.forEach(function (lab, i) {
-      var t = el("text", { x: x(i), y: h - 12, fill: "#5f6368", "font-size": "11", "text-anchor": "middle" });
+      var t = el("text", { x: x(i), y: h - 22, fill: "#5f6368", "font-size": "11", "text-anchor": "middle" });
       t.textContent = lab;
       svg.appendChild(t);
     });

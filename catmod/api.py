@@ -33,7 +33,14 @@ from catmod.nlp.gemini_rag import (
 )
 from catmod.studio import build_studio_preview
 from catmod.flood.gemini import gemini_configured
-from catmod.flood.maps import MapsError, fetch_aerial, fetch_street_view, geocode_address, maps_configured
+from catmod.flood.maps import (
+    MapsError,
+    fetch_aerial,
+    fetch_street_view,
+    fetch_terrain_image,
+    geocode_address,
+    maps_configured,
+)
 from catmod.spatial.elevation import lookup_elevation_m
 from catmod.flood.service import (
     buildings_in_viewport,
@@ -54,6 +61,7 @@ from catmod.schemas import (
     WaterfallWhatIfIn,
 )
 from catmod.spatial.blender import build_blender_manifest
+from catmod.spatial.flooddepth import flood_depth_grid
 from catmod.spatial.elevation import build_elevation_payload
 from catmod.spatial.presets import list_presets, resolve_preset
 from catmod.spatial.tiles3d import create_3d_tiles_session
@@ -548,6 +556,47 @@ def spatial_elevation_get(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return JSONResponse(result)
+
+
+@app.get("/api/spatial/flood-depth")
+def spatial_flood_depth(
+    west: float = Query(...),
+    south: float = Query(...),
+    east: float = Query(...),
+    north: float = Query(...),
+    rows: int = Query(default=32, ge=2, le=64),
+    cols: int = Query(default=32, ge=2, le=64),
+    return_period: int = Query(default=100),
+    region: str = Query(default="nairobi"),
+) -> JSONResponse:
+    try:
+        result = flood_depth_grid(
+            west,
+            south,
+            east,
+            north,
+            rows=rows,
+            cols=cols,
+            return_period=return_period,
+            region=region,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return JSONResponse(result)
+
+
+@app.get("/api/v1/flood/imagery/terrain")
+def flood_terrain_imagery(
+    west: float = Query(...),
+    south: float = Query(...),
+    east: float = Query(...),
+    north: float = Query(...),
+) -> Response:
+    try:
+        payload, mime = fetch_terrain_image(west, south, east, north)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Terrain imagery fetch failed: {exc}") from exc
+    return Response(content=payload, media_type=mime)
 
 
 @app.post("/api/spatial/3d-tiles-session")

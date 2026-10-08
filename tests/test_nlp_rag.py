@@ -35,6 +35,22 @@ def test_keyword_fallback_finds_informal_iron_sheet():
     assert result["summary_stats"]["total_tiv"] == 2_500_000
 
 
+def test_starter_kit_columns_and_greeting():
+    text = (
+        "loc_id,lat,lon,housing_class,tiv_kes\n"
+        "NBO-0000,-1.314897,36.935883,semi_permanent,5170000\n"
+        "NBO-0001,-1.286,36.82,informal_iron_sheet,900000\n"
+    )
+    context = build_dataset_context(parse_csv_text(text), name="exposure_nairobi_synthetic.csv")
+    summary = query_dataset_rag("hello", context, _settings())
+    assert summary["source"] == "local-keyword"
+    assert "2 rows" in summary["answer"]
+    assert "6,070,000.00 Kenyan shillings" in summary["answer"]
+    assert "semi_permanent" in summary["answer"]
+    assert "NBO-0000" in summary["answer"]
+    assert "No rows" not in summary["answer"]
+
+
 def test_blank_gemini_key_does_not_call_network(monkeypatch):
     def explode(*_args, **_kwargs):
         raise AssertionError("Gemini should not be called without a key")

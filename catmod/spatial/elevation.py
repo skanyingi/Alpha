@@ -5,6 +5,7 @@ Heightmap grid is used for 3D flood displacement and local inundation heuristics
 
 from __future__ import annotations
 
+from time import sleep
 from typing import Any, Sequence
 
 import httpx
@@ -87,25 +88,29 @@ def fetch_elevation_google(
     return out
 
 
-def fetch_elevation_open_meteo(locations: Sequence[tuple[float, float]]) -> list[dict[str, Any]]:
-    if not locations:
-        return []
-    out: list[dict[str, Any]] = []
-    with httpx.Client(timeout=15.0) as client:
-        for chunk in _chunks(list(locations), OPEN_METEO_MAX):
-            lats = ",".join(f"{lat:.7f}" for lat, _lon in chunk)
-            lons = ",".join(f"{lon:.7f}" for _lat, lon in chunk)
-            response = client.get(
-                OPEN_METEO_ELEVATION,
-                params={"latitude": lats, "longitude": lons},
-            )
+def _open_meteo_chunk(chunk: list[tuple[float, float]]) -> list[dict[str, Any]]:
+    lats = ",".join(f"{lat:.7f}" for lat, _lon in chunk)
+    lons = ",".join(f"{lon:.7f}" for _lat, lon in chunk)
+    last_error: Exception | None = None
+    for attempt in range(4):
+        try:
+            with httpx.Client(timeout=15.0) as client:
+                response = client.get(
+                    OPEN_METEO_ELEVATION,
+                    params={"latitude": lats, "longitude": lons},
+                )
+            if response.status_code == 429:
+                sleep(1.25 * (attempt + 1))
+                last_error = MapsError("Open-Meteo elevation HTTP 429")
+                continue
             response.raise_for_status()
             body = response.json()
             elevs = body.get("elevation") or []
             if len(elevs) != len(chunk):
                 raise MapsError("Open-Meteo elevation length mismatch")
+            rows: list[dict[str, Any]] = []
             for (lat, lon), elev in zip(chunk, elevs):
-                out.append(
+                rows.append(
                     {
                         "lat": float(lat),
                         "lng": float(lon),
@@ -114,6 +119,23 @@ def fetch_elevation_open_meteo(locations: Sequence[tuple[float, float]]) -> list
                         "provider": "open_meteo",
                     }
                 )
+            return rows
+        except MapsError:
+            raise
+        except Exception as exc:
+            last_error = exc
+            sleep(1.25 * (attempt + 1))
+    raise MapsError(str(last_error or "Open-Meteo elevation failed"))
+
+
+def fetch_elevation_open_meteo(locations: Sequence[tuple[float, float]]) -> list[dict[str, Any]]:
+    if not locations:
+        return []
+    out: list[dict[str, Any]] = []
+    for index, chunk in enumerate(_chunks(list(locations), OPEN_METEO_MAX)):
+        if index:
+            sleep(0.35)
+        out.extend(_open_meteo_chunk(chunk))
     return out
 
 
@@ -222,6 +244,9 @@ def elevation_from_locations(
     return assemble_heightmap(samples, west=west, south=south, east=east, north=north, rows=rows, cols=cols)
 
 
+_BBOX_CACHE: dict[tuple[float, float, float, float, int, int], dict[str, Any]] = {}
+
+
 def elevation_from_bbox(
     west: float,
     south: float,
@@ -232,17 +257,28 @@ def elevation_from_bbox(
     cols: int = 12,
     settings: Settings | None = None,
 ) -> dict[str, Any]:
-    points = sample_grid(west, south, east, north, rows, cols)
+    rows_n = max(2, min(int(rows), 64))
+    cols_n = max(2, min(int(cols), 64))
+    key = (round(float(west), 5), round(float(south), 5), round(float(east), 5), round(float(north), 5), rows_n, cols_n)
+    cached = _BBOX_CACHE.get(key)
+    if cached is not None:
+        return cached
+    points = sample_grid(west, south, east, north, rows_n, cols_n)
     samples = fetch_elevation_points(points, settings)
-    return assemble_heightmap(
+    result = assemble_heightmap(
         samples,
         west=west,
         south=south,
         east=east,
         north=north,
-        rows=max(2, min(int(rows), 64)),
-        cols=max(2, min(int(cols), 64)),
+        rows=rows_n,
+        cols=cols_n,
     )
+    if result.get("provider") != "heuristic":
+        if len(_BBOX_CACHE) > 12:
+            _BBOX_CACHE.clear()
+        _BBOX_CACHE[key] = result
+    return result
 
 
 def lookup_elevation_m(

@@ -15,12 +15,26 @@
     .legend { line-height: 1.4; }
     .swatch { display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: -1px; }
     .toolbar {
-      display: flex; gap: 6px; align-items: center; flex-wrap: wrap; min-width: 320px; max-width: 520px;
+      position: absolute;
+      z-index: 1000;
+      top: 10px;
+      left: 52px;
+      right: 250px;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: nowrap;
+      min-width: 0;
+      max-width: none;
+      box-sizing: border-box;
+      border-radius: 8px;
     }
     .toolbar input {
-      flex: 1; border: 1px solid #ccc; padding: 6px 8px; font: inherit;
+      flex: 1 1 140px; min-width: 0; border: 1px solid #ccc; padding: 6px 8px; font: inherit;
     }
     .toolbar button {
+      flex: 0 0 auto;
+      white-space: nowrap;
       border: 1px solid #bbb; background: #f7f7f7; padding: 6px 10px; cursor: pointer; font: inherit;
     }
     .popup-card { min-width: 240px; max-width: 300px; }
@@ -121,22 +135,22 @@
         "Building flood exposure": floodLayer,
         "Flood hazard extent": hazardLayer,
         "Susceptibility zones": zoneLayer
-      }
+      },
+      { position: "bottomleft" }
     ).addTo(map);
 
-    const toolbar = L.control({ position: "topleft" });
-    toolbar.onAdd = () => {
-      const div = L.DomUtil.create("div", "toolbar");
-      div.innerHTML = `
-        <input id="flood-address" type="text" placeholder="Address or click the map" />
-        <button id="flood-go" type="button">Evaluate flood</button>
-        <button id="heat-toggle" type="button">TIV heatmap</button>
-        <button id="blender-export" type="button">Export to 3D / Blender Manifest</button>
-      `;
-      L.DomEvent.disableClickPropagation(div);
-      return div;
-    };
-    toolbar.addTo(map);
+    const toolbar = document.createElement("div");
+    toolbar.className = "toolbar";
+    toolbar.innerHTML = `
+      <input id="flood-address" type="text" placeholder="Address or click the map" />
+      <button id="flood-go" type="button">Evaluate flood</button>
+      <button id="heat-toggle" type="button">TIV heatmap</button>
+      <button id="blender-export" type="button">Export to 3D / Blender Manifest</button>
+      <button id="diorama-open" type="button">Photoreal diorama</button>
+    `;
+    document.getElementById("map").appendChild(toolbar);
+    L.DomEvent.disableClickPropagation(toolbar);
+    L.DomEvent.disableScrollPropagation(toolbar);
 
     function claimPopup(p) {
       const ratio = p.damage_ratio == null || p.damage_ratio === ""
@@ -462,6 +476,9 @@
     document.getElementById("blender-export").addEventListener("click", () => {
       blenderModal.classList.add("open");
       loadManifest();
+    });
+    document.getElementById("diorama-open").addEventListener("click", () => {
+      window.open("/map/diorama.html", "nairobi-diorama");
     });
     document.getElementById("blender-close").addEventListener("click", () => {
       blenderModal.classList.remove("open");
