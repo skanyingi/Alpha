@@ -30,6 +30,7 @@ from catmod.nlp.gemini_rag import (
     query_dataset_rag,
     rows_from_claims,
     summarize_dataset,
+    one_summary,
 )
 from catmod.studio import build_studio_preview
 from catmod.flood.gemini import gemini_configured
@@ -353,6 +354,7 @@ def nlp_summary(payload: SummaryIn) -> JSONResponse:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     result = summarize_dataset(context, get_settings())
+    answer = one_summary(str(result.get("answer") or ""))
     event_id = str(context.get("event_id") or "NLP-SESSION")
     try:
         _record_rag(
@@ -369,7 +371,7 @@ def nlp_summary(payload: SummaryIn) -> JSONResponse:
         pass
     return JSONResponse(
         {
-            "answer": result.get("answer") or "",
+            "answer": answer,
             "summary_stats": result.get("summary_stats") or {},
             "confidence": result.get("confidence"),
             "source": result.get("source"),

@@ -151,6 +151,25 @@ SUMMARY_QUESTION = (
 )
 
 
+def one_summary(answer: str) -> str:
+    """Keep the first copy when a summary is written twice."""
+    raw = (answer or "").strip()
+    opening = re.match(r"(\S+\.csv contains \d+ rows\.)", raw, re.IGNORECASE)
+    if opening:
+        needle = opening.group(1)
+        again = raw.lower().find(needle.lower(), len(needle))
+        if again > 0:
+            return raw[:again].strip()
+    parts = [part.strip() for part in re.split(r"\n+", raw) if part.strip()]
+    if len(parts) < 2:
+        return raw
+    head = parts[0][:56].lower()
+    for index, part in enumerate(parts[1:], start=1):
+        if part[:56].lower() == head:
+            return "\n\n".join(parts[:index])
+    return raw
+
+
 def summarize_dataset(
     dataset_context: dict[str, Any],
     settings: Settings | None = None,
@@ -385,7 +404,7 @@ def _is_greeting(query: str) -> bool:
 
 def _is_summary(query: str) -> bool:
     text = query.lower()
-    return any(word in text for word in ("summar", "total tiv", "how many", "count"))
+    return any(word in text for word in ("summar", "total tiv", "how many", "count", "insight"))
 
 
 def _summary_sentence(

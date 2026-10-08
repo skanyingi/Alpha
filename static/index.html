@@ -783,6 +783,7 @@
     position:fixed;inset:0;z-index:15;
     display:none;
     grid-template-columns:minmax(240px,300px) minmax(0,1fr) minmax(250px,320px);
+    grid-template-rows:minmax(0,1fr);
     gap:16px;
     padding:78px 22px 18px;
     box-sizing:border-box;
@@ -845,7 +846,7 @@
   .studio-src small{color:#80868b;font-size:11px;flex:none;}
   .studio-main{
     display:flex;flex-direction:column;padding:0;
-    min-height:0;overflow:hidden;
+    height:100%;min-height:0;overflow:hidden;
   }
   .studio-progress{
     flex:0 0 auto;height:3px;background:#e8eaed;overflow:hidden;
@@ -871,8 +872,8 @@
     .studio-progress.is-run > span{animation:none;width:46%;}
   }
   .studio-scroll{
-    flex:1 1 auto;min-height:0;overflow:auto;
-    padding:28px 32px 8px;
+    flex:1 1 0;min-height:0;overflow:auto;
+    padding:28px 32px 16px;
   }
   .studio-mark{
     width:42px;height:42px;border-radius:12px;display:grid;place-items:center;
@@ -891,6 +892,7 @@
   }
   .studio-dock{
     flex:0 0 auto;
+    position:relative;z-index:2;
     margin:0;padding:8px 32px 0;
     background:#fff;
   }
@@ -961,6 +963,8 @@
   .sheet-wrap th,.sheet-wrap td{border-bottom:1px solid #e6e8eb;padding:8px 10px;text-align:left;white-space:nowrap;}
   .sheet-wrap th{background:#e6f4ea;color:#137333;font-weight:600;}
   .studio-chart{width:100%;height:180px;display:block;margin:8px 0 18px;background:#f7f8fa;border-radius:16px;}
+  .insight-list{display:flex;flex-direction:column;gap:10px;}
+  .insight-list .studio-progress{margin:0 0 14px;border-radius:99px;}
   .studio-radar{width:100%;height:auto;display:block;margin:0 0 18px;background:#f3efe6;border-radius:16px;}
   .map-list{display:flex;flex-direction:column;gap:8px;}
   .map-list button{
@@ -1545,6 +1549,7 @@
       <button type="button" class="studio-out" data-out="reports"><svg viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="1.7"><path d="M7 3.5h7l5 5V20a1.5 1.5 0 0 1-1.5 1.5h-10.5A1.5 1.5 0 0 1 5.5 20V5A1.5 1.5 0 0 1 7 3.5z"/><path d="M14 3.5V9h5M8 13h8M8 17h5"/></svg><span><b>Reports</b><small>Google Docs</small></span></button>
       <button type="button" class="studio-out" data-out="slides"><svg viewBox="0 0 24 24" fill="none" stroke="#f9ab00" stroke-width="1.7"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/></svg><span><b>Slide Deck</b><small>Google Slides</small></span></button>
       <button type="button" class="studio-out" data-out="graphs"><svg viewBox="0 0 24 24" fill="none" stroke="#e8453c" stroke-width="1.7"><path d="M4 19h16M7 16V10M12 16V6M17 16v-4"/></svg><span><b>Infographics</b><small>Graphs</small></span></button>
+      <button type="button" class="studio-out" data-out="insights"><svg viewBox="0 0 24 24" fill="none" stroke="#9334e6" stroke-width="1.7"><path d="M12 3.2 13.3 8.2 18.3 9.5 13.3 10.8 12 15.8 10.7 10.8 5.7 9.5 10.7 8.2 12 3.2Z"/><path d="M18 14.2 18.7 16.4 21 17.1 18.7 17.8 18 20 17.3 17.8 15 17.1 17.3 16.4 18 14.2Z"/></svg><span><b>Insights</b><small>Gemini on this book</small></span></button>
       <button type="button" class="studio-out" data-out="sheets"><svg viewBox="0 0 24 24" fill="none" stroke="#34a853" stroke-width="1.7"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M4 15h16M10 5v14"/></svg><span><b>Data Table</b><small>Google Sheets</small></span></button>
       <button type="button" class="studio-out" data-out="tasks"><svg viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="1.7"><path d="M8 6h11M8 12h11M8 18h11"/><path d="M4.5 6.2 5.4 7.2 7.2 5M4.5 12.2 5.4 13.2 7.2 11M4.5 18.2 5.4 19.2 7.2 17"/></svg><span><b>Tasks</b><small>Google Tasks</small></span></button>
       <button type="button" class="studio-out" data-out="gmail"><svg viewBox="0 0 24 24" fill="none" stroke="#ea4335" stroke-width="1.7"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></svg><span><b>Gmail</b><small>Ready to send</small></span></button>
@@ -3054,6 +3059,23 @@
       bar.classList.add("is-run");
     });
   }
+  function singleSummary(text){
+    var raw = String(text || "").trim();
+    var open = raw.match(/^(\S+\.csv contains \d+ rows\.)/i);
+    if(open){
+      var again = raw.toLowerCase().indexOf(open[1].toLowerCase(), open[1].length);
+      if(again > 0) return raw.slice(0, again).trim();
+    }
+    var parts = raw.split(/\n+/).map(function(part){ return part.trim(); }).filter(Boolean);
+    if(parts.length < 2) return raw;
+    var head = parts[0].slice(0, 56).toLowerCase();
+    var againAt = -1;
+    parts.forEach(function(part, index){
+      if(index && againAt < 0 && part.slice(0, 56).toLowerCase() === head) againAt = index;
+    });
+    if(againAt > 0) return parts.slice(0, againAt).join("\n\n");
+    return parts.join("\n\n");
+  }
   function writeStudioSummary(){
     var summary = document.getElementById("studioSummary");
     if(!summary) return;
@@ -3069,6 +3091,8 @@
     summaryKey = key;
     var previous = summary.textContent;
     summary.textContent = "Gemini is writing the portfolio summary.";
+    var reply = document.getElementById("studioReply");
+    if(reply) reply.textContent = "";
     setSummaryBar(true);
     postJSON("/api/v1/nlp/summary", {
       csv_text: csv || null,
@@ -3076,7 +3100,7 @@
       dataset_name: studioDatasetName() || null
     }).then(function(data){
       if(summaryKey !== key) return;
-      summary.textContent = data.answer || previous || "Gemini returned an empty summary.";
+      summary.textContent = singleSummary(data.answer) || previous || "Gemini returned an empty summary.";
       setSummaryBar(false);
     }).catch(function(){
       if(summaryKey !== key) return;
@@ -3135,6 +3159,75 @@
       '<text x="14" y="' + mid + '" fill="#5f6368" font-size="11" text-anchor="middle" transform="rotate(-90 14 ' + mid + ')">' + esc(yLabel || "Value") + '</text>' +
       '<text x="' + (padL + plotW / 2) + '" y="' + (h - 3) + '" fill="#5f6368" font-size="11" text-anchor="middle">' + esc(title) + '</text>';
     return '<p class="studio-chart-label">' + esc(title) + '</p><svg class="studio-chart" viewBox="0 0 ' + w + ' ' + h + '" role="img">' + axes + '</svg>';
+  }
+  function studioCurve(title, labels, points, color, yLabel){
+    labels = labels || [];
+    points = (points || []).map(function(value){ return Number(value) || 0; });
+    if(!labels.length) return "";
+    var max = Math.max.apply(null, points.concat([1]));
+    var w = 520;
+    var h = 180;
+    var padL = 48;
+    var padR = 12;
+    var padT = 16;
+    var padB = 36;
+    var plotW = w - padL - padR;
+    var plotH = h - padT - padB;
+    var coords = points.map(function(value, i){
+      var x = labels.length === 1 ? padL + plotW / 2 : padL + i * plotW / (labels.length - 1);
+      var y = padT + plotH - (value / max) * plotH;
+      return {x: x, y: y};
+    });
+    var line = "";
+    coords.forEach(function(point, i){
+      if(!i){
+        line = "M" + point.x.toFixed(1) + " " + point.y.toFixed(1);
+        return;
+      }
+      var prev = coords[i - 1];
+      var before = coords[Math.max(0, i - 2)];
+      var next = coords[Math.min(coords.length - 1, i + 1)];
+      var c1x = prev.x + (point.x - before.x) / 6;
+      var c1y = prev.y + (point.y - before.y) / 6;
+      var c2x = point.x - (next.x - prev.x) / 6;
+      var c2y = point.y - (next.y - prev.y) / 6;
+      line += "C" + c1x.toFixed(1) + " " + c1y.toFixed(1) + " " + c2x.toFixed(1) + " " + c2y.toFixed(1) + " " + point.x.toFixed(1) + " " + point.y.toFixed(1);
+    });
+    var base = padT + plotH;
+    var area = line + "L" + coords[coords.length - 1].x.toFixed(1) + " " + base.toFixed(1) + "L" + coords[0].x.toFixed(1) + " " + base.toFixed(1) + "Z";
+    var ticks = [0, 1, 2, 3].map(function(g){
+      var gy = padT + g * plotH / 3;
+      return '<line x1="' + padL + '" x2="' + (w - padR) + '" y1="' + gy + '" y2="' + gy + '" stroke="rgba(95,99,104,.18)"></line>' +
+        '<text x="' + (padL - 6) + '" y="' + (gy + 3) + '" fill="#5f6368" font-size="10" text-anchor="end">' + esc(axisTick(max * (1 - g / 3))) + '</text>';
+    }).join("");
+    var dots = coords.map(function(point){
+      return '<circle cx="' + point.x.toFixed(1) + '" cy="' + point.y.toFixed(1) + '" r="3.4" fill="#fff" stroke="' + color + '" stroke-width="2"></circle>';
+    }).join("");
+    var names = coords.map(function(point, i){
+      return '<text x="' + point.x.toFixed(1) + '" y="' + (h - 18) + '" fill="#5f6368" font-size="10" text-anchor="middle">' + esc(String(labels[i]).replace(/_/g, " ")) + '</text>';
+    }).join("");
+    var mid = padT + plotH / 2;
+    return '<p class="studio-chart-label">' + esc(title) + '</p><svg class="studio-chart" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + esc(title) + '">' +
+      ticks +
+      '<path d="' + area + '" fill="' + color + '" fill-opacity="0.16"></path>' +
+      '<path d="' + line + '" fill="none" stroke="' + color + '" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"></path>' +
+      dots + names +
+      '<text x="14" y="' + mid + '" fill="#5f6368" font-size="11" text-anchor="middle" transform="rotate(-90 14 ' + mid + ')">' + esc(yLabel || "Loss") + '</text>' +
+      '<text x="' + (padL + plotW / 2) + '" y="' + (h - 3) + '" fill="#5f6368" font-size="11" text-anchor="middle">Return period</text>' +
+      '</svg>';
+  }
+  function insightCards(answer){
+    var text = String(answer || "").trim();
+    var lines = text.split(/\n+/).map(function(line){
+      return line.replace(/^[\s\-\d\.\)•]+/, "").trim();
+    }).filter(Boolean);
+    if(lines.length <= 1 && text){
+      lines = text.split(/(?<=\.)\s+/).map(function(line){ return line.trim(); }).filter(Boolean);
+    }
+    if(!lines.length) return "<p>Gemini returned no insights for this book.</p>";
+    return '<div class="insight-list">' + lines.map(function(line, index){
+      return '<article class="task-card"><b>Insight ' + (index + 1) + "</b><span>" + esc(line) + "</span></article>";
+    }).join("") + "</div>";
   }
   function studioRadar(radar){
     var spokes = (radar && radar.spokes) || [];
@@ -3206,6 +3299,7 @@
       reports: ["Google Docs", "Reports"],
       slides: ["Google Slides", "Slide deck"],
       graphs: ["Infographics", "Graphs"],
+      insights: ["Gemini", "Insights"],
       maps: ["Maps", "Maps"],
       sheets: ["Google Sheets", "Data table"],
       tasks: ["Google Tasks", "Tasks"],
@@ -3223,6 +3317,28 @@
         '<button type="button" data-open-map="2d"><b>2D Maps</b><small>Full-screen plots of the uploaded book</small></button>' +
         '<button type="button" data-open-map="3d"><b>3D Maps</b><small>AR city model</small></button>' +
         '</div>';
+      return;
+    }
+    if(kind === "insights"){
+      body.innerHTML = '<div class="insight-list"><div class="studio-progress is-run"><span></span></div><p>Gemini is writing insights from this book.</p></div>';
+      var csv = sessionCsvText();
+      if(csv.length > 120000) csv = csv.slice(0, 120000);
+      if(!csv && !lastEventId){
+        body.innerHTML = "<p>Add a portfolio CSV. Gemini writes insights from the book.</p>";
+        return;
+      }
+      postJSON("/api/v1/nlp/query", {
+        query: "Write underwriting insights for this uploaded book. Return 4 to 6 insights, one complete sentence per line. Cover where the loss concentrates, which housing class carries the most insured value, how loss grows across return periods, and what an underwriter should watch. Use only figures present in the dataset.",
+        event_id: csv ? null : (lastEventId || null),
+        dataset_name: studioDatasetName() || null,
+        csv_text: csv || null
+      }).then(function(data){
+        if(!drawer.classList.contains("is-open") || title.textContent !== "Insights") return;
+        body.innerHTML = insightCards(data.answer);
+      }).catch(function(err){
+        if(!drawer.classList.contains("is-open") || title.textContent !== "Insights") return;
+        body.innerHTML = "<p>" + esc((err && err.message) || "Gemini could not write insights for this book.") + "</p>";
+      });
       return;
     }
     body.innerHTML = "<p>Opening the Apps Script preview…</p>";
@@ -3261,7 +3377,7 @@
         var charts = pack.charts || {};
         var ep = charts.ep || {};
         var occ = charts.occupancy || {};
-        body.innerHTML = studioRadar(charts.radar) + studioChart("Exceedance curve", ep.labels, ep.points, "#1a73e8", "Loss (" + bookCurrency + ")") + studioChart("Occupancy mix", occ.labels, occ.points, "#e8453c", "Locations");
+        body.innerHTML = studioRadar(charts.radar) + studioCurve("Exceedance curve", ep.labels, ep.points, "#1a73e8", "Loss (" + bookCurrency + ")") + studioChart("Occupancy mix", occ.labels, occ.points, "#e8453c", "Locations");
       }
     }).catch(function(err){
       body.innerHTML = "<p>" + esc((err && err.message) || "The preview did not load.") + "</p>";
