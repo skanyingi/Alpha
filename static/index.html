@@ -787,6 +787,23 @@
   @keyframes toast-lift{
     to{opacity:0;transform:translateY(-16px);}
   }
+  .upload-anim{
+    position:fixed;inset:0;z-index:80;display:grid;place-items:center;
+    background:rgba(4,20,28,.28);pointer-events:none;
+  }
+  .upload-anim[hidden]{display:none !important;}
+  .upload-card{
+    display:flex;flex-direction:column;align-items:center;gap:12px;
+    padding:22px 28px;border-radius:16px;background:#fff;color:#202124;
+    box-shadow:0 12px 32px rgba(0,0,0,.22);
+    font:600 15px Inter,sans-serif;
+  }
+  .upload-spin{
+    width:36px;height:36px;border-radius:50%;
+    border:3px solid #e4e7ec;border-top-color:#1a73e8;
+    animation:upload-spin .7s linear infinite;
+  }
+  @keyframes upload-spin{to{transform:rotate(360deg);}}
 
   @media (prefers-reduced-motion:reduce){
     .gem-glow::after,body.is-thinking .gem-glow{animation:none;}
@@ -801,6 +818,9 @@
 </div>
 
 <div class="toast-stack" id="toastStack" aria-live="polite" aria-label="Apps Script events"></div>
+<div class="upload-anim" id="uploadAnim" hidden>
+  <div class="upload-card"><span class="upload-spin" aria-hidden="true"></span>Uploading</div>
+</div>
 
 <header class="top">
   <a href="/" id="homeLink" class="gem-glow">Home</a>
@@ -840,6 +860,7 @@
       </button>
       <input id="lensFile" type="file" accept=".csv,text/csv,text/plain" hidden>
       <input id="folderPick" type="file" webkitdirectory directory multiple hidden>
+      <input id="desktopPick" type="file" multiple hidden>
       <button class="icon-btn" id="lensBtn" type="button" aria-label="Look up or reverse image search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/><path d="M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3" stroke-linecap="round"/></svg>
       </button>
@@ -855,10 +876,6 @@
       <button type="button" data-query="Run the Nairobi modeled portfolio">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.8 3.8 5.8 3.8 9S14.5 18.2 12 21c-2.5-2.8-3.8-5.8-3.8-9S9.5 5.8 12 3z"/></svg>
         Run Nairobi book
-      </button>
-      <button type="button" data-query="List modeled events">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3s6 6.2 6 10.2A6 6 0 0 1 6 13.2C6 9.2 12 3 12 3z"/></svg>
-        Open events
       </button>
       <button type="button" data-upload>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V6M8 9.5 12 5.5 16 9.5"/><path d="M5 19h14"/></svg>
@@ -973,7 +990,7 @@
       </span>
       <span>
         <strong>Nairobi book</strong>
-        <em>Modeled flood, susceptibility × 4 m</em>
+        <em>Models your uploaded Nairobi CSV</em>
       </span>
     </a>
     <a class="gcard gem-glow" href="#ask" data-query="Run the Nzoia depth portfolio">
@@ -985,7 +1002,7 @@
       </span>
       <span>
         <strong>Nzoia book</strong>
-        <em>Flood depth in metres</em>
+        <em>Models your uploaded Nzoia CSV</em>
       </span>
     </a>
     <a class="gcard gem-glow" href="#ask" data-query="List modeled events">
@@ -1378,8 +1395,8 @@
     if(window.renderAquaModes) window.renderAquaModes(document.getElementById("quoteCard"), modes || {});
   }
   var BOOKS = {
-    nairobi: {file:"samples/sample_nairobi_bordereau.csv", region:"nairobi"},
-    nzoia: {file:"samples/sample_nzoia_bordereau.csv", region:"nzoia"}
+    nairobi: {region:"nairobi", label:"Nairobi"},
+    nzoia: {region:"nzoia", label:"Nzoia"}
   };
 
   function readError(res){
@@ -1634,21 +1651,45 @@
     if(/nairobi/.test(lower)) return BOOKS.nairobi;
     return null;
   }
+  function regionOfFile(file){
+    var blob = (file.path || "") + " " + (file.name || "");
+    if(/nzoia/i.test(blob)) return "nzoia";
+    if(/nairobi/i.test(blob)) return "nairobi";
+    var lines = String(file.text || "").split(/\r?\n/).filter(function(line){ return line.trim(); });
+    if(lines.length < 2) return "";
+    var heads = lines[0].toLowerCase().split(",");
+    var latIdx = heads.indexOf("latitude");
+    if(latIdx < 0) latIdx = 2;
+    var lat = parseFloat(lines[1].split(",")[latIdx]);
+    if(!isFinite(lat)) return "";
+    if(lat > 0.05 && lat < 0.85) return "nzoia";
+    if(lat < -1.05 && lat > -1.5) return "nairobi";
+    return "";
+  }
+  function uploadedBook(region){
+    return sessionFiles.filter(function(file){
+      return file.text && isBordereau(file.text, file.name) && regionOfFile(file) === region;
+    });
+  }
   function runBook(book, basis, openMap){
-    return fetch(book.file).then(function(res){
-      if(!res.ok) throw new Error("Sample bordereau is not on the desk: " + book.file);
-      return res.text();
-    }).then(function(csv){
-      return postJSON("/v1/process-bordereau", {
-        client_email: "desk@catmod.local",
-        client_name: "Catastrophe desk",
-        filename: book.file.split("/").pop(),
-        data: csv,
-        content_type: "text/csv",
-        loss_basis: basis,
-        hazard_region: book.region,
-        return_period: 100
+    var files = uploadedBook(book.region);
+    if(!files.length){
+      return Promise.resolve({
+        status: "No uploaded " + book.label + " bordereau in this session.",
+        answer: "Upload a " + book.label + " CSV bordereau, then run this book again. The desk does not open sample portfolios from the repository.",
+        modes: {default_tab:"answer", note:"Modeled books and questions use files you upload."}
       });
+    }
+    var file = files[0];
+    return postJSON("/v1/process-bordereau", {
+      client_email: "desk@catmod.local",
+      client_name: "Catastrophe desk",
+      filename: file.name,
+      data: file.text,
+      content_type: "text/csv",
+      loss_basis: basis,
+      hazard_region: book.region,
+      return_period: 100
     }).then(function(data){ return jobView(data, openMap); });
   }
   function esc(s){
@@ -1918,11 +1959,18 @@
     }
     document.getElementById("folderPick").click();
   }
+  function setUploading(on){
+    var el = document.getElementById("uploadAnim");
+    if(el) el.hidden = !on;
+  }
+  function startDesktopUpload(){
+    var input = document.getElementById("desktopPick");
+    input.value = "";
+    input.click();
+  }
   function ingestFolder(fileList){
     var files = Array.prototype.slice.call(fileList || []);
     if(!files.length) return Promise.resolve();
-    showDesk();
-    deskTab = "queue";
     return Promise.all(files.map(function(file){
       var rel = file.deskPath || file.webkitRelativePath || file.name;
       var folder = rel.split("/")[0] || file.name;
@@ -1964,13 +2012,13 @@
     bindDesk.done = true;
     document.getElementById("deskHome").addEventListener("click", function(){ resetHome(); });
     document.getElementById("deskUpload").addEventListener("click", function(){
-      chooseFolder();
+      startDesktopUpload();
     });
     desk.addEventListener("click", function(e){
       var rail = e.target.closest("[data-rail]");
       if(rail){
         if(rail.getAttribute("data-rail") === "upload"){
-          chooseFolder();
+          startDesktopUpload();
           return;
         }
         deskTab = rail.getAttribute("data-rail") === "files" ? "files" : "queue";
@@ -2060,7 +2108,15 @@
       var files = Array.prototype.slice.call(this.files || []);
       this.value = "";
       if(!files.length) return;
-      ingestFolder(files);
+      setUploading(true);
+      Promise.resolve(ingestFolder(files)).finally(function(){ setUploading(false); });
+    });
+    document.getElementById("desktopPick").addEventListener("change", function(){
+      var files = Array.prototype.slice.call(this.files || []);
+      this.value = "";
+      if(!files.length) return;
+      setUploading(true);
+      Promise.resolve(ingestFolder(files)).finally(function(){ setUploading(false); });
     });
   }
   function dispatch(text, modeled){
@@ -2075,25 +2131,22 @@
     if(audit) return getJSON("/api/v1/audit/" + encodeURIComponent(audit[1])).then(auditView);
     var book = bookFor(lower);
     if(book) return runBook(book, basis, openMap);
-    if(/^(list|open|show)\b.*\bevents?\b/.test(lower) || lower === "events" || lower === "modeled events"){
+    if(lower === "list modeled events"){
       return openEventsDesk({tab:"queue", query:""});
     }
     var hits = sessionHits(text);
     if(hits.length){
-      return openEventsDesk({tab:"files", query:text}).then(function(){
-        return {
-          status: "Queried " + hits.length + " file" + (hits.length === 1 ? "" : "s") + " saved in this browser.",
-          answer: hits.slice(0, 8).map(function(file){
-            return file.name + "\n" + hitSnippet(file, text);
-          }).join("\n\n"),
-          sources: hits.slice(0, 6).map(function(file){
-            return {publication_title: file.name, source_origin: file.path};
-          }),
-          modes: {note:"Matches come from folders saved in this browser."}
-        };
+      return Promise.resolve({
+        status: "Queried " + hits.length + " file" + (hits.length === 1 ? "" : "s") + " saved in this browser.",
+        answer: hits.slice(0, 8).map(function(file){
+          return file.name + "\n" + hitSnippet(file, text);
+        }).join("\n\n"),
+        sources: hits.slice(0, 6).map(function(file){
+          return {publication_title: file.name, source_origin: file.path};
+        }),
+        modes: {note:"Matches come from folders saved in this browser."}
       });
     }
-    if(/\bevents?\b/.test(lower)) return openEventsDesk({tab:"queue", query:""});
     if(/hazard|footprint/.test(lower)){
       return Promise.all([getJSON("/api/v1/flood/hazard"), getJSON("/api/v1/flood/status")]).then(function(pair){
         return hazardView(pair[0], pair[1]);
@@ -2165,11 +2218,21 @@
       : "Nairobi, Nzoia, an address, or audit an event";
   }
   function sessionCsvText(){
-    return sessionFiles.filter(function(file){
+    var files = sessionFiles.filter(function(file){
       return file.text && /\.csv$/i.test(file.name || "");
-    }).slice(0, 3).map(function(file){
-      return file.text;
-    }).join("\n");
+    }).slice(0, 8);
+    var header = "";
+    var lines = [];
+    files.forEach(function(file){
+      var rows = String(file.text).replace(/^\uFEFF/, "").split(/\r?\n/).filter(function(line){ return line.trim(); });
+      if(!rows.length) return;
+      if(!header){
+        header = rows[0];
+        lines.push(header);
+      }
+      rows.slice(1).forEach(function(line){ lines.push(line); });
+    });
+    return lines.join("\n");
   }
   function runRag(text){
     text = String(text || "").trim();
@@ -2180,7 +2243,7 @@
     if(csv.length > 120000) csv = csv.slice(0, 120000);
     postJSON("/api/v1/nlp/query", {
       query: text,
-      event_id: lastEventId || null,
+      event_id: csv ? null : (lastEventId || null),
       csv_text: csv || null
     }).then(function(data){
       var ids = data.matched_asset_ids || [];
@@ -2299,8 +2362,7 @@
     if(upload){
       e.preventDefault();
       closeMenus();
-      showDesk();
-      chooseFolder();
+      startDesktopUpload();
       return;
     }
     var pwa = e.target.closest("[data-pwa]");
@@ -2369,8 +2431,7 @@
     var upload = e.target.closest("[data-upload]");
     if(upload){
       closeMenus();
-      showDesk();
-      chooseFolder();
+      startDesktopUpload();
       return;
     }
     var pwa = e.target.closest("[data-pwa]");

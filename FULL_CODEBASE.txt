@@ -2,7 +2,7 @@
 HYPERVECTOR RAG — FULL CODEBASE DUMP
 Generated for architecture review. Canonical tree is the repo itself.
 See ARCHITECTURE.md for diagrams. See README.md for run instructions.
-File count: 95
+File count: 90
 ========================================================================================
 
 TABLE OF CONTENTS
@@ -66,42 +66,37 @@ TABLE OF CONTENTS
   057. catmod/vulnerability/curves.py
   058. catmod/vulnerability/engine.py
   059. catmod/vulnerability/stochastic_engine.py
-  060. data/exposure_nairobi_synthetic.csv
-  061. data/exposure_nzoia_synthetic.csv
-  062. data/sample_nairobi_bordereau.csv
-  063. data/sample_nzoia_bordereau.csv
-  064. main.py
-  065. pytest.ini
-  066. README.md
-  067. requirements.txt
-  068. save-the-earth.html
-  069. scripts/dump_codebase.py
-  070. scripts/run_sample_job.py
-  071. setup.js
-  072. static/index.html
-  073. static/landing.html
-  074. static/map.html
-  075. static/modes.js
-  076. static/renderPresets.js
-  077. static/samples/sample_nairobi_bordereau.csv
-  078. static/samples/sample_nzoia_bordereau.csv
-  079. templates/reinsurance_audit_report.txt
-  080. tests/__init__.py
-  081. tests/test_ep_curve.py
-  082. tests/test_fallback.py
-  083. tests/test_finance.py
-  084. tests/test_flood.py
-  085. tests/test_hazard.py
-  086. tests/test_hdc.py
-  087. tests/test_ingestion.py
-  088. tests/test_jev.py
-  089. tests/test_jobs.py
-  090. tests/test_nlp_rag.py
-  091. tests/test_pipeline.py
-  092. tests/test_spatial.py
-  093. tests/test_stochastic_hazard.py
-  094. tests/test_stochastic_vulnerability.py
-  095. tests/test_vulnerability.py
+  060. jobs/EVT-DESK-A74ADD93.json
+  061. main.py
+  062. pytest.ini
+  063. README.md
+  064. requirements.txt
+  065. save-the-earth.html
+  066. scripts/dump_codebase.py
+  067. scripts/run_sample_job.py
+  068. setup.js
+  069. static/index.html
+  070. static/landing.html
+  071. static/map.html
+  072. static/modes.js
+  073. static/renderPresets.js
+  074. templates/reinsurance_audit_report.txt
+  075. tests/__init__.py
+  076. tests/test_ep_curve.py
+  077. tests/test_fallback.py
+  078. tests/test_finance.py
+  079. tests/test_flood.py
+  080. tests/test_hazard.py
+  081. tests/test_hdc.py
+  082. tests/test_ingestion.py
+  083. tests/test_jev.py
+  084. tests/test_jobs.py
+  085. tests/test_nlp_rag.py
+  086. tests/test_pipeline.py
+  087. tests/test_spatial.py
+  088. tests/test_stochastic_hazard.py
+  089. tests/test_stochastic_vulnerability.py
+  090. tests/test_vulnerability.py
 
 ========================================================================================
 FILE: .env.example
@@ -1337,12 +1332,7 @@ Exposure → hazard depth → damage ratio → TIV × DR → ground-up loss (Dec
         → FHRR memory update and EP / Leaflet export
 ```
 
-Default treaty on every sample: `$100M xs $40M`, 90% share, one reinstatement at 100% of the layer premium. `python scripts/run_sample_job.py` runs the Nairobi modeled portfolio. Both portfolios stay below the $40M attachment, so the reinsurer payout and reinstatement are zero. Both are tagged synthetic for hazard, vulnerability curves, and exposure. Jev batch budget is 500 ms. Full pipeline budget is 1000 ms.
-
-| Portfolio | File | Basis | Locations | Gross after terms | Reinsurer | Cedant retention | Modeled ground-up | Catalog EAL |
-|-----------|------|-------|-----------|-------------------|-----------|------------------|-------------------|-------------|
-| Nairobi modeled | `data/sample_nairobi_bordereau.csv` | `modeled` | 4 | $7,732,953.60 | $0 | $7,732,953.60 | $8,152,953.60 | $2,082,966.31 |
-| Nzoia modeled | `data/sample_nzoia_bordereau.csv` | `modeled` | 3 | $7,483,979.00 | $0 | $7,483,979.00 | $7,733,979.00 | $2,049,010.73 |
+Default treaty: `$100M xs $40M`, 90% share, one reinstatement at 100% of the layer premium. Portfolios come from an uploaded bordereau. `python scripts/run_sample_job.py path\to\bordereau.csv` models that file. The desk does not read a sample portfolio from the repository. Jev batch budget is 500 ms. Full pipeline budget is 1000 ms.
 
 ---
 
@@ -1512,11 +1502,7 @@ Hypervector RAG/
 │   ├── geo/                     open-stack fallbacks
 │   └── spatial/                 elevation, 3D Tiles, Blender, presets
 ├── data/
-│   ├── sample_nairobi_bordereau.csv     Nairobi modeled
-│   ├── sample_nzoia_bordereau.csv       Nzoia modeled
-│   ├── exposure_*_synthetic.csv
-│   ├── flood_hazard/                    sample surge polygon
-│   └── open_buildings/                  local footprint sample
+│   └── flood_hazard/                    hazard extent overlay
 ├── templates/reinsurance_audit_report.txt
 ├── static/
 │   ├── index.html               CatMod desk: search, event queue, toasts
@@ -2246,7 +2232,6 @@ from catmod.config import get_settings
 from catmod.jobs import JobStore
 from catmod.nlp.gemini_rag import (
     build_dataset_context,
-    load_named_dataset,
     parse_csv_text,
     query_dataset_rag,
     rows_from_claims,
@@ -2362,6 +2347,12 @@ def events() -> dict[str, Any]:
 
 
 def _rag_context(payload: RAGQueryIn) -> dict[str, Any]:
+    """Answer from an uploaded CSV or a job the desk already modeled. Never a bundled sample."""
+    if payload.csv_text and payload.csv_text.strip():
+        rows = parse_csv_text(payload.csv_text)
+        if not rows:
+            raise ValueError("The uploaded CSV has no data rows.")
+        return build_dataset_context(rows, name="uploaded-session.csv", event_id=payload.event_id)
     store = job_store()
     if payload.event_id:
         job = store.get(payload.event_id)
@@ -2372,11 +2363,6 @@ def _rag_context(payload: RAGQueryIn) -> dict[str, Any]:
                 name=str(job.get("filename") or payload.event_id),
                 event_id=str(job.get("event_id") or payload.event_id),
             )
-    if payload.csv_text and payload.csv_text.strip():
-        return build_dataset_context(parse_csv_text(payload.csv_text), name="uploaded-session.csv", event_id=payload.event_id)
-    if payload.dataset_name:
-        filename, rows = load_named_dataset(payload.dataset_name)
-        return build_dataset_context(rows, name=filename, event_id=payload.event_id)
     latest = store.latest()
     if latest is not None:
         claims = rows_from_claims(list(latest.get("claims") or []))
@@ -2385,12 +2371,7 @@ def _rag_context(payload: RAGQueryIn) -> dict[str, Any]:
             name=str(latest.get("filename") or latest.get("event_id")),
             event_id=str(latest.get("event_id")),
         )
-    query = payload.query.lower()
-    if "nzoia" in query:
-        filename, rows = load_named_dataset("sample_nzoia_bordereau")
-    else:
-        filename, rows = load_named_dataset("sample_nairobi_bordereau")
-    return build_dataset_context(rows, name=filename, event_id=None)
+    raise ValueError("Upload a portfolio CSV before asking about a dataset.")
 
 
 def _record_rag(event_id: str, detail: dict[str, Any]) -> None:
@@ -7327,7 +7308,6 @@ import io
 import json
 import re
 from collections import Counter
-from pathlib import Path
 from typing import Any
 
 import httpx
@@ -7357,13 +7337,6 @@ _PAYOUT_KEYS = {
     "exhaustion_ratio",
 }
 
-_DATASETS = {
-    "sample_nairobi_bordereau": "sample_nairobi_bordereau.csv",
-    "sample_nzoia_bordereau": "sample_nzoia_bordereau.csv",
-    "exposure_nairobi_synthetic": "exposure_nairobi_synthetic.csv",
-    "exposure_nzoia_synthetic": "exposure_nzoia_synthetic.csv",
-}
-
 _STOP = {
     "which", "what", "where", "who", "are", "the", "and", "for", "with", "have",
     "has", "from", "that", "this", "into", "over", "above", "under", "than",
@@ -7376,10 +7349,6 @@ _DEPTH_RE = re.compile(
     r"(?:depth|flood).{0,40}?(?:over|above|greater than|>)\s*(\d+(?:\.\d+)?)",
     re.IGNORECASE,
 )
-
-
-def data_root() -> Path:
-    return Path(__file__).resolve().parents[2] / "data"
 
 
 def parse_csv_text(text: str) -> list[dict[str, Any]]:
@@ -7400,17 +7369,6 @@ def rows_from_claims(claims: list[dict[str, Any]]) -> list[dict[str, Any]]:
         row = {key: value for key, value in claim.items() if key not in _PAYOUT_KEYS}
         kept.append(row)
     return kept
-
-
-def load_named_dataset(dataset_name: str) -> tuple[str, list[dict[str, Any]]]:
-    stem = Path(dataset_name).name
-    stem = re.sub(r"\.(csv|xlsx)$", "", stem, flags=re.IGNORECASE)
-    filename = _DATASETS.get(stem)
-    if filename is None:
-        known = ", ".join(sorted(_DATASETS))
-        raise ValueError(f"Unknown dataset_name {dataset_name}. Known datasets: {known}")
-    path = data_root() / filename
-    return filename, parse_csv_text(path.read_text(encoding="utf-8"))
 
 
 def build_dataset_context(
@@ -10013,37 +9971,9 @@ def _percentile(samples: tuple[Decimal, ...], probability: Decimal) -> Decimal:
     return to_cents(ordered[low] + (ordered[high] - ordered[low]) * weight)
 
 ========================================================================================
-FILE: data/exposure_nairobi_synthetic.csv
+FILE: jobs/EVT-DESK-A74ADD93.json
 ========================================================================================
-asset_id,policy_id,latitude,longitude,elevation,occupancy,tiv,ground_up_loss,deductible,policy_limit,coinsurance,loss_date
-N-001,KN-100,-1.2921,36.8219,1660,informal iron sheet,2500000,0,50000,2500000,1.0,2026-04-12
-N-002,KN-101,-1.2864,36.8290,1685,permanent masonry,8000000,0,100000,8000000,1.0,2026-04-12
-N-003,KN-102,-1.2755,36.8148,1705,concrete rcc,15000000,0,250000,15000000,1.0,2026-04-12
-
-========================================================================================
-FILE: data/exposure_nzoia_synthetic.csv
-========================================================================================
-asset_id,policy_id,latitude,longitude,elevation,occupancy,tiv,ground_up_loss,deductible,policy_limit,coinsurance,loss_date
-Z-001,KB-200,0.5900,34.2000,1140,informal iron sheet,1800000,0,25000,1800000,1.0,2026-05-03
-Z-002,KB-201,0.5200,34.2200,1165,permanent masonry,4500000,0,75000,4500000,1.0,2026-05-03
-Z-003,KB-202,0.4700,34.1800,1130,concrete rcc,9000000,0,150000,9000000,1.0,2026-05-03
-
-========================================================================================
-FILE: data/sample_nairobi_bordereau.csv
-========================================================================================
-asset_id,policy_id,latitude,longitude,elevation,occupancy,tiv,ground_up_loss,deductible,policy_limit,coinsurance,loss_date
-N-001,KN-100,-1.2921,36.8219,1660,informal iron sheet,2500000,0,50000,2500000,1.0,2026-04-12
-N-002,KN-101,-1.2864,36.8290,1685,permanent masonry,8000000,0,100000,8000000,1.0,2026-04-12
-N-003,KN-102,-1.2755,36.8148,1705,concrete rcc,15000000,0,250000,15000000,1.0,2026-04-12
-N-004,KN-103,-1.3012,36.7890,1680,mabati,900000,0,20000,900000,1.0,2026-04-12
-
-========================================================================================
-FILE: data/sample_nzoia_bordereau.csv
-========================================================================================
-asset_id,policy_id,latitude,longitude,elevation,occupancy,tiv,ground_up_loss,deductible,policy_limit,coinsurance,loss_date
-Z-001,KB-200,0.5900,34.2000,1140,informal iron sheet,1800000,0,25000,1800000,1.0,2026-05-03
-Z-002,KB-201,0.5200,34.2200,1165,permanent masonry,4500000,0,75000,4500000,1.0,2026-05-03
-Z-003,KB-202,0.4700,34.1800,1130,concrete rcc,9000000,0,150000,9000000,1.0,2026-05-03
+{"event_id": "EVT-DESK-A74ADD93", "client_index_id": "CID-20261008-2FF7B44C7B", "client_email": "desk@catmod.local", "client_name": "Catastrophe desk", "filename": "desk.csv", "total_gross_claim": 927.35, "reinsurer_payout": 0.0, "cedant_retained_loss": 927.35, "reinstatement_premium_due": 0.0, "layer_loss": 0.0, "exhaustion_ratio": 0.0, "treaty_label": "$100,000,000 xs $40,000,000 (90% share)", "treaty": {"attachment_point": 40000000.0, "limit": 100000000.0, "co_participation": 0.9, "reinstatements": 1, "original_premium": 5000000.0, "label": "$100,000,000 xs $40,000,000 (90% share)"}, "source_urls": [], "flagged_count": 0, "claim_count": 1, "tvar_pml": {"event_occurrence_loss": 927.35, "location_var_95": 927.35, "location_tvar_95": 927.35, "location_var_99": 927.35, "location_tvar_99": 927.35, "pml_100": 927.35, "pml_250": 927.35, "tvar_99_event_catalog": 927.35}, "loss_basis": "modeled", "execution_mode": "deterministic", "return_period": 100, "hazard_region": "nairobi", "synthetic": {"hazard": true, "vulnerability_curves": true, "exposure_portfolio": false, "ep_curve": true, "primary_ground_up_loss": true}, "modeled_ground_up_loss": "927.35", "modeled_waterfall": {"total_gross_claim": 927.35, "reinsurer_payout": 0.0, "cedant_retained_loss": 927.35, "layer_loss": 0.0, "cedant_layer_share": 0.0, "retention_below_attachment": 927.35, "exhaustion_ratio": 0.0, "reinstatement_premium_due": 0.0, "treaty_label": "$100,000,000 xs $40,000,000 (90% share)", "synthetic": true, "llm_used": false, "vector_approximation_used": false, "engine": "decimal_cents_half_even"}, "ep_curve": {"synthetic": true, "method": "oep_trapezoid", "curve_family": "return_period_catalog", "return_periods": [10, 25, 50, 100, 250, 500], "curve": [{"return_period": 10, "exceedance_probability": "0.1", "exceedance_probability_float": 0.1, "loss": "532.63", "loss_float": 532.63, "synthetic": true}, {"return_period": 25, "exceedance_probability": "0.04", "exceedance_probability_float": 0.04, "loss": "702.42", "loss_float": 702.42, "synthetic": true}, {"return_period": 50, "exceedance_probability": "0.02", "exceedance_probability_float": 0.02, "loss": "845.63", "loss_float": 845.63, "synthetic": true}, {"return_period": 100, "exceedance_probability": "0.01", "exceedance_probability_float": 0.01, "loss": "927.35", "loss_float": 927.35, "synthetic": true}, {"return_period": 250, "exceedance_probability": "0.004", "exceedance_probability_float": 0.004, "loss": "1000.00", "loss_float": 1000.0, "synthetic": true}, {"return_period": 500, "exceedance_probability": "0.002", "exceedance_probability_float": 0.002, "loss": "1000.00", "loss_float": 1000.0, "synthetic": true}], "oep": [{"return_period": 10, "exceedance_probability": "0.1", "exceedance_probability_float": 0.1, "loss": "532.63", "loss_float": 532.63, "synthetic": true}, {"return_period": 25, "exceedance_probability": "0.04", "exceedance_probability_float": 0.04, "loss": "702.42", "loss_float": 702.42, "synthetic": true}, {"return_period": 50, "exceedance_probability": "0.02", "exceedance_probability_float": 0.02, "loss": "845.63", "loss_float": 845.63, "synthetic": true}, {"return_period": 100, "exceedance_probability": "0.01", "exceedance_probability_float": 0.01, "loss": "927.35", "loss_float": 927.35, "synthetic": true}, {"return_period": 250, "exceedance_probability": "0.004", "exceedance_probability_float": 0.004, "loss": "1000.00", "loss_float": 1000.0, "synthetic": true}, {"return_period": 500, "exceedance_probability": "0.002", "exceedance_probability_float": 0.002, "loss": "1000.00", "loss_float": 1000.0, "synthetic": true}], "aep": [{"return_period": 10, "exceedance_probability": "0.09516258196404048", "loss": "532.63", "synthetic": true}, {"return_period": 25, "exceedance_probability": "0.03921056084767682", "loss": "702.42", "synthetic": true}, {"return_period": 50, "exceedance_probability": "0.019801326693244747", "loss": "845.63", "synthetic": true}, {"return_period": 100, "exceedance_probability": "0.009950166250831893", "loss": "927.35", "synthetic": true}, {"return_period": 250, "exceedance_probability": "0.003992010656008516", "loss": "1000.00", "synthetic": true}, {"return_period": 500, "exceedance_probability": "0.001998001332666921", "loss": "1000.00", "synthetic": true}], "eal": "310.86", "eal_float": 310.86, "pml": {"10": "532.63", "25": "702.42", "50": "845.63", "100": "927.35", "250": "1000.00", "500": "1000.00"}, "var": {"0.95": "674.12", "0.99": "927.35", "0.995": "987.89", "0.998": "1000.00"}, "tvar": {"0.95": "820.20", "0.99": "978.20", "0.995": "998.79", "0.998": "1000.00"}, "monotonic_exceedance": true, "loss_basis": "modeled_ground_up", "scenario_count": 6, "exposure_count": 1}, "stochastic_catalog": null, "placeholders": {"CLIENT_NAME": "Catastrophe desk", "EVENT_ID": "EVT-DESK-A74ADD93", "GROUND_UP_LOSS": 927.35, "REINSURER_PAYOUT": 0.0, "CEDANT_RETENTION": 927.35, "FRAUD_FLAG_COUNT": 0, "MODELED_GROUND_UP_LOSS": "927.35", "EXPECTED_ANNUAL_LOSS": "310.86", "SYNTHETIC": "true", "SYNTHETIC_HAZARD": "true", "SYNTHETIC_VULNERABILITY": "true", "SYNTHETIC_EXPOSURE": "false", "HAZARD_REGION": "nairobi"}, "claims": [{"asset_id": "A-1", "policy_id": "P", "latitude": -1.29, "longitude": 36.82, "elevation": 1700.0, "occupancy_raw": "mabati", "occupancy": "informal_iron_sheet", "occupancy_confidence": 0.9999974429216045, "tiv": 1000.0, "ground_up_loss": 927.35, "deductible": 0.0, "policy_limit": 1000.0, "coinsurance": 1.0, "loss_date": "2026-01-01", "route": "finance", "fraud_flag": false, "fraud_noul": 0.037423481507188563, "spatial_severity": 0.17042799528595048, "hdc_interpolation_score": 0.9926786422729492, "hdc_physics_ok": true, "covered_loss": 927.35, "allocated_reinsurer_payout": 0.0, "allocated_cedant_retention": 927.35, "flood_depth_m": 1.1973, "damage_ratio": 0.927352, "modeled_ground_up_loss": 927.35, "reported_ground_up_loss": 0.0, "hazard_anomaly": null, "hazard_region": "nairobi", "hazard_synthetic": true, "synthetic": true, "loss_basis": "modeled"}], "geojson": {"type": "FeatureCollection", "features": [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [36.82, -1.29]}, "properties": {"asset_id": "A-1", "occupancy": "informal_iron_sheet", "ground_up_loss": 927.35, "reinsured_payout": 0.0, "cedant_retention": 927.35, "hdc_interpolation_score": 0.9926786422729492, "fraud_flag": false, "marker-color": "#2A9D4A", "flood_depth_m": 1.1973, "damage_ratio": 0.927352, "synthetic": true, "badge": "synthetic", "hazard_anomaly": null, "loss_basis": "modeled", "style": {"color": "#2A9D4A", "fillColor": "#2A9D4A", "fillOpacity": 0.85, "radius": 8}}}], "metadata": {"event_id": "EVT-DESK-A74ADD93", "legend": {"#2A9D4A": "low loss (cedant retained, small)", "#E07A3D": "retained loss", "#C1121F": "reinsured XL payout", "#7B1E3A": "fraud / spatial discrepancy flag"}, "synthetic": true, "provenance": {"hazard": true, "vulnerability_curves": true, "exposure_portfolio": false}, "hazard_region": "nairobi", "center": {"latitude": -1.28, "longitude": 36.82, "zoom": 12}, "disclaimer": "Vulnerability curves are a JRC/Huizinga proxy (synthetic: true). Synthetic exposure portfolios are generated for the hackathon. Mounted nzoia_rp GeoTIFFs are JRC flood depth in metres. Nairobi pluvial rasters are a susceptibility proxy, depth_m = susceptibility \u00d7 4.0 m.", "ep_curve": {"synthetic": true, "method": "oep_trapezoid", "curve_family": "return_period_catalog", "return_periods": [10, 25, 50, 100, 250, 500], "curve": [{"return_period": 10, "exceedance_probability": "0.1", "exceedance_probability_float": 0.1, "loss": "532.63", "loss_float": 532.63, "synthetic": true}, {"return_period": 25, "exceedance_probability": "0.04", "exceedance_probability_float": 0.04, "loss": "702.42", "loss_float": 702.42, "synthetic": true}, {"return_period": 50, "exceedance_probability": "0.02", "exceedance_probability_float": 0.02, "loss": "845.63", "loss_float": 845.63, "synthetic": true}, {"return_period": 100, "exceedance_probability": "0.01", "exceedance_probability_float": 0.01, "loss": "927.35", "loss_float": 927.35, "synthetic": true}, {"return_period": 250, "exceedance_probability": "0.004", "exceedance_probability_float": 0.004, "loss": "1000.00", "loss_float": 1000.0, "synthetic": true}, {"return_period": 500, "exceedance_probability": "0.002", "exceedance_probability_float": 0.002, "loss": "1000.00", "loss_float": 1000.0, "synthetic": true}], "oep": [{"return_period": 10, "exceedance_probability": "0.1", "exceedance_probability_float": 0.1, "loss": "532.63", "loss_float": 532.63, "synthetic": true}, {"return_period": 25, "exceedance_probability": "0.04", "exceedance_probability_float": 0.04, "loss": "702.42", "loss_float": 702.42, "synthetic": true}, {"return_period": 50, "exceedance_probability": "0.02", "exceedance_probability_float": 0.02, "loss": "845.63", "loss_float": 845.63, "synthetic": true}, {"return_period": 100, "exceedance_probability": "0.01", "exceedance_probability_float": 0.01, "loss": "927.35", "loss_float": 927.35, "synthetic": true}, {"return_period": 250, "exceedance_probability": "0.004", "exceedance_probability_float": 0.004, "loss": "1000.00", "loss_float": 1000.0, "synthetic": true}, {"return_period": 500, "exceedance_probability": "0.002", "exceedance_probability_float": 0.002, "loss": "1000.00", "loss_float": 1000.0, "synthetic": true}], "aep": [{"return_period": 10, "exceedance_probability": "0.09516258196404048", "loss": "532.63", "synthetic": true}, {"return_period": 25, "exceedance_probability": "0.03921056084767682", "loss": "702.42", "synthetic": true}, {"return_period": 50, "exceedance_probability": "0.019801326693244747", "loss": "845.63", "synthetic": true}, {"return_period": 100, "exceedance_probability": "0.009950166250831893", "loss": "927.35", "synthetic": true}, {"return_period": 250, "exceedance_probability": "0.003992010656008516", "loss": "1000.00", "synthetic": true}, {"return_period": 500, "exceedance_probability": "0.001998001332666921", "loss": "1000.00", "synthetic": true}], "eal": "310.86", "eal_float": 310.86, "pml": {"10": "532.63", "25": "702.42", "50": "845.63", "100": "927.35", "250": "1000.00", "500": "1000.00"}, "var": {"0.95": "674.12", "0.99": "927.35", "0.995": "987.89", "0.998": "1000.00"}, "tvar": {"0.95": "820.20", "0.99": "978.20", "0.995": "998.79", "0.998": "1000.00"}, "monotonic_exceedance": true, "loss_basis": "modeled_ground_up", "scenario_count": 6, "exposure_count": 1}}}, "audit": {"event_id": "EVT-DESK-A74ADD93", "job_id": "job-d9381e805514", "started_at": "2026-10-08T08:10:15.601775+00:00", "finished_at": "2026-10-08T08:10:17.569267+00:00", "log_path": "audit_logs\\EVT-DESK-A74ADD93.jsonl", "entries": [{"ts": "2026-10-08T08:10:15.619350+00:00", "event_id": "EVT-DESK-A74ADD93", "job_id": "job-d9381e805514", "layer": 1, "layer_name": "google_workspace_ingestion", "step": "job_opened", "status": "ok", "latency_ms": null, "detail": {"job_id": "job-d9381e805514", "event_id": "EVT-DESK-A74ADD93"}}, {"ts": "2026-10-08T08:10:15.644070+00:00", "event_id": "EVT-DESK-A74ADD93", "job_id": "job-d9381e805514", "layer": 1, "layer_name": "google_workspace_ingestion", "step": "apps_script_webhook_received", "status": "ok", "latency_ms": null, "detail": {"client_email": "desk@catmod.local", "client_name": "Catastrophe desk", "filename": "desk.csv", "client_index_id": "CID-20261008-2FF7B44C7B", "underwriter_email": null, "source_urls": []}}, {"ts": "2026-10-08T08:10:15.941821+00:00", "event_id": "EVT-DESK-A74ADD93", "job_id": "job-d9381e805514", "layer": 1, "layer_name": "google_workspace_ingestion", "step": "bordereau_parsed", "status": "ok", "latency_ms": null, "detail": {"claim_count": 1, "filename": "desk.csv"}}, {"ts": "2026-10-08T08:10:15.995721+00:00", "event_id": "EVT-DESK-A74ADD93", "job_id": "job-d9381e805514", "layer": 2, "layer_name": "jev_system_one", "step": "jev_triage_complete", "status": "ok", "latency_ms": 48.838, "detail": {"batch_size": 1, "budget_ms": 500, "within_budget": true, "route_finance": 1, "route_hdc_physics": 0, "hosted_jev": false}}, {"ts": "2026-10-08T08:10:16.120827+00:00", "event_id": "EVT-DESK-A74ADD93", "job_id": "job-d9381e805514", "layer": 8, "layer_name": "hazard_raster_lookup", "step": "hazard_lookup_complete", "status": "ok", "latency_ms": null, "detail": {"return_period": 100, "region": "nairobi", "locations": 1, "anomalies": 0, "synthetic": true, "proxy": true, "value_kinds": ["susceptibility"], "sources": ["Copernicus GLO-30 DEM + OSM River Distance Proxy"], "conversion": ["proxy conversion assumption: depth_m = susceptibility \u00d7 4.0 m"]}}, {"ts": "2026-10-08T08:10:16.123584+00:00", "event_id": "EVT-DESK-A74ADD93", "job_id": "job-d9381e805514", "layer": 9, "layer_name": "vulnerability_damage_function", "step": "vulnerability_complete", "status": "ok", "latency_ms": null, "detail": {"synthetic": true, "proxy": true, "curve_family": "jrc_huizinga_proxy", "ground_up_loss": "927.35", "engine": "decimal_cents_half_even", "occupancies": ["informal_iron_sheet"]}}, {"ts": "2026-10-08T08:10:16.897234+00:00", "event_id": "EVT-DESK-A74ADD93", "job_id": "job-d9381e805514", "layer": 3, "layer_name": "hdc_fhrr_spatial_memory", "step": "hdc_portfolio_encoded", "status": "ok", "latency_ms": null, "detail": {"dimension": 10000, "claims_in_superposition": 1, "representation": "FHRR complex", "roles": ["location", "occupancy", "damage_ratio"]}}, {"ts": "2026-10-08T08:10:17.212586+00:00", "event_id": "EVT-DESK-A74ADD93", "job_id": "job-d9381e805514", "layer": 3, "layer_name": "hdc_fhrr_spatial_memory", "step": "hdc_query_complete", "status": "ok", "latency_ms": null, "detail": {"physics_validated": 0, "top_clusters": [{"latitude": -1.29, "longitude": 36.82, "exposure_score": 0.9926786422729492}, {"latitude": -1.34, "longitude": 36.82, "exposure_score": 0.5599597543478012}, {"latitude": -1.24, "longitude": 36.82, "exposure_score": 0.5548279508948326}], "temporal_projection": "M(t+1d) = M(t) \u2297 P^\u0394t", "projected_norm": 2.5488781929016113}}, {"ts": "2026-10-08T08:10:17.527096+00:00", "event_id": "EVT-DESK-A74ADD93", "job_id": "job-d9381e805514", "layer": 4, "layer_name": "deterministic_reinsurance_finance", "step": "financial_waterfall_complete", "status": "ok", "latency_ms": null, "detail": {"treaty": "$100,000,000 xs $40,000,000 (90% share)", "loss_basis": "modeled", "synthetic": true, "total_gross_claim": 927.35, "reinsurer_payout": 0.0, "cedant_retained_loss": 927.35, "reinstatement_premium_due": 0.0, "llm_used": false, "vector_approximation_used": false, "engine": "decimal_cents_half_even"}}, {"ts": "2026-10-08T08:10:17.528433+00:00", "event_id": "EVT-DESK-A74ADD93", "job_id": "job-d9381e805514", "layer": 4, "layer_name": "deterministic_reinsurance_finance", "step": "modeled_vulnerability_waterfall", "status": "ok", "latency_ms": null, "detail": {"synthetic": true, "ground_up_loss": "927.35", "reinsurer_payout": 0.0, "cedant_retained_loss": 927.35, "reinstatement_premium_due": 0.0, "llm_used": false, "vector_approximation_used": false, "engine": "decimal_cents_half_even"}}, {"ts": "2026-10-08T08:10:17.533907+00:00", "event_id": "EVT-DESK-A74ADD93", "job_id": "job-d9381e805514", "layer": 10, "layer_name": "exceedance_probability_analytics", "step": "ep_curve_complete", "status": "ok", "latency_ms": null, "detail": {"synthetic": true, "eal": "310.86", "return_periods": [10, 25, 50, 100, 250, 500], "monotonic_exceedance": true}}, {"ts": "2026-10-08T08:10:17.554679+00:00", "event_id": "EVT-DESK-A74ADD93", "job_id": "job-d9381e805514", "layer": 5, "layer_name": "leaflet_geojson_export", "step": "leaflet_geojson_emitted", "status": "ok", "latency_ms": null, "detail": {"feature_count": 1, "has_hazard_polygon": false, "type": "FeatureCollection", "synthetic": true, "ep_curve_embedded": true}}, {"ts": "2026-10-08T08:10:17.556340+00:00", "event_id": "EVT-DESK-A74ADD93", "job_id": "job-d9381e805514", "layer": 5, "layer_name": "leaflet_geojson_export", "step": "pipeline_sla", "status": "latency_budget_exceeded", "latency_ms": 2367.657, "detail": {"budget_ms": 1000, "within_budget": false}}], "layer_verification": {"1": {"layer_name": "google_workspace_ingestion", "required_any_of": ["apps_script_webhook_received", "bordereau_parsed", "job_opened"], "observed": ["apps_script_webhook_received", "bordereau_parsed", "job_opened"], "verified": true}, "2": {"layer_name": "jev_system_one", "required_any_of": ["jev_triage_complete"], "observed": ["jev_triage_complete"], "verified": true}, "3": {"layer_name": "hdc_fhrr_spatial_memory", "required_any_of": ["hdc_portfolio_encoded", "hdc_query_complete"], "observed": ["hdc_portfolio_encoded", "hdc_query_complete"], "verified": true}, "4": {"layer_name": "deterministic_reinsurance_finance", "required_any_of": ["financial_waterfall_complete"], "observed": ["financial_waterfall_complete", "modeled_vulnerability_waterfall"], "verified": true}, "5": {"layer_name": "leaflet_geojson_export", "required_any_of": ["leaflet_geojson_emitted"], "observed": ["leaflet_geojson_emitted"], "verified": true}}}}
 
 ========================================================================================
 FILE: main.py
@@ -10118,7 +10048,7 @@ Five isolated layers: Google Workspace ingestion, Jev System-One triage, FHRR hy
 
 ```bash
 pip install -r requirements.txt
-python scripts/run_sample_job.py
+python scripts/run_sample_job.py path\to\bordereau.csv
 python -m pytest tests -q
 uvicorn main:app --port 8000
 ```
@@ -10138,7 +10068,7 @@ The desk search bar fills the screen with a small margin. **Modeled events** lis
 
 Flood exposure on the map is a sidecar. Set `GOOGLE_MAPS_API_KEY` and `GEMINI_API_KEY` in `.env` for geocoding, Static Maps / Street View, and Gemini vision. XL payouts come only from `catmod/finance/`.
 
-Physical loss path, in order: Jev occupancy → `catmod/hazard/` (Nairobi susceptibility converted as `score × 4.0 m`, Nzoia depth, or a CSV / ASCII / GeoTIFF raster) → `catmod/vulnerability/` (`TIV × damage ratio`, cents) → Layer 4. Mounted `nzoia_rp*.tif` files are JRC metre depths and replace the synthetic Nzoia stand-in. `loss_basis=auto` keeps a positive reported ground-up loss as the contractual input and still prices the modeled loss beside it. `loss_basis=modeled` sends the curve loss into the primary waterfall. The job payload includes `ep_curve` (10, 25, 50, 100, 250, and 500-year) and `synthetic`. `python scripts/run_sample_job.py` runs the Nairobi modeled portfolio. `execution_mode=stochastic` adds a synthetic event catalog and Beta damage samples beside that job; the default remains `deterministic`.
+Physical loss path, in order: Jev occupancy → `catmod/hazard/` (Nairobi susceptibility converted as `score × 4.0 m`, Nzoia depth, or a CSV / ASCII / GeoTIFF raster) → `catmod/vulnerability/` (`TIV × damage ratio`, cents) → Layer 4. Mounted `nzoia_rp*.tif` files are JRC metre depths and replace the synthetic Nzoia stand-in. `loss_basis=auto` keeps a positive reported ground-up loss as the contractual input and still prices the modeled loss beside it. `loss_basis=modeled` sends the curve loss into the primary waterfall. The job payload includes `ep_curve` (10, 25, 50, 100, 250, and 500-year) and `synthetic`. `python scripts/run_sample_job.py path\to\bordereau.csv` models a CSV you supply. Questions and the Nairobi and Nzoia books use that upload, not a portfolio stored in the repository. `execution_mode=stochastic` adds a synthetic event catalog and Beta damage samples beside that job; the default remains `deterministic`.
 
 Google Apps Script: copy `appsscript.js` into the project and replace the manifest with `appsscript.json`. Script properties:
 
@@ -11737,12 +11667,16 @@ REQUIRED_STEPS = {
 
 
 def main() -> None:
-    sample = ROOT / "data" / "sample_nairobi_bordereau.csv"
+    if len(sys.argv) < 2:
+        raise SystemExit("Pass a bordereau CSV path. The repository does not ship a sample portfolio.")
+    sample = Path(sys.argv[1])
+    if not sample.is_file():
+        raise SystemExit(f"Bordereau not found: {sample}")
     result = run_pipeline(
         BordereauWebhook(
             client_email="desk@nairobi.example",
-            client_name="Nairobi County Mutual",
-            filename="sample_nairobi_bordereau.csv",
+            client_name="Catastrophe desk",
+            filename=sample.name,
             data=sample.read_text(encoding="utf-8"),
             loss_basis="modeled",
             hazard_region="nairobi",
@@ -12832,6 +12766,23 @@ FILE: static/index.html
   @keyframes toast-lift{
     to{opacity:0;transform:translateY(-16px);}
   }
+  .upload-anim{
+    position:fixed;inset:0;z-index:80;display:grid;place-items:center;
+    background:rgba(4,20,28,.28);pointer-events:none;
+  }
+  .upload-anim[hidden]{display:none !important;}
+  .upload-card{
+    display:flex;flex-direction:column;align-items:center;gap:12px;
+    padding:22px 28px;border-radius:16px;background:#fff;color:#202124;
+    box-shadow:0 12px 32px rgba(0,0,0,.22);
+    font:600 15px Inter,sans-serif;
+  }
+  .upload-spin{
+    width:36px;height:36px;border-radius:50%;
+    border:3px solid #e4e7ec;border-top-color:#1a73e8;
+    animation:upload-spin .7s linear infinite;
+  }
+  @keyframes upload-spin{to{transform:rotate(360deg);}}
 
   @media (prefers-reduced-motion:reduce){
     .gem-glow::after,body.is-thinking .gem-glow{animation:none;}
@@ -12846,6 +12797,9 @@ FILE: static/index.html
 </div>
 
 <div class="toast-stack" id="toastStack" aria-live="polite" aria-label="Apps Script events"></div>
+<div class="upload-anim" id="uploadAnim" hidden>
+  <div class="upload-card"><span class="upload-spin" aria-hidden="true"></span>Uploading</div>
+</div>
 
 <header class="top">
   <a href="/" id="homeLink" class="gem-glow">Home</a>
@@ -12885,6 +12839,7 @@ FILE: static/index.html
       </button>
       <input id="lensFile" type="file" accept=".csv,text/csv,text/plain" hidden>
       <input id="folderPick" type="file" webkitdirectory directory multiple hidden>
+      <input id="desktopPick" type="file" multiple hidden>
       <button class="icon-btn" id="lensBtn" type="button" aria-label="Look up or reverse image search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/><path d="M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3" stroke-linecap="round"/></svg>
       </button>
@@ -12900,10 +12855,6 @@ FILE: static/index.html
       <button type="button" data-query="Run the Nairobi modeled portfolio">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.8 3.8 5.8 3.8 9S14.5 18.2 12 21c-2.5-2.8-3.8-5.8-3.8-9S9.5 5.8 12 3z"/></svg>
         Run Nairobi book
-      </button>
-      <button type="button" data-query="List modeled events">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3s6 6.2 6 10.2A6 6 0 0 1 6 13.2C6 9.2 12 3 12 3z"/></svg>
-        Open events
       </button>
       <button type="button" data-upload>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V6M8 9.5 12 5.5 16 9.5"/><path d="M5 19h14"/></svg>
@@ -13018,7 +12969,7 @@ FILE: static/index.html
       </span>
       <span>
         <strong>Nairobi book</strong>
-        <em>Modeled flood, susceptibility × 4 m</em>
+        <em>Models your uploaded Nairobi CSV</em>
       </span>
     </a>
     <a class="gcard gem-glow" href="#ask" data-query="Run the Nzoia depth portfolio">
@@ -13030,7 +12981,7 @@ FILE: static/index.html
       </span>
       <span>
         <strong>Nzoia book</strong>
-        <em>Flood depth in metres</em>
+        <em>Models your uploaded Nzoia CSV</em>
       </span>
     </a>
     <a class="gcard gem-glow" href="#ask" data-query="List modeled events">
@@ -13423,8 +13374,8 @@ FILE: static/index.html
     if(window.renderAquaModes) window.renderAquaModes(document.getElementById("quoteCard"), modes || {});
   }
   var BOOKS = {
-    nairobi: {file:"samples/sample_nairobi_bordereau.csv", region:"nairobi"},
-    nzoia: {file:"samples/sample_nzoia_bordereau.csv", region:"nzoia"}
+    nairobi: {region:"nairobi", label:"Nairobi"},
+    nzoia: {region:"nzoia", label:"Nzoia"}
   };
 
   function readError(res){
@@ -13679,21 +13630,45 @@ FILE: static/index.html
     if(/nairobi/.test(lower)) return BOOKS.nairobi;
     return null;
   }
+  function regionOfFile(file){
+    var blob = (file.path || "") + " " + (file.name || "");
+    if(/nzoia/i.test(blob)) return "nzoia";
+    if(/nairobi/i.test(blob)) return "nairobi";
+    var lines = String(file.text || "").split(/\r?\n/).filter(function(line){ return line.trim(); });
+    if(lines.length < 2) return "";
+    var heads = lines[0].toLowerCase().split(",");
+    var latIdx = heads.indexOf("latitude");
+    if(latIdx < 0) latIdx = 2;
+    var lat = parseFloat(lines[1].split(",")[latIdx]);
+    if(!isFinite(lat)) return "";
+    if(lat > 0.05 && lat < 0.85) return "nzoia";
+    if(lat < -1.05 && lat > -1.5) return "nairobi";
+    return "";
+  }
+  function uploadedBook(region){
+    return sessionFiles.filter(function(file){
+      return file.text && isBordereau(file.text, file.name) && regionOfFile(file) === region;
+    });
+  }
   function runBook(book, basis, openMap){
-    return fetch(book.file).then(function(res){
-      if(!res.ok) throw new Error("Sample bordereau is not on the desk: " + book.file);
-      return res.text();
-    }).then(function(csv){
-      return postJSON("/v1/process-bordereau", {
-        client_email: "desk@catmod.local",
-        client_name: "Catastrophe desk",
-        filename: book.file.split("/").pop(),
-        data: csv,
-        content_type: "text/csv",
-        loss_basis: basis,
-        hazard_region: book.region,
-        return_period: 100
+    var files = uploadedBook(book.region);
+    if(!files.length){
+      return Promise.resolve({
+        status: "No uploaded " + book.label + " bordereau in this session.",
+        answer: "Upload a " + book.label + " CSV bordereau, then run this book again. The desk does not open sample portfolios from the repository.",
+        modes: {default_tab:"answer", note:"Modeled books and questions use files you upload."}
       });
+    }
+    var file = files[0];
+    return postJSON("/v1/process-bordereau", {
+      client_email: "desk@catmod.local",
+      client_name: "Catastrophe desk",
+      filename: file.name,
+      data: file.text,
+      content_type: "text/csv",
+      loss_basis: basis,
+      hazard_region: book.region,
+      return_period: 100
     }).then(function(data){ return jobView(data, openMap); });
   }
   function esc(s){
@@ -13963,11 +13938,18 @@ FILE: static/index.html
     }
     document.getElementById("folderPick").click();
   }
+  function setUploading(on){
+    var el = document.getElementById("uploadAnim");
+    if(el) el.hidden = !on;
+  }
+  function startDesktopUpload(){
+    var input = document.getElementById("desktopPick");
+    input.value = "";
+    input.click();
+  }
   function ingestFolder(fileList){
     var files = Array.prototype.slice.call(fileList || []);
     if(!files.length) return Promise.resolve();
-    showDesk();
-    deskTab = "queue";
     return Promise.all(files.map(function(file){
       var rel = file.deskPath || file.webkitRelativePath || file.name;
       var folder = rel.split("/")[0] || file.name;
@@ -14009,13 +13991,13 @@ FILE: static/index.html
     bindDesk.done = true;
     document.getElementById("deskHome").addEventListener("click", function(){ resetHome(); });
     document.getElementById("deskUpload").addEventListener("click", function(){
-      chooseFolder();
+      startDesktopUpload();
     });
     desk.addEventListener("click", function(e){
       var rail = e.target.closest("[data-rail]");
       if(rail){
         if(rail.getAttribute("data-rail") === "upload"){
-          chooseFolder();
+          startDesktopUpload();
           return;
         }
         deskTab = rail.getAttribute("data-rail") === "files" ? "files" : "queue";
@@ -14105,7 +14087,15 @@ FILE: static/index.html
       var files = Array.prototype.slice.call(this.files || []);
       this.value = "";
       if(!files.length) return;
-      ingestFolder(files);
+      setUploading(true);
+      Promise.resolve(ingestFolder(files)).finally(function(){ setUploading(false); });
+    });
+    document.getElementById("desktopPick").addEventListener("change", function(){
+      var files = Array.prototype.slice.call(this.files || []);
+      this.value = "";
+      if(!files.length) return;
+      setUploading(true);
+      Promise.resolve(ingestFolder(files)).finally(function(){ setUploading(false); });
     });
   }
   function dispatch(text, modeled){
@@ -14120,25 +14110,22 @@ FILE: static/index.html
     if(audit) return getJSON("/api/v1/audit/" + encodeURIComponent(audit[1])).then(auditView);
     var book = bookFor(lower);
     if(book) return runBook(book, basis, openMap);
-    if(/^(list|open|show)\b.*\bevents?\b/.test(lower) || lower === "events" || lower === "modeled events"){
+    if(lower === "list modeled events"){
       return openEventsDesk({tab:"queue", query:""});
     }
     var hits = sessionHits(text);
     if(hits.length){
-      return openEventsDesk({tab:"files", query:text}).then(function(){
-        return {
-          status: "Queried " + hits.length + " file" + (hits.length === 1 ? "" : "s") + " saved in this browser.",
-          answer: hits.slice(0, 8).map(function(file){
-            return file.name + "\n" + hitSnippet(file, text);
-          }).join("\n\n"),
-          sources: hits.slice(0, 6).map(function(file){
-            return {publication_title: file.name, source_origin: file.path};
-          }),
-          modes: {note:"Matches come from folders saved in this browser."}
-        };
+      return Promise.resolve({
+        status: "Queried " + hits.length + " file" + (hits.length === 1 ? "" : "s") + " saved in this browser.",
+        answer: hits.slice(0, 8).map(function(file){
+          return file.name + "\n" + hitSnippet(file, text);
+        }).join("\n\n"),
+        sources: hits.slice(0, 6).map(function(file){
+          return {publication_title: file.name, source_origin: file.path};
+        }),
+        modes: {note:"Matches come from folders saved in this browser."}
       });
     }
-    if(/\bevents?\b/.test(lower)) return openEventsDesk({tab:"queue", query:""});
     if(/hazard|footprint/.test(lower)){
       return Promise.all([getJSON("/api/v1/flood/hazard"), getJSON("/api/v1/flood/status")]).then(function(pair){
         return hazardView(pair[0], pair[1]);
@@ -14210,11 +14197,21 @@ FILE: static/index.html
       : "Nairobi, Nzoia, an address, or audit an event";
   }
   function sessionCsvText(){
-    return sessionFiles.filter(function(file){
+    var files = sessionFiles.filter(function(file){
       return file.text && /\.csv$/i.test(file.name || "");
-    }).slice(0, 3).map(function(file){
-      return file.text;
-    }).join("\n");
+    }).slice(0, 8);
+    var header = "";
+    var lines = [];
+    files.forEach(function(file){
+      var rows = String(file.text).replace(/^\uFEFF/, "").split(/\r?\n/).filter(function(line){ return line.trim(); });
+      if(!rows.length) return;
+      if(!header){
+        header = rows[0];
+        lines.push(header);
+      }
+      rows.slice(1).forEach(function(line){ lines.push(line); });
+    });
+    return lines.join("\n");
   }
   function runRag(text){
     text = String(text || "").trim();
@@ -14225,7 +14222,7 @@ FILE: static/index.html
     if(csv.length > 120000) csv = csv.slice(0, 120000);
     postJSON("/api/v1/nlp/query", {
       query: text,
-      event_id: lastEventId || null,
+      event_id: csv ? null : (lastEventId || null),
       csv_text: csv || null
     }).then(function(data){
       var ids = data.matched_asset_ids || [];
@@ -14344,8 +14341,7 @@ FILE: static/index.html
     if(upload){
       e.preventDefault();
       closeMenus();
-      showDesk();
-      chooseFolder();
+      startDesktopUpload();
       return;
     }
     var pwa = e.target.closest("[data-pwa]");
@@ -14414,8 +14410,7 @@ FILE: static/index.html
     var upload = e.target.closest("[data-upload]");
     if(upload){
       closeMenus();
-      showDesk();
-      chooseFolder();
+      startDesktopUpload();
       return;
     }
     var pwa = e.target.closest("[data-pwa]");
@@ -15208,23 +15203,6 @@ window.CATMOD_RENDER_PRESETS = {
 };
 
 ========================================================================================
-FILE: static/samples/sample_nairobi_bordereau.csv
-========================================================================================
-asset_id,policy_id,latitude,longitude,elevation,occupancy,tiv,ground_up_loss,deductible,policy_limit,coinsurance,loss_date
-N-001,KN-100,-1.2921,36.8219,1660,informal iron sheet,2500000,0,50000,2500000,1.0,2026-04-12
-N-002,KN-101,-1.2864,36.8290,1685,permanent masonry,8000000,0,100000,8000000,1.0,2026-04-12
-N-003,KN-102,-1.2755,36.8148,1705,concrete rcc,15000000,0,250000,15000000,1.0,2026-04-12
-N-004,KN-103,-1.3012,36.7890,1680,mabati,900000,0,20000,900000,1.0,2026-04-12
-
-========================================================================================
-FILE: static/samples/sample_nzoia_bordereau.csv
-========================================================================================
-asset_id,policy_id,latitude,longitude,elevation,occupancy,tiv,ground_up_loss,deductible,policy_limit,coinsurance,loss_date
-Z-001,KB-200,0.5900,34.2000,1140,informal iron sheet,1800000,0,25000,1800000,1.0,2026-05-03
-Z-002,KB-201,0.5200,34.2200,1165,permanent masonry,4500000,0,75000,4500000,1.0,2026-05-03
-Z-003,KB-202,0.4700,34.1800,1130,concrete rcc,9000000,0,150000,9000000,1.0,2026-05-03
-
-========================================================================================
 FILE: templates/reinsurance_audit_report.txt
 ========================================================================================
 """
@@ -15538,16 +15516,16 @@ from catmod.flood.hazard import risk_color, risk_level, score_asset
 from catmod.flood.service import evaluate_asset, footprints_for_points, hazard_collection
 
 
-def test_open_buildings_contains_sample_warehouse():
+def test_missing_local_buildings_estimates_a_footprint():
     hit = match_footprint(-1.2921, 36.8219)
     assert hit["geometry"]["type"] == "Polygon"
-    assert hit["properties"]["match"] in {"contains", "nearest"}
-    assert hit["properties"]["area_m2"] > 100
+    assert hit["properties"]["match"] == "estimated"
+    assert hit["properties"]["source"] == "estimated_rectangle"
     ring = hit["geometry"]["coordinates"][0]
     assert point_in_ring(-1.2921, 36.8219, ring)
     lat_c, lon_c = ring_centroid(ring)
     assert abs(lat_c - -1.2921) < 0.01
-    assert ring_area_m2(ring) > 100
+    assert ring_area_m2(ring) > 0
 
 
 def test_null_island_gets_estimated_footprint():
@@ -16009,7 +15987,7 @@ def _settings() -> Settings:
 
 def _context() -> dict:
     rows = parse_csv_text(NAIROBI)
-    return build_dataset_context(rows, name="sample_nairobi_bordereau.csv")
+    return build_dataset_context(rows, name="uploaded.csv")
 
 
 def test_keyword_fallback_finds_informal_iron_sheet():
@@ -16059,7 +16037,7 @@ def test_gemini_failure_falls_back(monkeypatch):
     assert result["source"] == "local-keyword"
 
 
-def test_nlp_endpoint_reads_named_dataset(tmp_path, monkeypatch):
+def test_nlp_endpoint_reads_uploaded_csv(tmp_path, monkeypatch):
     import catmod.api as api
 
     settings = Settings.model_construct(
@@ -16076,7 +16054,7 @@ def test_nlp_endpoint_reads_named_dataset(tmp_path, monkeypatch):
         "/api/v1/nlp/query",
         json={
             "query": "Which properties are informal iron sheet in Nairobi?",
-            "dataset_name": "sample_nairobi_bordereau",
+            "csv_text": NAIROBI,
         },
     )
     assert response.status_code == 200
@@ -16085,13 +16063,34 @@ def test_nlp_endpoint_reads_named_dataset(tmp_path, monkeypatch):
     assert body["tab"] == "answer"
     assert "reinsurer_payout" not in body
     audit = (tmp_path / "audit" / "NLP-SESSION.jsonl").read_text(encoding="utf-8")
+    assert body["dataset_name"] == "uploaded-session.csv"
     assert "gemini_nlp_rag_queried" in audit
+
+
+def test_nlp_endpoint_refuses_without_an_upload(tmp_path, monkeypatch):
+    import catmod.api as api
+
+    settings = Settings.model_construct(
+        gemini_api_key="",
+        gemini_model="gemini-2.0-flash",
+        jobs_dir=str(tmp_path / "jobs"),
+        jobs_keep=4,
+        audit_dir=str(tmp_path / "audit"),
+    )
+    monkeypatch.setattr(api, "get_settings", lambda: settings)
+    api._STORE = None
+    client = TestClient(api.app)
+    response = client.post(
+        "/api/v1/nlp/query",
+        json={"query": "Which properties are informal iron sheet in Nairobi?"},
+    )
+    assert response.status_code == 400
+    assert "Upload" in response.json()["detail"]
 
 ========================================================================================
 FILE: tests/test_pipeline.py
 ========================================================================================
 from decimal import Decimal
-from pathlib import Path
 
 from catmod.leaflet.geojson import generate_leaflet_geojson
 from catmod.pipeline import run_pipeline
@@ -16099,7 +16098,18 @@ from catmod.schemas import BordereauWebhook
 from catmod.vulnerability.engine import assess
 
 
-SAMPLE = Path(__file__).resolve().parents[1] / "data" / "sample_nairobi_bordereau.csv"
+NAIROBI_CSV = """asset_id,policy_id,latitude,longitude,elevation,occupancy,tiv,ground_up_loss,deductible,policy_limit,coinsurance,loss_date
+N-001,KN-100,-1.2921,36.8219,1660,informal iron sheet,2500000,0,50000,2500000,1.0,2026-04-12
+N-002,KN-101,-1.2864,36.8290,1685,permanent masonry,8000000,0,100000,8000000,1.0,2026-04-12
+N-003,KN-102,-1.2755,36.8148,1705,concrete rcc,15000000,0,250000,15000000,1.0,2026-04-12
+N-004,KN-103,-1.3012,36.7890,1680,mabati,900000,0,20000,900000,1.0,2026-04-12
+"""
+
+NZOIA_CSV = """asset_id,policy_id,latitude,longitude,elevation,occupancy,tiv,ground_up_loss,deductible,policy_limit,coinsurance,loss_date
+Z-001,KB-200,0.5900,34.2000,1140,informal iron sheet,1800000,0,25000,1800000,1.0,2026-05-03
+Z-002,KB-201,0.5200,34.2200,1165,permanent masonry,4500000,0,75000,4500000,1.0,2026-05-03
+Z-003,KB-202,0.4700,34.1800,1130,concrete rcc,9000000,0,150000,9000000,1.0,2026-05-03
+"""
 
 
 def test_leaflet_feature_collection_schema():
@@ -16126,9 +16136,9 @@ def test_end_to_end_pipeline_audit_layers():
     payload = BordereauWebhook(
         client_email="uw@cedant.example",
         client_name="Nairobi County Mutual",
-        filename="sample_nairobi_bordereau.csv",
+        filename="nairobi-book.csv",
         hazard_region="nairobi",
-        data=SAMPLE.read_text(encoding="utf-8") + "N-000,KN-0,0,0,0,whse,1000,0,0,1000,1.0,2026-04-12\n",
+        data=NAIROBI_CSV + "N-000,KN-0,0,0,0,whse,1000,0,0,1000,1.0,2026-04-12\n",
         hazard_polygon=[
             [36.75, -1.33],
             [36.90, -1.33],
@@ -16214,14 +16224,13 @@ def test_modeled_exposure_uses_decimal_vulnerability_loss():
     assert finance["detail"]["engine"] == "decimal_cents_half_even"
 
 
-def _modeled_region(filename: str, region: str) -> dict:
-    sample = Path(__file__).resolve().parents[1] / "data" / filename
+def _modeled_region(filename: str, region: str, csv: str) -> dict:
     return run_pipeline(
         BordereauWebhook(
             client_email="desk@kenya.example",
             client_name="Kenya Mutual",
             filename=filename,
-            data=sample.read_text(encoding="utf-8"),
+            data=csv,
             loss_basis="modeled",
             hazard_region=region,
         )
@@ -16229,15 +16238,15 @@ def _modeled_region(filename: str, region: str) -> dict:
 
 
 def test_nairobi_and_nzoia_modeled_losses_enter_the_decimal_waterfall():
-    for filename, region, value_kind in (
-        ("sample_nairobi_bordereau.csv", "nairobi", "susceptibility"),
-        ("sample_nzoia_bordereau.csv", "nzoia", "depth_m"),
+    for filename, region, value_kind, csv in (
+        ("nairobi-book.csv", "nairobi", "susceptibility", NAIROBI_CSV),
+        ("nzoia-book.csv", "nzoia", "depth_m", NZOIA_CSV),
     ):
-        result = _modeled_region(filename, region)
+        result = _modeled_region(filename, region, csv)
         assert result["hazard_region"] == region
         assert result["loss_basis"] == "modeled"
         assert result["synthetic"]["vulnerability_curves"] is True
-        assert result["synthetic"]["exposure_portfolio"] is True
+        assert result["synthetic"]["exposure_portfolio"] is False
         expected_lat = -1.28 if region == "nairobi" else 0.45
         assert result["geojson"]["metadata"]["center"]["latitude"] == expected_lat
         assert result["geojson"]["metadata"]["provenance"]["vulnerability_curves"] is True
@@ -16306,20 +16315,19 @@ def test_stochastic_mode_audits_the_catalog_without_changing_the_contractual_los
 
 
 def test_omitted_hazard_region_follows_the_claim_coordinates():
-    nzoia = Path(__file__).resolve().parents[1] / "data" / "sample_nzoia_bordereau.csv"
     result = run_pipeline(
         BordereauWebhook(
             client_email="desk@kenya.example",
-            filename="sample_nzoia_bordereau.csv",
-            data=nzoia.read_text(encoding="utf-8"),
+            filename="nzoia-book.csv",
+            data=NZOIA_CSV,
         )
     )
     assert result["hazard_region"] == "nzoia"
     nairobi = run_pipeline(
         BordereauWebhook(
             client_email="desk@kenya.example",
-            filename="sample_nairobi_bordereau.csv",
-            data=SAMPLE.read_text(encoding="utf-8"),
+            filename="nairobi-book.csv",
+            data=NAIROBI_CSV,
         )
     )
     assert nairobi["hazard_region"] == "nairobi"
@@ -16379,12 +16387,13 @@ def test_blender_manifest_from_open_buildings():
     manifest = build_blender_manifest(shader_preset="GTA_STYLIZED")
     assert manifest["format"] == "catmod.blender_manifest.v1"
     assert manifest["shader_preset"] == "GTA_STYLIZED"
-    assert manifest["building_count"] >= 1
-    b = manifest["buildings"][0]
-    assert b["height_m"] == b["storeys"] * STOREY_HEIGHT_M
-    assert "predicted_material" in b
-    assert "first_floor_clearance" in b
-    assert "footprint_lonlat" in b
+    assert manifest["building_count"] == len(manifest["buildings"])
+    if manifest["buildings"]:
+        b = manifest["buildings"][0]
+        assert b["height_m"] == b["storeys"] * STOREY_HEIGHT_M
+        assert "predicted_material" in b
+        assert "first_floor_clearance" in b
+        assert "footprint_lonlat" in b
     assert "absolute_water_surface_m" in manifest["water_levels"]
     assert manifest["photoreal_tiles"]["load_in_leaflet"] is False
     bbox = manifest["bounding_box"]

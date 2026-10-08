@@ -1,5 +1,4 @@
 from decimal import Decimal
-from pathlib import Path
 
 from catmod.leaflet.geojson import generate_leaflet_geojson
 from catmod.pipeline import run_pipeline
@@ -7,7 +6,18 @@ from catmod.schemas import BordereauWebhook
 from catmod.vulnerability.engine import assess
 
 
-SAMPLE = Path(__file__).resolve().parents[1] / "data" / "sample_nairobi_bordereau.csv"
+NAIROBI_CSV = """asset_id,policy_id,latitude,longitude,elevation,occupancy,tiv,ground_up_loss,deductible,policy_limit,coinsurance,loss_date
+N-001,KN-100,-1.2921,36.8219,1660,informal iron sheet,2500000,0,50000,2500000,1.0,2026-04-12
+N-002,KN-101,-1.2864,36.8290,1685,permanent masonry,8000000,0,100000,8000000,1.0,2026-04-12
+N-003,KN-102,-1.2755,36.8148,1705,concrete rcc,15000000,0,250000,15000000,1.0,2026-04-12
+N-004,KN-103,-1.3012,36.7890,1680,mabati,900000,0,20000,900000,1.0,2026-04-12
+"""
+
+NZOIA_CSV = """asset_id,policy_id,latitude,longitude,elevation,occupancy,tiv,ground_up_loss,deductible,policy_limit,coinsurance,loss_date
+Z-001,KB-200,0.5900,34.2000,1140,informal iron sheet,1800000,0,25000,1800000,1.0,2026-05-03
+Z-002,KB-201,0.5200,34.2200,1165,permanent masonry,4500000,0,75000,4500000,1.0,2026-05-03
+Z-003,KB-202,0.4700,34.1800,1130,concrete rcc,9000000,0,150000,9000000,1.0,2026-05-03
+"""
 
 
 def test_leaflet_feature_collection_schema():
@@ -34,9 +44,9 @@ def test_end_to_end_pipeline_audit_layers():
     payload = BordereauWebhook(
         client_email="uw@cedant.example",
         client_name="Nairobi County Mutual",
-        filename="sample_nairobi_bordereau.csv",
+        filename="nairobi-book.csv",
         hazard_region="nairobi",
-        data=SAMPLE.read_text(encoding="utf-8") + "N-000,KN-0,0,0,0,whse,1000,0,0,1000,1.0,2026-04-12\n",
+        data=NAIROBI_CSV + "N-000,KN-0,0,0,0,whse,1000,0,0,1000,1.0,2026-04-12\n",
         hazard_polygon=[
             [36.75, -1.33],
             [36.90, -1.33],
@@ -122,14 +132,13 @@ def test_modeled_exposure_uses_decimal_vulnerability_loss():
     assert finance["detail"]["engine"] == "decimal_cents_half_even"
 
 
-def _modeled_region(filename: str, region: str) -> dict:
-    sample = Path(__file__).resolve().parents[1] / "data" / filename
+def _modeled_region(filename: str, region: str, csv: str) -> dict:
     return run_pipeline(
         BordereauWebhook(
             client_email="desk@kenya.example",
             client_name="Kenya Mutual",
             filename=filename,
-            data=sample.read_text(encoding="utf-8"),
+            data=csv,
             loss_basis="modeled",
             hazard_region=region,
         )
@@ -137,15 +146,15 @@ def _modeled_region(filename: str, region: str) -> dict:
 
 
 def test_nairobi_and_nzoia_modeled_losses_enter_the_decimal_waterfall():
-    for filename, region, value_kind in (
-        ("sample_nairobi_bordereau.csv", "nairobi", "susceptibility"),
-        ("sample_nzoia_bordereau.csv", "nzoia", "depth_m"),
+    for filename, region, value_kind, csv in (
+        ("nairobi-book.csv", "nairobi", "susceptibility", NAIROBI_CSV),
+        ("nzoia-book.csv", "nzoia", "depth_m", NZOIA_CSV),
     ):
-        result = _modeled_region(filename, region)
+        result = _modeled_region(filename, region, csv)
         assert result["hazard_region"] == region
         assert result["loss_basis"] == "modeled"
         assert result["synthetic"]["vulnerability_curves"] is True
-        assert result["synthetic"]["exposure_portfolio"] is True
+        assert result["synthetic"]["exposure_portfolio"] is False
         expected_lat = -1.28 if region == "nairobi" else 0.45
         assert result["geojson"]["metadata"]["center"]["latitude"] == expected_lat
         assert result["geojson"]["metadata"]["provenance"]["vulnerability_curves"] is True
@@ -214,20 +223,19 @@ def test_stochastic_mode_audits_the_catalog_without_changing_the_contractual_los
 
 
 def test_omitted_hazard_region_follows_the_claim_coordinates():
-    nzoia = Path(__file__).resolve().parents[1] / "data" / "sample_nzoia_bordereau.csv"
     result = run_pipeline(
         BordereauWebhook(
             client_email="desk@kenya.example",
-            filename="sample_nzoia_bordereau.csv",
-            data=nzoia.read_text(encoding="utf-8"),
+            filename="nzoia-book.csv",
+            data=NZOIA_CSV,
         )
     )
     assert result["hazard_region"] == "nzoia"
     nairobi = run_pipeline(
         BordereauWebhook(
             client_email="desk@kenya.example",
-            filename="sample_nairobi_bordereau.csv",
-            data=SAMPLE.read_text(encoding="utf-8"),
+            filename="nairobi-book.csv",
+            data=NAIROBI_CSV,
         )
     )
     assert nairobi["hazard_region"] == "nairobi"

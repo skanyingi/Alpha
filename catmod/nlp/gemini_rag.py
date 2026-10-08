@@ -11,7 +11,6 @@ import io
 import json
 import re
 from collections import Counter
-from pathlib import Path
 from typing import Any
 
 import httpx
@@ -41,13 +40,6 @@ _PAYOUT_KEYS = {
     "exhaustion_ratio",
 }
 
-_DATASETS = {
-    "sample_nairobi_bordereau": "sample_nairobi_bordereau.csv",
-    "sample_nzoia_bordereau": "sample_nzoia_bordereau.csv",
-    "exposure_nairobi_synthetic": "exposure_nairobi_synthetic.csv",
-    "exposure_nzoia_synthetic": "exposure_nzoia_synthetic.csv",
-}
-
 _STOP = {
     "which", "what", "where", "who", "are", "the", "and", "for", "with", "have",
     "has", "from", "that", "this", "into", "over", "above", "under", "than",
@@ -60,10 +52,6 @@ _DEPTH_RE = re.compile(
     r"(?:depth|flood).{0,40}?(?:over|above|greater than|>)\s*(\d+(?:\.\d+)?)",
     re.IGNORECASE,
 )
-
-
-def data_root() -> Path:
-    return Path(__file__).resolve().parents[2] / "data"
 
 
 def parse_csv_text(text: str) -> list[dict[str, Any]]:
@@ -84,17 +72,6 @@ def rows_from_claims(claims: list[dict[str, Any]]) -> list[dict[str, Any]]:
         row = {key: value for key, value in claim.items() if key not in _PAYOUT_KEYS}
         kept.append(row)
     return kept
-
-
-def load_named_dataset(dataset_name: str) -> tuple[str, list[dict[str, Any]]]:
-    stem = Path(dataset_name).name
-    stem = re.sub(r"\.(csv|xlsx)$", "", stem, flags=re.IGNORECASE)
-    filename = _DATASETS.get(stem)
-    if filename is None:
-        known = ", ".join(sorted(_DATASETS))
-        raise ValueError(f"Unknown dataset_name {dataset_name}. Known datasets: {known}")
-    path = data_root() / filename
-    return filename, parse_csv_text(path.read_text(encoding="utf-8"))
 
 
 def build_dataset_context(

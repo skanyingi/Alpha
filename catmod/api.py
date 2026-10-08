@@ -16,7 +16,6 @@ from catmod.config import get_settings
 from catmod.jobs import JobStore
 from catmod.nlp.gemini_rag import (
     build_dataset_context,
-    load_named_dataset,
     parse_csv_text,
     query_dataset_rag,
     rows_from_claims,
@@ -132,6 +131,12 @@ def events() -> dict[str, Any]:
 
 
 def _rag_context(payload: RAGQueryIn) -> dict[str, Any]:
+    """Answer from an uploaded CSV or a job the desk already modeled. Never a bundled sample."""
+    if payload.csv_text and payload.csv_text.strip():
+        rows = parse_csv_text(payload.csv_text)
+        if not rows:
+            raise ValueError("The uploaded CSV has no data rows.")
+        return build_dataset_context(rows, name="uploaded-session.csv", event_id=payload.event_id)
     store = job_store()
     if payload.event_id:
         job = store.get(payload.event_id)
@@ -142,11 +147,6 @@ def _rag_context(payload: RAGQueryIn) -> dict[str, Any]:
                 name=str(job.get("filename") or payload.event_id),
                 event_id=str(job.get("event_id") or payload.event_id),
             )
-    if payload.csv_text and payload.csv_text.strip():
-        return build_dataset_context(parse_csv_text(payload.csv_text), name="uploaded-session.csv", event_id=payload.event_id)
-    if payload.dataset_name:
-        filename, rows = load_named_dataset(payload.dataset_name)
-        return build_dataset_context(rows, name=filename, event_id=payload.event_id)
     latest = store.latest()
     if latest is not None:
         claims = rows_from_claims(list(latest.get("claims") or []))
@@ -155,12 +155,7 @@ def _rag_context(payload: RAGQueryIn) -> dict[str, Any]:
             name=str(latest.get("filename") or latest.get("event_id")),
             event_id=str(latest.get("event_id")),
         )
-    query = payload.query.lower()
-    if "nzoia" in query:
-        filename, rows = load_named_dataset("sample_nzoia_bordereau")
-    else:
-        filename, rows = load_named_dataset("sample_nairobi_bordereau")
-    return build_dataset_context(rows, name=filename, event_id=None)
+    raise ValueError("Upload a portfolio CSV before asking about a dataset.")
 
 
 def _record_rag(event_id: str, detail: dict[str, Any]) -> None:

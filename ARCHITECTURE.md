@@ -24,12 +24,7 @@ Exposure → hazard depth → damage ratio → TIV × DR → ground-up loss (Dec
         → FHRR memory update and EP / Leaflet export
 ```
 
-Default treaty on every sample: `$100M xs $40M`, 90% share, one reinstatement at 100% of the layer premium. `python scripts/run_sample_job.py` runs the Nairobi modeled portfolio. Both portfolios stay below the $40M attachment, so the reinsurer payout and reinstatement are zero. Both are tagged synthetic for hazard, vulnerability curves, and exposure. Jev batch budget is 500 ms. Full pipeline budget is 1000 ms.
-
-| Portfolio | File | Basis | Locations | Gross after terms | Reinsurer | Cedant retention | Modeled ground-up | Catalog EAL |
-|-----------|------|-------|-----------|-------------------|-----------|------------------|-------------------|-------------|
-| Nairobi modeled | `data/sample_nairobi_bordereau.csv` | `modeled` | 4 | $7,732,953.60 | $0 | $7,732,953.60 | $8,152,953.60 | $2,082,966.31 |
-| Nzoia modeled | `data/sample_nzoia_bordereau.csv` | `modeled` | 3 | $7,483,979.00 | $0 | $7,483,979.00 | $7,733,979.00 | $2,049,010.73 |
+Default treaty: `$100M xs $40M`, 90% share, one reinstatement at 100% of the layer premium. Portfolios come from an uploaded bordereau. `python scripts/run_sample_job.py path\to\bordereau.csv` models that file. The desk does not read a sample portfolio from the repository. Jev batch budget is 500 ms. Full pipeline budget is 1000 ms.
 
 ---
 
@@ -199,11 +194,7 @@ Hypervector RAG/
 │   ├── geo/                     open-stack fallbacks
 │   └── spatial/                 elevation, 3D Tiles, Blender, presets
 ├── data/
-│   ├── sample_nairobi_bordereau.csv     Nairobi modeled
-│   ├── sample_nzoia_bordereau.csv       Nzoia modeled
-│   ├── exposure_*_synthetic.csv
-│   ├── flood_hazard/                    sample surge polygon
-│   └── open_buildings/                  local footprint sample
+│   └── flood_hazard/                    hazard extent overlay
 ├── templates/reinsurance_audit_report.txt
 ├── static/
 │   ├── index.html               CatMod desk: search, event queue, toasts

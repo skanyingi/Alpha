@@ -18,7 +18,7 @@ def _settings() -> Settings:
 
 def _context() -> dict:
     rows = parse_csv_text(NAIROBI)
-    return build_dataset_context(rows, name="sample_nairobi_bordereau.csv")
+    return build_dataset_context(rows, name="uploaded.csv")
 
 
 def test_keyword_fallback_finds_informal_iron_sheet():
@@ -68,7 +68,7 @@ def test_gemini_failure_falls_back(monkeypatch):
     assert result["source"] == "local-keyword"
 
 
-def test_nlp_endpoint_reads_named_dataset(tmp_path, monkeypatch):
+def test_nlp_endpoint_reads_uploaded_csv(tmp_path, monkeypatch):
     import catmod.api as api
 
     settings = Settings.model_construct(
@@ -85,7 +85,7 @@ def test_nlp_endpoint_reads_named_dataset(tmp_path, monkeypatch):
         "/api/v1/nlp/query",
         json={
             "query": "Which properties are informal iron sheet in Nairobi?",
-            "dataset_name": "sample_nairobi_bordereau",
+            "csv_text": NAIROBI,
         },
     )
     assert response.status_code == 200
@@ -94,4 +94,26 @@ def test_nlp_endpoint_reads_named_dataset(tmp_path, monkeypatch):
     assert body["tab"] == "answer"
     assert "reinsurer_payout" not in body
     audit = (tmp_path / "audit" / "NLP-SESSION.jsonl").read_text(encoding="utf-8")
+    assert body["dataset_name"] == "uploaded-session.csv"
     assert "gemini_nlp_rag_queried" in audit
+
+
+def test_nlp_endpoint_refuses_without_an_upload(tmp_path, monkeypatch):
+    import catmod.api as api
+
+    settings = Settings.model_construct(
+        gemini_api_key="",
+        gemini_model="gemini-2.0-flash",
+        jobs_dir=str(tmp_path / "jobs"),
+        jobs_keep=4,
+        audit_dir=str(tmp_path / "audit"),
+    )
+    monkeypatch.setattr(api, "get_settings", lambda: settings)
+    api._STORE = None
+    client = TestClient(api.app)
+    response = client.post(
+        "/api/v1/nlp/query",
+        json={"query": "Which properties are informal iron sheet in Nairobi?"},
+    )
+    assert response.status_code == 400
+    assert "Upload" in response.json()["detail"]

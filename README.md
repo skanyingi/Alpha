@@ -13,7 +13,7 @@ Five isolated layers: Google Workspace ingestion, Jev System-One triage, FHRR hy
 
 ```bash
 pip install -r requirements.txt
-python scripts/run_sample_job.py
+python scripts/run_sample_job.py path\to\bordereau.csv
 python -m pytest tests -q
 uvicorn main:app --port 8000
 ```
@@ -33,7 +33,7 @@ The desk search bar fills the screen with a small margin. **Modeled events** lis
 
 Flood exposure on the map is a sidecar. Set `GOOGLE_MAPS_API_KEY` and `GEMINI_API_KEY` in `.env` for geocoding, Static Maps / Street View, and Gemini vision. XL payouts come only from `catmod/finance/`.
 
-Physical loss path, in order: Jev occupancy → `catmod/hazard/` (Nairobi susceptibility converted as `score × 4.0 m`, Nzoia depth, or a CSV / ASCII / GeoTIFF raster) → `catmod/vulnerability/` (`TIV × damage ratio`, cents) → Layer 4. Mounted `nzoia_rp*.tif` files are JRC metre depths and replace the synthetic Nzoia stand-in. `loss_basis=auto` keeps a positive reported ground-up loss as the contractual input and still prices the modeled loss beside it. `loss_basis=modeled` sends the curve loss into the primary waterfall. The job payload includes `ep_curve` (10, 25, 50, 100, 250, and 500-year) and `synthetic`. `python scripts/run_sample_job.py` runs the Nairobi modeled portfolio. `execution_mode=stochastic` adds a synthetic event catalog and Beta damage samples beside that job; the default remains `deterministic`.
+Physical loss path, in order: Jev occupancy → `catmod/hazard/` (Nairobi susceptibility converted as `score × 4.0 m`, Nzoia depth, or a CSV / ASCII / GeoTIFF raster) → `catmod/vulnerability/` (`TIV × damage ratio`, cents) → Layer 4. Mounted `nzoia_rp*.tif` files are JRC metre depths and replace the synthetic Nzoia stand-in. `loss_basis=auto` keeps a positive reported ground-up loss as the contractual input and still prices the modeled loss beside it. `loss_basis=modeled` sends the curve loss into the primary waterfall. The job payload includes `ep_curve` (10, 25, 50, 100, 250, and 500-year) and `synthetic`. `python scripts/run_sample_job.py path\to\bordereau.csv` models a CSV you supply. Questions and the Nairobi and Nzoia books use that upload, not a portfolio stored in the repository. `execution_mode=stochastic` adds a synthetic event catalog and Beta damage samples beside that job; the default remains `deterministic`.
 
 Google Apps Script: copy `appsscript.js` into the project and replace the manifest with `appsscript.json`. Script properties:
 

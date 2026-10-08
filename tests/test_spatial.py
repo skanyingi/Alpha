@@ -40,12 +40,13 @@ def test_blender_manifest_from_open_buildings():
     manifest = build_blender_manifest(shader_preset="GTA_STYLIZED")
     assert manifest["format"] == "catmod.blender_manifest.v1"
     assert manifest["shader_preset"] == "GTA_STYLIZED"
-    assert manifest["building_count"] >= 1
-    b = manifest["buildings"][0]
-    assert b["height_m"] == b["storeys"] * STOREY_HEIGHT_M
-    assert "predicted_material" in b
-    assert "first_floor_clearance" in b
-    assert "footprint_lonlat" in b
+    assert manifest["building_count"] == len(manifest["buildings"])
+    if manifest["buildings"]:
+        b = manifest["buildings"][0]
+        assert b["height_m"] == b["storeys"] * STOREY_HEIGHT_M
+        assert "predicted_material" in b
+        assert "first_floor_clearance" in b
+        assert "footprint_lonlat" in b
     assert "absolute_water_surface_m" in manifest["water_levels"]
     assert manifest["photoreal_tiles"]["load_in_leaflet"] is False
     bbox = manifest["bounding_box"]
