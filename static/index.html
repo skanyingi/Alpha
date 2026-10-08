@@ -949,6 +949,16 @@
     box-shadow:0 1px 4px rgba(0,0,0,.28);
   }
   .map-diorama{right:108px;}
+  .panel-x{
+    position:fixed;top:14px;right:16px;z-index:40;
+    width:40px;height:40px;border:0;border-radius:999px;
+    background:#fff;color:#202124;cursor:pointer;
+    display:grid;place-items:center;
+    box-shadow:0 1px 4px rgba(0,0,0,.28);
+  }
+  .panel-x:hover{background:#f1f3f4;}
+  .panel-x svg{width:20px;height:20px;display:block;}
+  .panel-x.in-card{position:absolute;top:12px;right:12px;z-index:6;}
   @media (max-width:980px){
     #studioPage{grid-template-columns:1fr;overflow:auto;}
     .studio-card{overflow:visible;}
@@ -1189,6 +1199,9 @@
     </div>
 
     <section class="result" id="result" aria-live="polite" aria-hidden="true">
+      <button class="panel-x in-card" id="resultClose" type="button" aria-label="Close results">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
       <article class="quote-card gem-glow" id="quoteCard">
         <h2 id="resultTitle"></h2>
         <p class="status" id="resultStatus">Running the catastrophe desk…</p>
@@ -1406,6 +1419,9 @@
 </main>
 
 <div id="studioPage" hidden>
+  <button class="panel-x" id="studioClose" type="button" aria-label="Close studio">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
   <aside class="studio-card studio-side">
     <div class="studio-head">
       <span>Sources</span>
@@ -1509,6 +1525,9 @@
 </div>
 
 <div id="agentsPage" hidden>
+  <button class="panel-x" id="agentsClose" type="button" aria-label="Close agents">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
   <section class="agents-board">
     <h2>Alpha agents</h2>
     <p class="agents-lead" id="agentsLead">Jev routes the book. The financial engine stays on decimal cents.</p>
@@ -1517,6 +1536,9 @@
 </div>
 
 <div id="workspacePage" hidden>
+  <button class="panel-x" id="workspaceClose" type="button" aria-label="Close workspace">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
   <section class="ws-board">
     <h2>Google Workspace</h2>
     <p class="ws-lead">Recent Sheets, Docs, Drive, and Gmail arrivals.</p>
@@ -3616,6 +3638,10 @@
   });
   document.getElementById("mapHome").addEventListener("click", function(){
     document.getElementById("homeLink").click();
+  });
+  ["resultClose","agentsClose","studioClose","workspaceClose"].forEach(function(id){
+    var btn = document.getElementById(id);
+    if(btn) btn.addEventListener("click", function(){ resetHome(); });
   });
   document.getElementById("apps").addEventListener("click", function(e){
     var upload = e.target.closest("[data-upload]");
