@@ -2450,7 +2450,7 @@
     if(banner) banner.hidden = false;
     if(deliver){ deliver.hidden = false; deliver.innerHTML = deliverableHtml(job); }
     if(desk) desk.hidden = true;
-    if(studio) studio.hidden = true;
+    if(studio) studio.hidden = false;
     ["deskDeliver","studioDeliver"].forEach(function(id){
       var host = document.getElementById(id);
       if(host) host.innerHTML = deliverableHtml(job);
