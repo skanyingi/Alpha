@@ -827,6 +827,7 @@
     display:flex;flex-direction:column;gap:8px;
     background:#f7f8fa;border-radius:16px;padding:10px;
   }
+  #studioWeb[hidden]{display:none !important;}
   .studio-web input{
     width:100%;border:0;outline:0;background:transparent;
     font:400 13px Inter,sans-serif;color:#202124;
@@ -1492,7 +1493,7 @@
       </button>
     </div>
     <button type="button" class="studio-add" id="studioAdd">+ Add sources</button>
-    <form class="studio-web" id="studioWeb">
+    <form class="studio-web" id="studioWeb" hidden>
       <input id="studioWebQ" type="search" placeholder="Search the web for new sources" autocomplete="off">
       <div class="studio-web-row">
         <button type="button" class="studio-chip" aria-label="Web">
