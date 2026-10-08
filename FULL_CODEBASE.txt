@@ -2,7 +2,7 @@
 HYPERVECTOR RAG — FULL CODEBASE DUMP
 Generated for architecture review. Canonical tree is the repo itself.
 See ARCHITECTURE.md for diagrams. See README.md for run instructions.
-File count: 90
+File count: 103
 ========================================================================================
 
 TABLE OF CONTENTS
@@ -13,90 +13,103 @@ TABLE OF CONTENTS
   004. appsscript.json
   005. ARCHITECTURE.md
   006. catmod/__init__.py
-  007. catmod/analytics/__init__.py
-  008. catmod/analytics/ep_curve.py
-  009. catmod/api.py
-  010. catmod/audit.py
-  011. catmod/config.py
-  012. catmod/finance/__init__.py
-  013. catmod/finance/metrics.py
-  014. catmod/finance/treaty.py
-  015. catmod/finance/waterfall.py
-  016. catmod/flood/__init__.py
-  017. catmod/flood/buildings.py
-  018. catmod/flood/gemini.py
-  019. catmod/flood/hazard.py
-  020. catmod/flood/maps.py
-  021. catmod/flood/service.py
-  022. catmod/geo/__init__.py
-  023. catmod/geo/fallback.py
-  024. catmod/hazard/__init__.py
-  025. catmod/hazard/geotiff.py
-  026. catmod/hazard/provenance.py
-  027. catmod/hazard/raster.py
-  028. catmod/hazard/service.py
-  029. catmod/hazard/stochastic.py
-  030. catmod/hazard/surfaces.py
-  031. catmod/hdc/__init__.py
-  032. catmod/hdc/encoding.py
-  033. catmod/hdc/fhrr.py
-  034. catmod/hdc/memory.py
-  035. catmod/hdc/physics.py
-  036. catmod/ingestion/__init__.py
-  037. catmod/ingestion/indexing.py
-  038. catmod/ingestion/parser.py
-  039. catmod/jev/__init__.py
-  040. catmod/jev/client.py
-  041. catmod/jev/harness.py
-  042. catmod/jev/occupancy.py
-  043. catmod/jev/primitives.py
-  044. catmod/jobs.py
-  045. catmod/leaflet/__init__.py
-  046. catmod/leaflet/geojson.py
-  047. catmod/nlp/__init__.py
-  048. catmod/nlp/gemini_rag.py
-  049. catmod/pipeline.py
-  050. catmod/schemas.py
-  051. catmod/spatial/__init__.py
-  052. catmod/spatial/blender.py
-  053. catmod/spatial/elevation.py
-  054. catmod/spatial/presets.py
-  055. catmod/spatial/tiles3d.py
-  056. catmod/vulnerability/__init__.py
-  057. catmod/vulnerability/curves.py
-  058. catmod/vulnerability/engine.py
-  059. catmod/vulnerability/stochastic_engine.py
-  060. jobs/EVT-DESK-A74ADD93.json
-  061. main.py
-  062. pytest.ini
-  063. README.md
-  064. requirements.txt
-  065. save-the-earth.html
-  066. scripts/dump_codebase.py
-  067. scripts/run_sample_job.py
-  068. setup.js
-  069. static/index.html
-  070. static/landing.html
-  071. static/map.html
-  072. static/modes.js
-  073. static/renderPresets.js
-  074. templates/reinsurance_audit_report.txt
-  075. tests/__init__.py
-  076. tests/test_ep_curve.py
-  077. tests/test_fallback.py
-  078. tests/test_finance.py
-  079. tests/test_flood.py
-  080. tests/test_hazard.py
-  081. tests/test_hdc.py
-  082. tests/test_ingestion.py
-  083. tests/test_jev.py
-  084. tests/test_jobs.py
-  085. tests/test_nlp_rag.py
-  086. tests/test_pipeline.py
-  087. tests/test_spatial.py
-  088. tests/test_stochastic_hazard.py
-  089. tests/test_stochastic_vulnerability.py
-  090. tests/test_vulnerability.py
+  007. catmod/agents/__init__.py
+  008. catmod/agents/analytics_agent.py
+  009. catmod/agents/base.py
+  010. catmod/agents/finance_agent.py
+  011. catmod/agents/hazard_agent.py
+  012. catmod/agents/hdc_agent.py
+  013. catmod/agents/ingestion_agent.py
+  014. catmod/agents/jev_router.py
+  015. catmod/agents/orchestrator.py
+  016. catmod/agents/rag_agent.py
+  017. catmod/agents/status.py
+  018. catmod/agents/trail.py
+  019. catmod/analytics/__init__.py
+  020. catmod/analytics/ep_curve.py
+  021. catmod/api.py
+  022. catmod/audit.py
+  023. catmod/config.py
+  024. catmod/finance/__init__.py
+  025. catmod/finance/metrics.py
+  026. catmod/finance/treaty.py
+  027. catmod/finance/waterfall.py
+  028. catmod/flood/__init__.py
+  029. catmod/flood/buildings.py
+  030. catmod/flood/gemini.py
+  031. catmod/flood/hazard.py
+  032. catmod/flood/maps.py
+  033. catmod/flood/service.py
+  034. catmod/geo/__init__.py
+  035. catmod/geo/fallback.py
+  036. catmod/hazard/__init__.py
+  037. catmod/hazard/geotiff.py
+  038. catmod/hazard/provenance.py
+  039. catmod/hazard/raster.py
+  040. catmod/hazard/service.py
+  041. catmod/hazard/stochastic.py
+  042. catmod/hazard/surfaces.py
+  043. catmod/hdc/__init__.py
+  044. catmod/hdc/encoding.py
+  045. catmod/hdc/fhrr.py
+  046. catmod/hdc/memory.py
+  047. catmod/hdc/physics.py
+  048. catmod/ingestion/__init__.py
+  049. catmod/ingestion/indexing.py
+  050. catmod/ingestion/parser.py
+  051. catmod/jev/__init__.py
+  052. catmod/jev/client.py
+  053. catmod/jev/harness.py
+  054. catmod/jev/occupancy.py
+  055. catmod/jev/primitives.py
+  056. catmod/jobs.py
+  057. catmod/leaflet/__init__.py
+  058. catmod/leaflet/geojson.py
+  059. catmod/nlp/__init__.py
+  060. catmod/nlp/gemini_rag.py
+  061. catmod/pipeline.py
+  062. catmod/schemas.py
+  063. catmod/spatial/__init__.py
+  064. catmod/spatial/blender.py
+  065. catmod/spatial/elevation.py
+  066. catmod/spatial/presets.py
+  067. catmod/spatial/tiles3d.py
+  068. catmod/vulnerability/__init__.py
+  069. catmod/vulnerability/curves.py
+  070. catmod/vulnerability/engine.py
+  071. catmod/vulnerability/stochastic_engine.py
+  072. jobs/EVT-DESK-A74ADD93.json
+  073. main.py
+  074. pytest.ini
+  075. README.md
+  076. requirements.txt
+  077. save-the-earth.html
+  078. scripts/dump_codebase.py
+  079. scripts/run_sample_job.py
+  080. setup.js
+  081. static/index.html
+  082. static/landing.html
+  083. static/map.html
+  084. static/modes.js
+  085. static/renderPresets.js
+  086. templates/reinsurance_audit_report.txt
+  087. tests/__init__.py
+  088. tests/test_agent_framework.py
+  089. tests/test_ep_curve.py
+  090. tests/test_fallback.py
+  091. tests/test_finance.py
+  092. tests/test_flood.py
+  093. tests/test_hazard.py
+  094. tests/test_hdc.py
+  095. tests/test_ingestion.py
+  096. tests/test_jev.py
+  097. tests/test_jobs.py
+  098. tests/test_nlp_rag.py
+  099. tests/test_pipeline.py
+  100. tests/test_spatial.py
+  101. tests/test_stochastic_hazard.py
+  102. tests/test_stochastic_vulnerability.py
+  103. tests/test_vulnerability.py
 
 ========================================================================================
 FILE: .env.example
@@ -1863,6 +1876,616 @@ from catmod.config import Settings, get_settings
 __all__ = ["Settings", "get_settings"]
 
 ========================================================================================
+FILE: catmod/agents/__init__.py
+========================================================================================
+"""Deterministic multi-agent desk. Layer 4 payouts stay in the decimal waterfall."""
+
+from catmod.agents.base import AgentResult, AgentRole, BaseSubAgent
+
+__all__ = ["AgentResult", "AgentRole", "BaseSubAgent"]
+
+========================================================================================
+FILE: catmod/agents/analytics_agent.py
+========================================================================================
+"""OEP curve and Leaflet export. Reads the waterfall; does not recompute it."""
+
+from __future__ import annotations
+
+import time
+from typing import Any
+
+from catmod.agents.base import AgentResult, AgentRole, BaseSubAgent
+from catmod.leaflet.geojson import build_export
+
+
+class AnalyticsGeoJSONAgent(BaseSubAgent):
+    role = AgentRole.ANALYTICS_GEOJSON
+    audit_layer = 10
+
+    async def execute(self, payload: dict[str, Any]) -> AgentResult:
+        started = time.perf_counter()
+        claims = list(payload.get("claims") or [])
+        geojson = build_export(
+            event_id=str(payload.get("event_id") or "analytics"),
+            claims=claims,
+            hazard_polygon=payload.get("hazard_polygon"),
+        )
+        return AgentResult(
+            agent_role=self.role,
+            status="ok",
+            latency_ms=(time.perf_counter() - started) * 1000.0,
+            outputs={
+                "eal": payload.get("eal"),
+                "feature_count": len(geojson.get("features") or []),
+                "geojson_type": geojson.get("type"),
+            },
+            audit_layer=self.audit_layer,
+        )
+
+========================================================================================
+FILE: catmod/agents/base.py
+========================================================================================
+"""Shared types for the deterministic multi-agent desk."""
+
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from enum import Enum
+from typing import Any
+
+from pydantic import BaseModel, Field
+
+
+class AgentRole(str, Enum):
+    INGESTION = "INGESTION"
+    JEV_ROUTER = "JEV_ROUTER"
+    HAZARD_VULNERABILITY = "HAZARD_VULNERABILITY"
+    HDC_MEMORY = "HDC_MEMORY"
+    FINANCE_EXECUTOR = "FINANCE_EXECUTOR"
+    ANALYTICS_GEOJSON = "ANALYTICS_GEOJSON"
+    GEMINI_RAG = "GEMINI_RAG"
+
+
+class AgentResult(BaseModel):
+    agent_role: AgentRole
+    status: str
+    latency_ms: float
+    outputs: dict[str, Any] = Field(default_factory=dict)
+    audit_layer: int
+
+
+class BaseSubAgent(ABC):
+    role: AgentRole
+    audit_layer: int
+
+    @abstractmethod
+    async def execute(self, payload: dict[str, Any]) -> AgentResult:
+        """Run this agent's tool and return a timed result. Does not change Layer 4 math."""
+
+========================================================================================
+FILE: catmod/agents/finance_agent.py
+========================================================================================
+"""Run the contractual waterfall. Decimal cents only. No model, no vectors."""
+
+from __future__ import annotations
+
+import time
+from pathlib import Path
+from typing import Any
+
+from catmod.agents.base import AgentResult, AgentRole, BaseSubAgent
+from catmod.finance.treaty import XLTreaty
+from catmod.finance.waterfall import calculate_reinsurance_waterfall
+
+_FORBIDDEN = ("torch", "numpy", "hdc")
+
+
+def assert_finance_isolated() -> None:
+    source = Path(calculate_reinsurance_waterfall.__code__.co_filename).read_text(encoding="utf-8")
+    for token in _FORBIDDEN:
+        if token in source:
+            raise RuntimeError(f"finance waterfall must not reference {token}")
+
+
+class FinanceExecutorAgent(BaseSubAgent):
+    role = AgentRole.FINANCE_EXECUTOR
+    audit_layer = 4
+
+    async def execute(self, payload: dict[str, Any]) -> AgentResult:
+        started = time.perf_counter()
+        assert_finance_isolated()
+        treaty = payload.get("treaty")
+        if not isinstance(treaty, XLTreaty):
+            treaty = XLTreaty(
+                attachment_point=40_000_000.0,
+                limit=100_000_000.0,
+                co_participation=0.90,
+                reinstatement_cost=1.0,
+                reinstatements=1,
+                original_premium=0.0,
+            )
+        waterfall = calculate_reinsurance_waterfall(
+            payload.get("gross_losses") or [],
+            payload.get("deductibles") or [],
+            payload.get("policy_limits") or [],
+            treaty,
+            payload.get("coinsurance"),
+        )
+        if not isinstance(waterfall["total_gross_claim"], float):
+            raise RuntimeError("waterfall must publish float cents from Decimal math")
+        return AgentResult(
+            agent_role=self.role,
+            status="ok",
+            latency_ms=(time.perf_counter() - started) * 1000.0,
+            outputs={
+                "total_gross_claim": waterfall["total_gross_claim"],
+                "reinsurer_payout": waterfall["reinsurer_payout"],
+                "cedant_retained_loss": waterfall["cedant_retained_loss"],
+                "engine": "decimal_cents_half_even",
+                "llm_used": False,
+                "vector_approximation_used": False,
+            },
+            audit_layer=self.audit_layer,
+        )
+
+========================================================================================
+FILE: catmod/agents/hazard_agent.py
+========================================================================================
+"""Surface lookup and damage ratios for Nairobi and Nzoia only."""
+
+from __future__ import annotations
+
+import time
+from decimal import Decimal
+from typing import Any
+
+from catmod.agents.base import AgentResult, AgentRole, BaseSubAgent
+from catmod.hazard.service import default_hazard_service
+from catmod.vulnerability.engine import assess
+
+REGIONS = ("nairobi", "nzoia")
+
+
+class HazardVulnerabilityAgent(BaseSubAgent):
+    role = AgentRole.HAZARD_VULNERABILITY
+    audit_layer = 8
+
+    async def execute(self, payload: dict[str, Any]) -> AgentResult:
+        started = time.perf_counter()
+        region = str(payload.get("region") or "nairobi")
+        if region not in REGIONS:
+            raise ValueError("hazard region must be nairobi or nzoia")
+        latitude = float(payload.get("latitude"))
+        longitude = float(payload.get("longitude"))
+        occupancy = str(payload.get("occupancy") or "UNK")
+        tiv = Decimal(str(payload.get("tiv") or "0"))
+        hit = default_hazard_service().lookup(
+            latitude,
+            longitude,
+            return_period=int(payload.get("return_period") or 100),
+            region=region,
+        )
+        depth = hit.depth_m if hit.depth_m is not None else Decimal("0")
+        vuln = assess(occupancy, depth, tiv)
+        return AgentResult(
+            agent_role=self.role,
+            status="ok",
+            latency_ms=(time.perf_counter() - started) * 1000.0,
+            outputs={
+                "region": region,
+                "depth_m": None if hit.depth_m is None else float(hit.depth_m),
+                "damage_ratio": float(vuln.damage_ratio),
+                "modeled_ground_up_loss": format(vuln.ground_up_loss, "f"),
+                "synthetic": bool(hit.synthetic or vuln.synthetic),
+            },
+            audit_layer=self.audit_layer,
+        )
+
+========================================================================================
+FILE: catmod/agents/hdc_agent.py
+========================================================================================
+"""Encode a flagged line into FHRR memory. This does not calculate payouts."""
+
+from __future__ import annotations
+
+import time
+from typing import Any
+
+from catmod.agents.base import AgentResult, AgentRole, BaseSubAgent
+from catmod.config import get_settings
+from catmod.hdc.encoding import ItemMemory
+from catmod.hdc.memory import PortfolioMemory
+
+
+class HDCMemoryAgent(BaseSubAgent):
+    role = AgentRole.HDC_MEMORY
+    audit_layer = 3
+
+    async def execute(self, payload: dict[str, Any]) -> AgentResult:
+        started = time.perf_counter()
+        settings = get_settings()
+        items = ItemMemory(dim=settings.hdc_dim, seed=settings.hdc_seed)
+        memory = PortfolioMemory(items)
+        asset_id = str(payload.get("asset_id") or "line")
+        memory.encode_and_add(
+            latitude=float(payload.get("latitude") or -1.2921),
+            longitude=float(payload.get("longitude") or 36.8219),
+            elevation=float(payload.get("elevation") or 1660),
+            time_t=float(payload.get("time_t") or 0),
+            cost=float(payload.get("cost") or 0),
+            occupancy=str(payload.get("occupancy") or "UNK"),
+            damage_ratio=float(payload.get("damage_ratio") or 0),
+        )
+        return AgentResult(
+            agent_role=self.role,
+            status="ok",
+            latency_ms=(time.perf_counter() - started) * 1000.0,
+            outputs={
+                "asset_id": asset_id,
+                "dimension": settings.hdc_dim,
+                "replaces_payout": False,
+            },
+            audit_layer=self.audit_layer,
+        )
+
+========================================================================================
+FILE: catmod/agents/ingestion_agent.py
+========================================================================================
+"""Parse a bordereau and assign the client and event ids."""
+
+from __future__ import annotations
+
+import time
+from typing import Any
+
+from catmod.agents.base import AgentResult, AgentRole, BaseSubAgent
+from catmod.ingestion.indexing import assign_client_index_id, assign_event_id
+from catmod.ingestion.parser import decode_payload_bytes, parse_attachment
+
+
+class IngestionAgent(BaseSubAgent):
+    role = AgentRole.INGESTION
+    audit_layer = 1
+
+    async def execute(self, payload: dict[str, Any]) -> AgentResult:
+        started = time.perf_counter()
+        filename = str(payload.get("filename") or "bordereau.csv")
+        text = payload.get("data")
+        blob = decode_payload_bytes(payload.get("data_base64"))
+        claims = parse_attachment(
+            filename=filename,
+            text=None if text is None else str(text),
+            blob=blob,
+            content_type=payload.get("content_type"),
+        )
+        client_index_id = payload.get("client_index_id") or assign_client_index_id(
+            str(payload.get("client_email") or ""),
+            filename,
+            str(text or payload.get("data_base64") or ""),
+        )
+        event_id = payload.get("event_id") or assign_event_id(str(client_index_id), filename)
+        return AgentResult(
+            agent_role=self.role,
+            status="ok",
+            latency_ms=(time.perf_counter() - started) * 1000.0,
+            outputs={
+                "claim_count": len(claims),
+                "client_index_id": client_index_id,
+                "event_id": event_id,
+                "asset_ids": [claim.asset_id for claim in claims],
+            },
+            audit_layer=self.audit_layer,
+        )
+
+========================================================================================
+FILE: catmod/agents/jev_router.py
+========================================================================================
+"""Master orchestrator. Jev Choice, Score, and Noul decide the handoff.
+
+A line goes straight to the finance tool when occupancy confidence is above
+0.95, fraud Noul is below 0.05, and the spatial score is not flagged.
+Everything else is handed to HDC for a physics check. HDC never replaces
+the decimal payout.
+"""
+
+from __future__ import annotations
+
+import time
+from typing import Any
+
+from catmod.agents.base import AgentResult, AgentRole, BaseSubAgent
+from catmod.config import get_settings
+from catmod.ingestion.parser import parse_attachment
+from catmod.jev.harness import JevHarness
+from catmod.schemas import TriageResult
+
+OCCUPANCY_DIRECT = 0.95
+FRAUD_DIRECT = 0.05
+SPATIAL_FLAG = 1.5
+
+
+def route_decision(triage: TriageResult) -> str:
+    """Return finance or hdc_physics. Spatial flags stay on the HDC path."""
+    direct = (
+        triage.occupancy.confidence > OCCUPANCY_DIRECT
+        and triage.fraud_or_discrepancy.noul < FRAUD_DIRECT
+        and triage.spatial_severity.score < SPATIAL_FLAG
+    )
+    if direct:
+        return "finance"
+    return "hdc_physics"
+
+
+class JevRouterAgent(BaseSubAgent):
+    role = AgentRole.JEV_ROUTER
+    audit_layer = 2
+
+    async def execute(self, payload: dict[str, Any]) -> AgentResult:
+        started = time.perf_counter()
+        claims = payload.get("claims")
+        if claims is None:
+            claims = parse_attachment(
+                filename=str(payload.get("filename") or "bordereau.csv"),
+                text=None if payload.get("data") is None else str(payload.get("data")),
+                content_type=payload.get("content_type"),
+            )
+        triages = JevHarness(get_settings()).triage_batch(list(claims))
+        routes = []
+        for triage in triages:
+            decision = route_decision(triage)
+            routes.append(
+                {
+                    "asset_id": triage.asset_id,
+                    "route": decision,
+                    "harness_route": triage.route,
+                    "occupancy_confidence": triage.occupancy.confidence,
+                    "fraud_noul": triage.fraud_or_discrepancy.noul,
+                    "spatial_severity": triage.spatial_severity.score,
+                }
+            )
+        elapsed = (time.perf_counter() - started) * 1000.0
+        return AgentResult(
+            agent_role=self.role,
+            status="ok" if elapsed < 500 else "latency_budget_exceeded",
+            latency_ms=elapsed,
+            outputs={
+                "budget_ms": 500,
+                "within_budget": elapsed < 500,
+                "route_finance": sum(1 for row in routes if row["route"] == "finance"),
+                "route_hdc_physics": sum(1 for row in routes if row["route"] == "hdc_physics"),
+                "routes": routes,
+            },
+            audit_layer=self.audit_layer,
+        )
+
+========================================================================================
+FILE: catmod/agents/orchestrator.py
+========================================================================================
+"""Run the desk job and attach the agent trail. Payouts stay inside run_pipeline."""
+
+from __future__ import annotations
+
+import time
+from typing import Any
+
+from catmod.agents.base import AgentResult, AgentRole
+from catmod.agents.status import remember
+from catmod.config import Settings
+from catmod.pipeline import run_pipeline
+from catmod.schemas import BordereauWebhook
+
+_ROLE_LAYER = {
+    "agent_ingestion": (AgentRole.INGESTION, 1),
+    "agent_jev_router": (AgentRole.JEV_ROUTER, 2),
+    "agent_hazard_vulnerability": (AgentRole.HAZARD_VULNERABILITY, 8),
+    "agent_hdc_memory": (AgentRole.HDC_MEMORY, 3),
+    "agent_finance_executor": (AgentRole.FINANCE_EXECUTOR, 4),
+    "agent_analytics_geojson": (AgentRole.ANALYTICS_GEOJSON, 5),
+}
+
+
+def execute_workflow(payload: BordereauWebhook, settings: Settings | None = None) -> dict[str, Any]:
+    started = time.perf_counter()
+    result = run_pipeline(payload, settings)
+    elapsed = (time.perf_counter() - started) * 1000.0
+    agents: list[AgentResult] = []
+    for entry in result["audit"]["entries"]:
+        mapped = _ROLE_LAYER.get(entry["step"])
+        if mapped is None:
+            continue
+        role, layer = mapped
+        agents.append(
+            AgentResult(
+                agent_role=role,
+                status=entry["status"],
+                latency_ms=float(entry["latency_ms"] or 0.0),
+                outputs=dict(entry.get("detail") or {}),
+                audit_layer=layer,
+            )
+        )
+    remember(agents, total_ms=elapsed)
+    packed = dict(result)
+    packed["agents"] = [agent.model_dump(mode="json") for agent in agents]
+    packed["agent_sla"] = {"budget_ms": 1000, "elapsed_ms": round(elapsed, 3), "within_budget": elapsed < 1000}
+    return packed
+
+========================================================================================
+FILE: catmod/agents/rag_agent.py
+========================================================================================
+"""On-demand Gemini answers. Never called from the payout path."""
+
+from __future__ import annotations
+
+import time
+from typing import Any
+
+from catmod.agents.base import AgentResult, AgentRole, BaseSubAgent
+from catmod.nlp.gemini_rag import build_dataset_context, parse_csv_text, query_dataset_rag
+
+
+class GeminiRAGAgent(BaseSubAgent):
+    role = AgentRole.GEMINI_RAG
+    audit_layer = 1
+
+    async def execute(self, payload: dict[str, Any]) -> AgentResult:
+        started = time.perf_counter()
+        query = str(payload.get("query") or "").strip()
+        if not query:
+            return AgentResult(
+                agent_role=self.role,
+                status="skipped",
+                latency_ms=(time.perf_counter() - started) * 1000.0,
+                outputs={"reason": "AI Mode only. Not part of the payout path."},
+                audit_layer=self.audit_layer,
+            )
+        rows = parse_csv_text(str(payload.get("csv_text") or ""))
+        context = build_dataset_context(rows, name=str(payload.get("dataset_name") or "uploaded.csv"))
+        answer = query_dataset_rag(query, context)
+        return AgentResult(
+            agent_role=self.role,
+            status="ok",
+            latency_ms=(time.perf_counter() - started) * 1000.0,
+            outputs={
+                "answer": answer.get("answer"),
+                "matched_asset_ids": answer.get("matched_asset_ids") or [],
+                "calculates_payout": False,
+            },
+            audit_layer=self.audit_layer,
+        )
+
+========================================================================================
+FILE: catmod/agents/status.py
+========================================================================================
+"""Last observed agent latencies for the status endpoint and the Alpha agents page."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from catmod.agents.base import AgentResult
+
+CATALOG: tuple[dict[str, Any], ...] = (
+    {
+        "role": "INGESTION",
+        "title": "Ingestion",
+        "layer": 1,
+        "summary": "Parses the uploaded CSV and assigns the client and event ids.",
+    },
+    {
+        "role": "JEV_ROUTER",
+        "title": "Jev router",
+        "layer": 2,
+        "summary": "Master orchestrator. Choice, Score, and Noul under 500 ms decide finance or HDC.",
+    },
+    {
+        "role": "HAZARD_VULNERABILITY",
+        "title": "Hazard and vulnerability",
+        "layer": 8,
+        "summary": "Nairobi and Nzoia depth lookup, then the mean damage ratio.",
+    },
+    {
+        "role": "HDC_MEMORY",
+        "title": "HDC memory",
+        "layer": 3,
+        "summary": "Fourier hypervectors for lines Jev flagged. Does not change the payout.",
+    },
+    {
+        "role": "FINANCE_EXECUTOR",
+        "title": "Finance executor",
+        "layer": 4,
+        "summary": "Decimal cents waterfall. $100M xs $40M, 90% share. No model math.",
+    },
+    {
+        "role": "ANALYTICS_GEOJSON",
+        "title": "Analytics and map",
+        "layer": 10,
+        "summary": "Exceedance curve, EAL, and the Leaflet export.",
+    },
+    {
+        "role": "GEMINI_RAG",
+        "title": "Gemini RAG",
+        "layer": 1,
+        "summary": "On demand when AI Mode is on. Answers from the upload. Does not price the treaty.",
+    },
+)
+
+_last: list[dict[str, Any]] = []
+_total_ms: float | None = None
+
+
+def remember(agents: list[AgentResult], *, total_ms: float) -> None:
+    global _last, _total_ms
+    _last = [agent.model_dump(mode="json") for agent in agents]
+    _total_ms = total_ms
+
+
+def agent_status() -> dict[str, Any]:
+    by_role = {row["agent_role"]: row for row in _last}
+    agents = []
+    for spec in CATALOG:
+        seen = by_role.get(spec["role"])
+        agents.append(
+            {
+                **spec,
+                "status": "idle" if seen is None else seen["status"],
+                "latency_ms": None if seen is None else seen["latency_ms"],
+            }
+        )
+    return {
+        "sla_ms": 1000,
+        "jev_budget_ms": 500,
+        "finance_isolated": True,
+        "last_total_ms": _total_ms,
+        "agents": agents,
+    }
+
+========================================================================================
+FILE: catmod/agents/trail.py
+========================================================================================
+"""Append one audit step for each sub-agent handoff."""
+
+from __future__ import annotations
+
+from catmod.audit import AuditLog
+
+_STEPS = (
+    (1, "agent_ingestion", "INGESTION"),
+    (2, "agent_jev_router", "JEV_ROUTER"),
+    (8, "agent_hazard_vulnerability", "HAZARD_VULNERABILITY"),
+    (3, "agent_hdc_memory", "HDC_MEMORY"),
+    (4, "agent_finance_executor", "FINANCE_EXECUTOR"),
+    (5, "agent_analytics_geojson", "ANALYTICS_GEOJSON"),
+)
+
+
+def record_agent_trail(
+    audit: AuditLog,
+    *,
+    elapsed_ms: float,
+    jev_ms: float,
+    finance_routes: int,
+    hdc_routes: int,
+    claim_count: int,
+) -> None:
+    detail = {
+        "claim_count": claim_count,
+        "route_finance": finance_routes,
+        "route_hdc_physics": hdc_routes,
+        "pipeline_ms": round(elapsed_ms, 3),
+        "finance_engine": "decimal_cents_half_even",
+        "llm_used": False,
+    }
+    for layer, name, role in _STEPS:
+        latency = jev_ms if role == "JEV_ROUTER" else None
+        audit.record(
+            layer=layer,
+            name=name,
+            status="ok",
+            latency_ms=latency,
+            detail={**detail, "agent_role": role},
+        )
+
+========================================================================================
 FILE: catmod/analytics/__init__.py
 ========================================================================================
 """Portfolio analytics beyond the single-event treaty waterfall."""
@@ -2227,6 +2850,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from catmod.agents.orchestrator import execute_workflow
+from catmod.agents.status import agent_status
 from catmod.audit import AuditLog
 from catmod.config import get_settings
 from catmod.jobs import JobStore
@@ -2328,6 +2953,45 @@ def audit(event_id: str) -> JSONResponse:
     if job is None:
         raise HTTPException(status_code=404, detail=f"Unknown event_id {event_id}")
     return JSONResponse(job["audit"])
+
+
+def _workspace_kind(name: str, url: str = "") -> str:
+    text = f"{name} {url}".lower()
+    base = name.lower().strip()
+    if "docs.google.com/document" in text or ".gdoc" in text or base.endswith((".docx", ".doc", ".pdf")):
+        return "docs"
+    if any(token in text for token in ("spreadsheet", "sheets.google", ".csv", ".xlsx", ".xls")):
+        return "sheets"
+    if "mail.google" in text or "gmail" in text:
+        return "gmail"
+    return "drive"
+
+
+@app.get("/api/v1/workspace/events")
+def workspace_events() -> dict[str, Any]:
+    """Recent Workspace arrivals: the file, the sending mailbox, and any source link."""
+    rows: list[dict[str, str]] = []
+    for job in reversed(job_store().values()):
+        filename = str(job.get("filename") or "Bordereau")
+        event_id = str(job.get("event_id") or "")
+        email = str(job.get("client_email") or "")
+        when = str((job.get("audit") or {}).get("started_at") or "")
+        gross = job.get("total_gross_claim")
+        detail = event_id
+        if isinstance(gross, (int, float)):
+            detail = f"{event_id} · gross ${float(gross):,.2f}"
+        rows.append({"kind": _workspace_kind(filename), "title": filename, "detail": detail, "when": when})
+        if email:
+            rows.append({
+                "kind": "gmail",
+                "title": email,
+                "detail": f"Workspace message for {event_id}",
+                "when": when,
+            })
+        for url in job.get("source_urls") or []:
+            link = str(url)
+            rows.append({"kind": _workspace_kind(link, link), "title": link, "detail": event_id, "when": when})
+    return {"events": rows[:40]}
 
 
 @app.get("/api/v1/events")
@@ -2641,6 +3305,19 @@ def blender_manifest_post(
 ) -> Response:
     body = _blender_payload(payload.event_id, payload.shader_preset, payload.storey_height_m)
     return _blender_response(body, download)
+
+
+@app.post("/api/v1/agents/execute")
+def agents_execute(payload: BordereauWebhook) -> JSONResponse:
+    try:
+        return JSONResponse(execute_workflow(payload))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/v1/agents/status")
+def agents_status() -> JSONResponse:
+    return JSONResponse(agent_status())
 
 
 try:
@@ -7700,6 +8377,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
+from catmod.agents.trail import record_agent_trail
 from catmod.analytics.ep_curve import catalog_ep_curve, portfolio_ep_curve
 from catmod.audit import AuditLog
 from catmod.config import Settings, get_settings
@@ -8339,6 +9017,14 @@ def run_pipeline(payload: BordereauWebhook, settings: Settings | None = None) ->
         },
     )
     elapsed_ms = (time.perf_counter() - started) * 1000.0
+    record_agent_trail(
+        audit,
+        elapsed_ms=elapsed_ms,
+        jev_ms=jev_ms,
+        finance_routes=finance_routes,
+        hdc_routes=hdc_routes,
+        claim_count=len(claims),
+    )
     audit.record(
         layer=5,
         name="pipeline_sla",
@@ -12858,6 +13544,62 @@ FILE: static/index.html
     #studioPage{grid-template-columns:1fr;overflow:auto;}
     .studio-card{overflow:visible;}
   }
+  #agentsPage{
+    position:fixed;inset:0;z-index:15;
+    display:none;
+    padding:78px 28px 28px;
+    box-sizing:border-box;
+    overflow:auto;
+  }
+  body.has-agents #agentsPage{display:block;}
+  #agentsPage[hidden]{display:none !important;}
+  body.has-agents .cluster{visibility:hidden;pointer-events:none;}
+  .agents-board{width:min(1040px,100%);margin:0 auto;}
+  .agents-board h2{
+    margin:0 0 8px;color:#fff;
+    font:500 clamp(32px,5vw,56px)/1 Outfit,sans-serif;
+    text-shadow:0 2px 18px rgba(0,0,0,.35);
+  }
+  .agents-lead{margin:0 0 18px;color:#fff;font:500 14px Inter,sans-serif;text-shadow:0 1px 8px rgba(0,0,0,.45);}
+  .agents-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+  .agent-card{
+    background:#fff;color:#202124;border-radius:16px;
+    box-shadow:0 1px 3px rgba(60,64,67,.2), 0 8px 24px rgba(0,0,0,.12);
+    padding:14px 16px;
+  }
+  .agent-card b{display:block;font:600 15px Inter,sans-serif;}
+  .agent-card em{display:block;margin-top:4px;font:400 13px/1.4 Inter,sans-serif;color:#5f6368;}
+  .agent-card small{display:block;margin-top:8px;color:#80868b;font:500 11px Inter,sans-serif;}
+  @media (max-width:720px){
+    .agents-grid{grid-template-columns:1fr;}
+  }
+  #workspacePage{
+    position:fixed;inset:0;z-index:15;
+    display:none;overflow:auto;
+    padding:78px 28px 28px;box-sizing:border-box;
+  }
+  body.has-workspace #workspacePage{display:block;}
+  #workspacePage[hidden]{display:none !important;}
+  body.has-workspace .cluster{visibility:hidden;pointer-events:none;}
+  .ws-board{width:min(760px,100%);margin:0 auto;}
+  .ws-board h2{
+    margin:0 0 8px;color:#fff;
+    font:500 clamp(32px,5vw,56px)/1 Outfit,sans-serif;
+    text-shadow:0 2px 18px rgba(0,0,0,.35);
+  }
+  .ws-lead{margin:0 0 18px;color:#fff;font:500 14px Inter,sans-serif;text-shadow:0 1px 8px rgba(0,0,0,.45);}
+  .ws-list{display:flex;flex-direction:column;gap:12px;}
+  .ws-card{
+    display:flex;align-items:center;gap:16px;
+    background:#fff;color:#202124;border-radius:16px;
+    box-shadow:0 1px 3px rgba(60,64,67,.2), 0 8px 24px rgba(0,0,0,.12);
+    padding:14px 18px;min-height:72px;
+  }
+  .ws-ico{width:40px;height:40px;flex:none;display:grid;place-items:center;}
+  .ws-ico svg{width:36px;height:36px;display:block;}
+  .ws-card b{display:block;font:600 15px Inter,sans-serif;}
+  .ws-card em{display:block;margin-top:3px;font:400 13px/1.35 Inter,sans-serif;color:#5f6368;}
+  .ws-empty{margin:0;color:#fff;font:500 14px Inter,sans-serif;}
 
   .toast-stack{
     position:fixed;top:16px;left:50%;transform:translateX(-50%);
@@ -13177,7 +13919,7 @@ FILE: static/index.html
         <em>Decimal waterfall, gross and reinsurer</em>
       </span>
     </a>
-    <a class="gcard gem-glow" href="#ask" data-query="Run the Nairobi modeled portfolio">
+    <a class="gcard gem-glow" href="#agents" data-agents>
       <span class="gcard-ico" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none">
           <path d="M12 2.8 13.5 8.4 19.1 9.9 13.5 11.4 12 17 10.5 11.4 4.9 9.9 10.5 8.4 12 2.8Z" fill="#1a73e8"/>
@@ -13185,8 +13927,8 @@ FILE: static/index.html
         </svg>
       </span>
       <span>
-        <strong>Nairobi book</strong>
-        <em>Models your uploaded Nairobi CSV</em>
+        <strong>Alpha agents</strong>
+        <em>Jev router and the six specialists</em>
       </span>
     </a>
     <a class="gcard gem-glow" href="#ask" data-upload>
@@ -13212,7 +13954,7 @@ FILE: static/index.html
         <em>Gross, reinsurer, flags</em>
       </span>
     </a>
-    <a class="gcard gem-glow" href="https://workspace.google.com/" data-href="https://workspace.google.com/" target="_blank" rel="noopener">
+    <a class="gcard gem-glow" href="#workspace" data-workspace>
       <span class="gcard-ico" aria-hidden="true">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <rect x="3" y="3" width="8" height="8" rx="1.6" fill="#1a73e8"/>
@@ -13291,6 +14033,22 @@ FILE: static/index.html
       <p>After adding sources, click to add Audio Overview, Slide Deck, and more.</p>
     </div>
   </aside>
+</div>
+
+<div id="agentsPage" hidden>
+  <section class="agents-board">
+    <h2>Alpha agents</h2>
+    <p class="agents-lead" id="agentsLead">Jev routes the book. The financial engine stays on decimal cents.</p>
+    <div class="agents-grid" id="agentsGrid"></div>
+  </section>
+</div>
+
+<div id="workspacePage" hidden>
+  <section class="ws-board">
+    <h2>Google Workspace</h2>
+    <p class="ws-lead">Recent Sheets, Docs, Drive, and Gmail arrivals.</p>
+    <div class="ws-list" id="workspaceList"></div>
+  </section>
 </div>
 
 <div class="sheet" id="sheet">
@@ -13455,6 +14213,7 @@ FILE: static/index.html
       });
       if(document.body.classList.contains("has-desk")) renderDesk();
       if(document.body.classList.contains("has-studio")) renderStudio();
+      if(document.body.classList.contains("has-workspace")) openWorkspace();
     }).catch(function(){});
   }
   function saveSessionFile(row){
@@ -13631,9 +14390,13 @@ FILE: static/index.html
     stopBombard();
     window.clearInterval(statusTimer);
     window.clearTimeout(revealTimer);
-    document.body.classList.remove("is-thinking","is-leaving","has-result","has-desk","has-studio");
+    document.body.classList.remove("is-thinking","is-leaving","has-result","has-desk","has-studio","has-agents","has-workspace");
     var studio = document.getElementById("studioPage");
     if(studio) studio.hidden = true;
+    var agentsPage = document.getElementById("agentsPage");
+    if(agentsPage) agentsPage.hidden = true;
+    var workspacePage = document.getElementById("workspacePage");
+    if(workspacePage) workspacePage.hidden = true;
     askForm.classList.remove("is-querying");
     queryRail.innerHTML = "";
     queryRail.setAttribute("aria-hidden","true");
@@ -14231,8 +14994,97 @@ FILE: static/index.html
     "Reports": "Google Docs",
     "Data Table": "Google Sheets"
   };
+  var AGENT_CARDS = [
+    {role:"INGESTION", title:"Ingestion", layer:1, summary:"Parses the uploaded CSV and assigns the client and event ids."},
+    {role:"JEV_ROUTER", title:"Jev router", layer:2, summary:"Master orchestrator. Choice, Score, and Noul under 500 ms decide finance or HDC."},
+    {role:"HAZARD_VULNERABILITY", title:"Hazard and vulnerability", layer:8, summary:"Nairobi and Nzoia depth lookup, then the mean damage ratio."},
+    {role:"HDC_MEMORY", title:"HDC memory", layer:3, summary:"Fourier hypervectors for lines Jev flagged. Does not change the payout."},
+    {role:"FINANCE_EXECUTOR", title:"Finance executor", layer:4, summary:"Decimal cents waterfall. $100M xs $40M, 90% share. No model math."},
+    {role:"ANALYTICS_GEOJSON", title:"Analytics and map", layer:10, summary:"Exceedance curve, EAL, and the Leaflet export."},
+    {role:"GEMINI_RAG", title:"Gemini RAG", layer:1, summary:"On demand when AI Mode is on. Answers from the upload. Does not price the treaty."}
+  ];
+  function renderAgents(list){
+    var grid = document.getElementById("agentsGrid");
+    if(!grid) return;
+    grid.innerHTML = (list || AGENT_CARDS).map(function(agent){
+      var latency = agent.latency_ms == null ? "" : " · " + Math.round(agent.latency_ms) + " ms";
+      return '<article class="agent-card"><b>' + esc(agent.title || agent.role) + '</b><em>' + esc(agent.summary || "") + '</em><small>Layer ' + esc(String(agent.layer)) + " · " + esc(agent.role) + (agent.status ? " · " + esc(agent.status) : "") + latency + '</small></article>';
+    }).join("");
+  }
+  var WS_ICONS = {
+    sheets: '<svg viewBox="0 0 48 48"><rect x="8" y="6" width="32" height="36" rx="4" fill="#0F9D58"/><rect x="14" y="16" width="20" height="3" fill="#fff"/><rect x="14" y="22" width="20" height="3" fill="#fff"/><rect x="14" y="28" width="12" height="3" fill="#fff"/></svg>',
+    docs: '<svg viewBox="0 0 48 48"><rect x="8" y="6" width="32" height="36" rx="4" fill="#4285F4"/><rect x="14" y="16" width="20" height="2.4" fill="#fff"/><rect x="14" y="21" width="20" height="2.4" fill="#fff"/><rect x="14" y="26" width="14" height="2.4" fill="#fff"/></svg>',
+    drive: '<svg viewBox="0 0 48 48"><path d="M18 8h12l10 18H28L18 8z" fill="#FFBA00"/><path d="M8 34l6-10 10 18H18L8 34z" fill="#1FA463"/><path d="M30 26l6 10H18l10-18h2z" fill="#4688F4"/></svg>',
+    gmail: '<svg viewBox="0 0 48 48"><rect x="6" y="12" width="36" height="26" rx="3" fill="#fff"/><path d="M6 14l18 13L42 14v-2H6v2z" fill="#EA4335"/><path d="M6 14v22h6V20l12 9 12-9v16h6V14L24 28 6 14z" fill="#C5221F"/></svg>'
+  };
+  function workspaceKind(name){
+    var text = String(name || "").toLowerCase();
+    if(/\.docx?$|\.gdoc|document/.test(text)) return "docs";
+    if(/\.csv$|\.xlsx?$|sheet/.test(text)) return "sheets";
+    if(/@|gmail|mail/.test(text)) return "gmail";
+    return "drive";
+  }
+  function renderWorkspace(rows){
+    var list = document.getElementById("workspaceList");
+    if(!list) return;
+    if(!rows.length){
+      list.innerHTML = '<p class="ws-empty">No workspace events yet. A modeled book or an upload will appear here.</p>';
+      return;
+    }
+    list.innerHTML = rows.map(function(row){
+      var kind = WS_ICONS[row.kind] ? row.kind : "drive";
+      var when = row.when ? String(row.when).replace("T", " ").slice(0, 16) : "";
+      return '<article class="ws-card"><span class="ws-ico" aria-hidden="true">' + WS_ICONS[kind] + '</span><span><b>' + esc(row.title || "Workspace item") + '</b><em>' + esc([row.detail, when].filter(Boolean).join(" · ")) + '</em></span></article>';
+    }).join("");
+  }
+  function openWorkspace(){
+    document.body.classList.remove("has-desk","has-result","is-thinking","has-studio","has-agents");
+    var studio = document.getElementById("studioPage");
+    if(studio) studio.hidden = true;
+    var agentsPage = document.getElementById("agentsPage");
+    if(agentsPage) agentsPage.hidden = true;
+    document.body.classList.add("has-workspace");
+    document.getElementById("workspacePage").hidden = false;
+    var local = sessionFiles.map(function(file){
+      return {kind: workspaceKind(file.name), title: file.name, detail: file.kind || "Uploaded file", when: file.ingested || ""};
+    });
+    renderWorkspace(local);
+    fetch("/api/v1/workspace/events").then(function(res){ return res.json(); }).then(function(data){
+      var remote = (data && data.events) || [];
+      var seen = {};
+      var merged = [];
+      remote.concat(local).forEach(function(row){
+        var key = (row.kind || "") + "|" + (row.title || "");
+        if(seen[key]) return;
+        seen[key] = 1;
+        merged.push(row);
+      });
+      renderWorkspace(merged);
+    }).catch(function(){});
+  }
+  function openAgents(){
+    document.body.classList.remove("has-desk","has-result","is-thinking","has-studio","has-workspace");
+    var studio = document.getElementById("studioPage");
+    if(studio) studio.hidden = true;
+    var workspacePage = document.getElementById("workspacePage");
+    if(workspacePage) workspacePage.hidden = true;
+    document.body.classList.add("has-agents");
+    document.getElementById("agentsPage").hidden = false;
+    renderAgents(AGENT_CARDS);
+    fetch("/api/v1/agents/status").then(function(res){ return res.json(); }).then(function(data){
+      if(data && data.agents) renderAgents(data.agents);
+      var lead = document.getElementById("agentsLead");
+      if(lead && data && data.last_total_ms != null){
+        lead.textContent = "Last job " + Math.round(data.last_total_ms) + " ms. Budget " + data.sla_ms + " ms. Finance stays isolated.";
+      }
+    }).catch(function(){});
+  }
   function openStudio(){
-    document.body.classList.remove("has-desk","has-result","is-thinking");
+    document.body.classList.remove("has-desk","has-result","is-thinking","has-agents","has-workspace");
+    var agentsPage = document.getElementById("agentsPage");
+    if(agentsPage) agentsPage.hidden = true;
+    var workspacePage = document.getElementById("workspacePage");
+    if(workspacePage) workspacePage.hidden = true;
     document.body.classList.add("has-studio");
     var page = document.getElementById("studioPage");
     page.hidden = false;
@@ -14790,6 +15642,14 @@ FILE: static/index.html
     flashGlow(card);
     if(card.hasAttribute("data-pwa")){
       if(window.openAquaPwa) window.openAquaPwa(false);
+      return;
+    }
+    if(card.hasAttribute("data-agents")){
+      openAgents();
+      return;
+    }
+    if(card.hasAttribute("data-workspace")){
+      openWorkspace();
       return;
     }
     if(card.hasAttribute("data-upload")){
@@ -15700,6 +16560,96 @@ the Drive archive and Slides deck links.
 FILE: tests/__init__.py
 ========================================================================================
 
+
+========================================================================================
+FILE: tests/test_agent_framework.py
+========================================================================================
+import asyncio
+from decimal import Decimal
+
+from catmod.agents.finance_agent import FinanceExecutorAgent, assert_finance_isolated
+from catmod.agents.jev_router import JevRouterAgent
+from catmod.agents.orchestrator import execute_workflow
+from catmod.finance.treaty import XLTreaty
+from catmod.finance.waterfall import calculate_reinsurance_waterfall
+from catmod.pipeline import run_pipeline
+from catmod.schemas import BordereauWebhook
+
+NAIROBI_CSV = """asset_id,policy_id,latitude,longitude,elevation,occupancy,tiv,ground_up_loss,deductible,policy_limit,coinsurance,loss_date
+N-001,KN-100,-1.2921,36.8219,1660,informal iron sheet,2500000,0,50000,2500000,1.0,2026-04-12
+N-002,KN-101,-1.2864,36.8290,1685,permanent masonry,8000000,0,100000,8000000,1.0,2026-04-12
+N-003,KN-102,-1.2755,36.8148,1705,concrete rcc,15000000,0,250000,15000000,1.0,2026-04-12
+N-004,KN-103,-1.3012,36.7890,1680,mabati,900000,0,20000,900000,1.0,2026-04-12
+"""
+
+
+def _book() -> BordereauWebhook:
+    return BordereauWebhook(
+        client_email="desk@nairobi.example",
+        client_name="Nairobi Mutual",
+        filename="nairobi-book.csv",
+        data=NAIROBI_CSV,
+        loss_basis="modeled",
+        hazard_region="nairobi",
+    )
+
+
+def test_finance_executor_matches_decimal_cents():
+    assert_finance_isolated()
+    treaty = XLTreaty(
+        attachment_point=40_000_000.0,
+        limit=100_000_000.0,
+        co_participation=0.90,
+        reinstatement_cost=1.0,
+        reinstatements=1,
+        original_premium=0.0,
+    )
+    payload = {
+        "gross_losses": [1000.005, 2500],
+        "deductibles": [100, 0],
+        "policy_limits": [5000, 5000],
+        "coinsurance": [1, 1],
+        "treaty": treaty,
+    }
+    result = asyncio.run(FinanceExecutorAgent().execute(payload))
+    direct = calculate_reinsurance_waterfall(
+        payload["gross_losses"],
+        payload["deductibles"],
+        payload["policy_limits"],
+        treaty,
+        payload["coinsurance"],
+    )
+    assert result.outputs["engine"] == "decimal_cents_half_even"
+    assert result.outputs["llm_used"] is False
+    assert result.outputs["vector_approximation_used"] is False
+    assert result.outputs["total_gross_claim"] == direct["total_gross_claim"]
+    assert result.outputs["reinsurer_payout"] == direct["reinsurer_payout"]
+    cents = Decimal(str(result.outputs["total_gross_claim"])).quantize(Decimal("0.01"))
+    assert float(cents) == result.outputs["total_gross_claim"]
+
+
+def test_jev_router_sends_clean_nairobi_lines_to_finance():
+    routed = asyncio.run(JevRouterAgent().execute({"filename": "nairobi-book.csv", "data": NAIROBI_CSV}))
+    assert routed.outputs["within_budget"] is True
+    assert routed.outputs["route_finance"] == 4
+    assert routed.outputs["route_hdc_physics"] == 0
+    assert routed.latency_ms < 500
+
+
+def test_agent_workflow_matches_pipeline_and_sla():
+    payload = _book()
+    direct = run_pipeline(payload)
+    worked = execute_workflow(payload)
+    assert worked["total_gross_claim"] == direct["total_gross_claim"]
+    assert worked["reinsurer_payout"] == direct["reinsurer_payout"]
+    assert worked["cedant_retained_loss"] == direct["cedant_retained_loss"]
+    roles = {row["agent_role"] for row in worked["agents"]}
+    assert "FINANCE_EXECUTOR" in roles
+    assert "JEV_ROUTER" in roles
+    finance = [row for row in worked["agents"] if row["agent_role"] == "FINANCE_EXECUTOR"][0]
+    assert finance["outputs"]["llm_used"] is False
+    assert worked["agent_sla"]["within_budget"] is True
+    assert worked["agent_sla"]["elapsed_ms"] < 1000
 
 ========================================================================================
 FILE: tests/test_ep_curve.py

@@ -879,6 +879,62 @@
     #studioPage{grid-template-columns:1fr;overflow:auto;}
     .studio-card{overflow:visible;}
   }
+  #agentsPage{
+    position:fixed;inset:0;z-index:15;
+    display:none;
+    padding:78px 28px 28px;
+    box-sizing:border-box;
+    overflow:auto;
+  }
+  body.has-agents #agentsPage{display:block;}
+  #agentsPage[hidden]{display:none !important;}
+  body.has-agents .cluster{visibility:hidden;pointer-events:none;}
+  .agents-board{width:min(1040px,100%);margin:0 auto;}
+  .agents-board h2{
+    margin:0 0 8px;color:#fff;
+    font:500 clamp(32px,5vw,56px)/1 Outfit,sans-serif;
+    text-shadow:0 2px 18px rgba(0,0,0,.35);
+  }
+  .agents-lead{margin:0 0 18px;color:#fff;font:500 14px Inter,sans-serif;text-shadow:0 1px 8px rgba(0,0,0,.45);}
+  .agents-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+  .agent-card{
+    background:#fff;color:#202124;border-radius:16px;
+    box-shadow:0 1px 3px rgba(60,64,67,.2), 0 8px 24px rgba(0,0,0,.12);
+    padding:14px 16px;
+  }
+  .agent-card b{display:block;font:600 15px Inter,sans-serif;}
+  .agent-card em{display:block;margin-top:4px;font:400 13px/1.4 Inter,sans-serif;color:#5f6368;}
+  .agent-card small{display:block;margin-top:8px;color:#80868b;font:500 11px Inter,sans-serif;}
+  @media (max-width:720px){
+    .agents-grid{grid-template-columns:1fr;}
+  }
+  #workspacePage{
+    position:fixed;inset:0;z-index:15;
+    display:none;overflow:auto;
+    padding:78px 28px 28px;box-sizing:border-box;
+  }
+  body.has-workspace #workspacePage{display:block;}
+  #workspacePage[hidden]{display:none !important;}
+  body.has-workspace .cluster{visibility:hidden;pointer-events:none;}
+  .ws-board{width:min(760px,100%);margin:0 auto;}
+  .ws-board h2{
+    margin:0 0 8px;color:#fff;
+    font:500 clamp(32px,5vw,56px)/1 Outfit,sans-serif;
+    text-shadow:0 2px 18px rgba(0,0,0,.35);
+  }
+  .ws-lead{margin:0 0 18px;color:#fff;font:500 14px Inter,sans-serif;text-shadow:0 1px 8px rgba(0,0,0,.45);}
+  .ws-list{display:flex;flex-direction:column;gap:12px;}
+  .ws-card{
+    display:flex;align-items:center;gap:16px;
+    background:#fff;color:#202124;border-radius:16px;
+    box-shadow:0 1px 3px rgba(60,64,67,.2), 0 8px 24px rgba(0,0,0,.12);
+    padding:14px 18px;min-height:72px;
+  }
+  .ws-ico{width:40px;height:40px;flex:none;display:grid;place-items:center;}
+  .ws-ico svg{width:36px;height:36px;display:block;}
+  .ws-card b{display:block;font:600 15px Inter,sans-serif;}
+  .ws-card em{display:block;margin-top:3px;font:400 13px/1.35 Inter,sans-serif;color:#5f6368;}
+  .ws-empty{margin:0;color:#fff;font:500 14px Inter,sans-serif;}
 
   .toast-stack{
     position:fixed;top:16px;left:50%;transform:translateX(-50%);
@@ -1198,7 +1254,7 @@
         <em>Decimal waterfall, gross and reinsurer</em>
       </span>
     </a>
-    <a class="gcard gem-glow" href="#ask" data-query="Run the Nairobi modeled portfolio">
+    <a class="gcard gem-glow" href="#agents" data-agents>
       <span class="gcard-ico" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none">
           <path d="M12 2.8 13.5 8.4 19.1 9.9 13.5 11.4 12 17 10.5 11.4 4.9 9.9 10.5 8.4 12 2.8Z" fill="#1a73e8"/>
@@ -1206,8 +1262,8 @@
         </svg>
       </span>
       <span>
-        <strong>Nairobi book</strong>
-        <em>Models your uploaded Nairobi CSV</em>
+        <strong>Alpha agents</strong>
+        <em>Jev router and the six specialists</em>
       </span>
     </a>
     <a class="gcard gem-glow" href="#ask" data-upload>
@@ -1233,7 +1289,7 @@
         <em>Gross, reinsurer, flags</em>
       </span>
     </a>
-    <a class="gcard gem-glow" href="https://workspace.google.com/" data-href="https://workspace.google.com/" target="_blank" rel="noopener">
+    <a class="gcard gem-glow" href="#workspace" data-workspace>
       <span class="gcard-ico" aria-hidden="true">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <rect x="3" y="3" width="8" height="8" rx="1.6" fill="#1a73e8"/>
@@ -1312,6 +1368,22 @@
       <p>After adding sources, click to add Audio Overview, Slide Deck, and more.</p>
     </div>
   </aside>
+</div>
+
+<div id="agentsPage" hidden>
+  <section class="agents-board">
+    <h2>Alpha agents</h2>
+    <p class="agents-lead" id="agentsLead">Jev routes the book. The financial engine stays on decimal cents.</p>
+    <div class="agents-grid" id="agentsGrid"></div>
+  </section>
+</div>
+
+<div id="workspacePage" hidden>
+  <section class="ws-board">
+    <h2>Google Workspace</h2>
+    <p class="ws-lead">Recent Sheets, Docs, Drive, and Gmail arrivals.</p>
+    <div class="ws-list" id="workspaceList"></div>
+  </section>
 </div>
 
 <div class="sheet" id="sheet">
@@ -1476,6 +1548,7 @@
       });
       if(document.body.classList.contains("has-desk")) renderDesk();
       if(document.body.classList.contains("has-studio")) renderStudio();
+      if(document.body.classList.contains("has-workspace")) openWorkspace();
     }).catch(function(){});
   }
   function saveSessionFile(row){
@@ -1652,9 +1725,13 @@
     stopBombard();
     window.clearInterval(statusTimer);
     window.clearTimeout(revealTimer);
-    document.body.classList.remove("is-thinking","is-leaving","has-result","has-desk","has-studio");
+    document.body.classList.remove("is-thinking","is-leaving","has-result","has-desk","has-studio","has-agents","has-workspace");
     var studio = document.getElementById("studioPage");
     if(studio) studio.hidden = true;
+    var agentsPage = document.getElementById("agentsPage");
+    if(agentsPage) agentsPage.hidden = true;
+    var workspacePage = document.getElementById("workspacePage");
+    if(workspacePage) workspacePage.hidden = true;
     askForm.classList.remove("is-querying");
     queryRail.innerHTML = "";
     queryRail.setAttribute("aria-hidden","true");
@@ -2252,8 +2329,97 @@
     "Reports": "Google Docs",
     "Data Table": "Google Sheets"
   };
+  var AGENT_CARDS = [
+    {role:"INGESTION", title:"Ingestion", layer:1, summary:"Parses the uploaded CSV and assigns the client and event ids."},
+    {role:"JEV_ROUTER", title:"Jev router", layer:2, summary:"Master orchestrator. Choice, Score, and Noul under 500 ms decide finance or HDC."},
+    {role:"HAZARD_VULNERABILITY", title:"Hazard and vulnerability", layer:8, summary:"Nairobi and Nzoia depth lookup, then the mean damage ratio."},
+    {role:"HDC_MEMORY", title:"HDC memory", layer:3, summary:"Fourier hypervectors for lines Jev flagged. Does not change the payout."},
+    {role:"FINANCE_EXECUTOR", title:"Finance executor", layer:4, summary:"Decimal cents waterfall. $100M xs $40M, 90% share. No model math."},
+    {role:"ANALYTICS_GEOJSON", title:"Analytics and map", layer:10, summary:"Exceedance curve, EAL, and the Leaflet export."},
+    {role:"GEMINI_RAG", title:"Gemini RAG", layer:1, summary:"On demand when AI Mode is on. Answers from the upload. Does not price the treaty."}
+  ];
+  function renderAgents(list){
+    var grid = document.getElementById("agentsGrid");
+    if(!grid) return;
+    grid.innerHTML = (list || AGENT_CARDS).map(function(agent){
+      var latency = agent.latency_ms == null ? "" : " · " + Math.round(agent.latency_ms) + " ms";
+      return '<article class="agent-card"><b>' + esc(agent.title || agent.role) + '</b><em>' + esc(agent.summary || "") + '</em><small>Layer ' + esc(String(agent.layer)) + " · " + esc(agent.role) + (agent.status ? " · " + esc(agent.status) : "") + latency + '</small></article>';
+    }).join("");
+  }
+  var WS_ICONS = {
+    sheets: '<svg viewBox="0 0 48 48"><rect x="8" y="6" width="32" height="36" rx="4" fill="#0F9D58"/><rect x="14" y="16" width="20" height="3" fill="#fff"/><rect x="14" y="22" width="20" height="3" fill="#fff"/><rect x="14" y="28" width="12" height="3" fill="#fff"/></svg>',
+    docs: '<svg viewBox="0 0 48 48"><rect x="8" y="6" width="32" height="36" rx="4" fill="#4285F4"/><rect x="14" y="16" width="20" height="2.4" fill="#fff"/><rect x="14" y="21" width="20" height="2.4" fill="#fff"/><rect x="14" y="26" width="14" height="2.4" fill="#fff"/></svg>',
+    drive: '<svg viewBox="0 0 48 48"><path d="M18 8h12l10 18H28L18 8z" fill="#FFBA00"/><path d="M8 34l6-10 10 18H18L8 34z" fill="#1FA463"/><path d="M30 26l6 10H18l10-18h2z" fill="#4688F4"/></svg>',
+    gmail: '<svg viewBox="0 0 48 48"><rect x="6" y="12" width="36" height="26" rx="3" fill="#fff"/><path d="M6 14l18 13L42 14v-2H6v2z" fill="#EA4335"/><path d="M6 14v22h6V20l12 9 12-9v16h6V14L24 28 6 14z" fill="#C5221F"/></svg>'
+  };
+  function workspaceKind(name){
+    var text = String(name || "").toLowerCase();
+    if(/\.docx?$|\.gdoc|document/.test(text)) return "docs";
+    if(/\.csv$|\.xlsx?$|sheet/.test(text)) return "sheets";
+    if(/@|gmail|mail/.test(text)) return "gmail";
+    return "drive";
+  }
+  function renderWorkspace(rows){
+    var list = document.getElementById("workspaceList");
+    if(!list) return;
+    if(!rows.length){
+      list.innerHTML = '<p class="ws-empty">No workspace events yet. A modeled book or an upload will appear here.</p>';
+      return;
+    }
+    list.innerHTML = rows.map(function(row){
+      var kind = WS_ICONS[row.kind] ? row.kind : "drive";
+      var when = row.when ? String(row.when).replace("T", " ").slice(0, 16) : "";
+      return '<article class="ws-card"><span class="ws-ico" aria-hidden="true">' + WS_ICONS[kind] + '</span><span><b>' + esc(row.title || "Workspace item") + '</b><em>' + esc([row.detail, when].filter(Boolean).join(" · ")) + '</em></span></article>';
+    }).join("");
+  }
+  function openWorkspace(){
+    document.body.classList.remove("has-desk","has-result","is-thinking","has-studio","has-agents");
+    var studio = document.getElementById("studioPage");
+    if(studio) studio.hidden = true;
+    var agentsPage = document.getElementById("agentsPage");
+    if(agentsPage) agentsPage.hidden = true;
+    document.body.classList.add("has-workspace");
+    document.getElementById("workspacePage").hidden = false;
+    var local = sessionFiles.map(function(file){
+      return {kind: workspaceKind(file.name), title: file.name, detail: file.kind || "Uploaded file", when: file.ingested || ""};
+    });
+    renderWorkspace(local);
+    fetch("/api/v1/workspace/events").then(function(res){ return res.json(); }).then(function(data){
+      var remote = (data && data.events) || [];
+      var seen = {};
+      var merged = [];
+      remote.concat(local).forEach(function(row){
+        var key = (row.kind || "") + "|" + (row.title || "");
+        if(seen[key]) return;
+        seen[key] = 1;
+        merged.push(row);
+      });
+      renderWorkspace(merged);
+    }).catch(function(){});
+  }
+  function openAgents(){
+    document.body.classList.remove("has-desk","has-result","is-thinking","has-studio","has-workspace");
+    var studio = document.getElementById("studioPage");
+    if(studio) studio.hidden = true;
+    var workspacePage = document.getElementById("workspacePage");
+    if(workspacePage) workspacePage.hidden = true;
+    document.body.classList.add("has-agents");
+    document.getElementById("agentsPage").hidden = false;
+    renderAgents(AGENT_CARDS);
+    fetch("/api/v1/agents/status").then(function(res){ return res.json(); }).then(function(data){
+      if(data && data.agents) renderAgents(data.agents);
+      var lead = document.getElementById("agentsLead");
+      if(lead && data && data.last_total_ms != null){
+        lead.textContent = "Last job " + Math.round(data.last_total_ms) + " ms. Budget " + data.sla_ms + " ms. Finance stays isolated.";
+      }
+    }).catch(function(){});
+  }
   function openStudio(){
-    document.body.classList.remove("has-desk","has-result","is-thinking");
+    document.body.classList.remove("has-desk","has-result","is-thinking","has-agents","has-workspace");
+    var agentsPage = document.getElementById("agentsPage");
+    if(agentsPage) agentsPage.hidden = true;
+    var workspacePage = document.getElementById("workspacePage");
+    if(workspacePage) workspacePage.hidden = true;
     document.body.classList.add("has-studio");
     var page = document.getElementById("studioPage");
     page.hidden = false;
@@ -2811,6 +2977,14 @@
     flashGlow(card);
     if(card.hasAttribute("data-pwa")){
       if(window.openAquaPwa) window.openAquaPwa(false);
+      return;
+    }
+    if(card.hasAttribute("data-agents")){
+      openAgents();
+      return;
+    }
+    if(card.hasAttribute("data-workspace")){
+      openWorkspace();
       return;
     }
     if(card.hasAttribute("data-upload")){

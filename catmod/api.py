@@ -11,6 +11,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from catmod.agents.orchestrator import execute_workflow
+from catmod.agents.status import agent_status
 from catmod.audit import AuditLog
 from catmod.config import get_settings
 from catmod.jobs import JobStore
@@ -112,6 +114,45 @@ def audit(event_id: str) -> JSONResponse:
     if job is None:
         raise HTTPException(status_code=404, detail=f"Unknown event_id {event_id}")
     return JSONResponse(job["audit"])
+
+
+def _workspace_kind(name: str, url: str = "") -> str:
+    text = f"{name} {url}".lower()
+    base = name.lower().strip()
+    if "docs.google.com/document" in text or ".gdoc" in text or base.endswith((".docx", ".doc", ".pdf")):
+        return "docs"
+    if any(token in text for token in ("spreadsheet", "sheets.google", ".csv", ".xlsx", ".xls")):
+        return "sheets"
+    if "mail.google" in text or "gmail" in text:
+        return "gmail"
+    return "drive"
+
+
+@app.get("/api/v1/workspace/events")
+def workspace_events() -> dict[str, Any]:
+    """Recent Workspace arrivals: the file, the sending mailbox, and any source link."""
+    rows: list[dict[str, str]] = []
+    for job in reversed(job_store().values()):
+        filename = str(job.get("filename") or "Bordereau")
+        event_id = str(job.get("event_id") or "")
+        email = str(job.get("client_email") or "")
+        when = str((job.get("audit") or {}).get("started_at") or "")
+        gross = job.get("total_gross_claim")
+        detail = event_id
+        if isinstance(gross, (int, float)):
+            detail = f"{event_id} · gross ${float(gross):,.2f}"
+        rows.append({"kind": _workspace_kind(filename), "title": filename, "detail": detail, "when": when})
+        if email:
+            rows.append({
+                "kind": "gmail",
+                "title": email,
+                "detail": f"Workspace message for {event_id}",
+                "when": when,
+            })
+        for url in job.get("source_urls") or []:
+            link = str(url)
+            rows.append({"kind": _workspace_kind(link, link), "title": link, "detail": event_id, "when": when})
+    return {"events": rows[:40]}
 
 
 @app.get("/api/v1/events")
@@ -425,6 +466,19 @@ def blender_manifest_post(
 ) -> Response:
     body = _blender_payload(payload.event_id, payload.shader_preset, payload.storey_height_m)
     return _blender_response(body, download)
+
+
+@app.post("/api/v1/agents/execute")
+def agents_execute(payload: BordereauWebhook) -> JSONResponse:
+    try:
+        return JSONResponse(execute_workflow(payload))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/v1/agents/status")
+def agents_status() -> JSONResponse:
+    return JSONResponse(agent_status())
 
 
 try:

@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
+from catmod.agents.trail import record_agent_trail
 from catmod.analytics.ep_curve import catalog_ep_curve, portfolio_ep_curve
 from catmod.audit import AuditLog
 from catmod.config import Settings, get_settings
@@ -653,6 +654,14 @@ def run_pipeline(payload: BordereauWebhook, settings: Settings | None = None) ->
         },
     )
     elapsed_ms = (time.perf_counter() - started) * 1000.0
+    record_agent_trail(
+        audit,
+        elapsed_ms=elapsed_ms,
+        jev_ms=jev_ms,
+        finance_routes=finance_routes,
+        hdc_routes=hdc_routes,
+        claim_count=len(claims),
+    )
     audit.record(
         layer=5,
         name="pipeline_sla",
