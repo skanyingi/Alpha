@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Alpha</title>
+<meta name="theme-color" content="#04141c">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500;6..96,600&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;height:100%;background:#04141c;overflow:hidden;}
+  .bg{
+    position:fixed;inset:0;width:100%;height:100%;
+    object-fit:cover;object-position:center;
+    filter:none;pointer-events:none;
+  }
+  .titles{
+    position:fixed;inset:0;z-index:2;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;color:#f4efe6;
+    padding:0 6vw 14vh;
+  }
+  .titles::before{
+    content:"";
+    position:absolute;
+    width:min(980px, 86vw);
+    height:46vh;
+    border-radius:50%;
+    background:radial-gradient(ellipse at center, rgba(6,12,20,.42) 0%, rgba(6,12,20,0) 70%);
+    z-index:-1;
+    pointer-events:none;
+  }
+  .hero,.sub{
+    margin:0;
+    font-family:"Bodoni Moda","Didot","Bodoni MT","Times New Roman",serif;
+    font-optical-sizing:auto;
+    font-weight:500;
+    font-variation-settings:"opsz" 96;
+    text-shadow:0 2px 18px rgba(4,10,18,.4);
+  }
+  .hero{
+    font-size:clamp(76px, 15vw, 188px);
+    line-height:.86;
+    opacity:0;
+    animation:hero-in 2.8s cubic-bezier(.16,.84,.24,1) .45s forwards;
+  }
+  .sub{
+    margin-top:.28em;
+    font-size:clamp(22px, 3.2vw, 48px);
+    font-weight:400;
+    line-height:1.15;
+    opacity:0;
+    animation:sub-in 2.4s cubic-bezier(.16,.84,.24,1) 1.85s forwards;
+  }
+  @keyframes hero-in{
+    0%{opacity:0;letter-spacing:.48em;transform:translateY(16px);}
+    100%{opacity:1;letter-spacing:.01em;transform:none;}
+  }
+  @keyframes sub-in{
+    0%{opacity:0;letter-spacing:.55em;transform:translateY(12px);}
+    100%{opacity:1;letter-spacing:.04em;transform:none;}
+  }
+  .titles.is-leave{animation:titles-out 1.15s cubic-bezier(.4,0,.2,1) forwards;}
+  @keyframes titles-out{
+    to{opacity:0;transform:translateY(-10px);}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .hero,.sub{opacity:1;letter-spacing:.04em;animation:none;transform:none;}
+    .sub{letter-spacing:.04em;}
+    .titles.is-leave{animation:none;opacity:0;}
+  }
+</style>
+</head>
+<body>
+<img class="bg" src="/map/h2o-assets/desk-bg.jpg" alt="">
+<div class="titles" id="titles">
+  <h1 class="hero">Alpha</h1>
+  <p class="sub">Cat Model</p>
+</div>
+<script>
+(function(){
+  var titles = document.getElementById("titles");
+  var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var gone = false;
+  function enter(){
+    if(gone) return;
+    gone = true;
+    titles.classList.add("is-leave");
+    setTimeout(function(){ location.assign("/map/"); }, reduce ? 0 : 1000);
+  }
+  titles.addEventListener("click", enter);
+  setTimeout(enter, reduce ? 1600 : 6200);
+})();
+</script>
+</body>
+</html>

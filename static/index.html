@@ -36,62 +36,9 @@
     object-fit:cover;
     object-position:center;
     pointer-events:none;
-    opacity:0;
-    transform:translate3d(0,0,0);
+    filter:none;
     z-index:0;
   }
-  .stage-bg.is-on{
-    opacity:1;
-    z-index:1;
-  }
-  .stage-bg.is-leave{
-    opacity:1;
-    z-index:2;
-    animation:bg-scroll-out 1.15s cubic-bezier(.22,1,.36,1) forwards;
-  }
-  .stage-bg.is-enter{
-    opacity:1;
-    z-index:3;
-    animation:bg-scroll-in 1.15s cubic-bezier(.22,1,.36,1) forwards;
-  }
-  @keyframes bg-scroll-out{
-    from{transform:translate3d(0,0,0);}
-    to{transform:translate3d(-100%,0,0);}
-  }
-  @keyframes bg-scroll-in{
-    from{transform:translate3d(100%,0,0);}
-    to{transform:translate3d(0,0,0);}
-  }
-  .veil{
-    position:absolute;inset:0;z-index:1;pointer-events:none;
-    background:
-      radial-gradient(ellipse 58% 48% at 58% 42%, rgba(3,18,28,.08) 0%, transparent 62%),
-      linear-gradient(180deg, rgba(4,22,32,.34) 0%, rgba(4,22,32,.08) 32%, rgba(4,22,32,.1) 70%, rgba(4,22,32,.4) 100%);
-  }
-  .rays,.caustics,.grain{position:absolute;inset:0;z-index:2;pointer-events:none;}
-  .rays{
-    background:
-      radial-gradient(ellipse 22% 80% at 22% 8%, rgba(255,255,255,.16), transparent 72%),
-      radial-gradient(ellipse 18% 55% at 70% 12%, rgba(180,240,255,.10), transparent 70%);
-    mix-blend-mode:screen;
-    animation:breathe 9s ease-in-out infinite alternate;
-  }
-  .caustics{
-    background:
-      radial-gradient(circle at 20% 30%, rgba(90,220,240,.07) 0 1px, transparent 2px),
-      radial-gradient(circle at 70% 60%, rgba(255,255,255,.05) 0 1px, transparent 2px),
-      radial-gradient(circle at 45% 80%, rgba(255,130,0,.06) 0 1.2px, transparent 2.4px);
-    background-size:180px 180px, 240px 240px, 160px 160px;
-    opacity:.55;
-    animation:drift 22s linear infinite;
-  }
-  .grain{
-    opacity:.08;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
-    mix-blend-mode:overlay;
-  }
-  @keyframes breathe{from{opacity:.55;}to{opacity:1;}}
-  @keyframes drift{from{background-position:0 0,0 0,0 0;}to{background-position:180px 90px,-120px 80px,80px -60px;}}
 
   .top{
     position:fixed;top:0;right:0;z-index:20;
@@ -727,13 +674,12 @@
   }
   #eventsDesk .who-menu button:hover{background:#f5f6fa;}
   #eventsDesk .dk-body{flex:1;min-height:0;overflow:auto;padding:26px 22px 18px;}
-  #eventsDesk .dk-title-row{display:flex;align-items:center;justify-content:space-between;margin:0 6px 18px;gap:12px;}
+  #eventsDesk .dk-title-row{display:flex;align-items:center;margin:0 6px 14px;}
   #eventsDesk .dk-title-row h1{margin:0;font:700 28px/1 Poppins,sans-serif;letter-spacing:-.4px;color:#191c23;}
   #eventsDesk .dk-addbtn{
     height:34px;padding:0 14px;border:0;border-radius:6px;background:#0dd573;color:#fff;
     font:600 13px Poppins,sans-serif;cursor:pointer;box-shadow:0 8px 16px rgba(13,213,115,.32);white-space:nowrap;
   }
-  #eventsDesk .dk-note{margin:-8px 6px 14px;color:#8b919c;font:400 12px Poppins,sans-serif;}
   #eventsDesk .dk-tabs{display:flex;gap:28px;margin:0 6px;border-bottom:1px solid #e6e8ee;}
   #eventsDesk .dk-tabs button{
     border:0;background:transparent;padding:8px 0 11px;font:500 13px Poppins,sans-serif;color:#a0a6b0;cursor:pointer;position:relative;
@@ -790,7 +736,7 @@
     .wordmark{font-size:clamp(36px,10vw,56px);}
     .search{height:52px;}
     .search-wrap{width:100%;}
-    .ai-mode span{display:none;}
+    .ai-mode span{font-size:12px;max-width:108px;overflow:hidden;text-overflow:ellipsis;}
     .ai-mode{padding:0 10px;}
     .cards{max-height:none;gap:10px;}
     .gcard{min-width:0;width:min(320px,100%);}
@@ -843,8 +789,6 @@
   }
 
   @media (prefers-reduced-motion:reduce){
-    .stage-bg.is-leave,.stage-bg.is-enter{animation:none;}
-    .rays,.caustics{animation:none;}
     .gem-glow::after,body.is-thinking .gem-glow{animation:none;}
     .query-pip.is-fly,.query-pip.is-settled{animation:none;opacity:1;transform:none;}
     .toast-card,.toast-card.is-leave{animation:none;}
@@ -853,14 +797,7 @@
 </head>
 <body>
 <div class="stage" aria-hidden="true">
-  <img class="stage-bg is-on" src="h2o-assets/aquaask-bg-1.jpg" alt="">
-  <img class="stage-bg" src="h2o-assets/aquaask-bg-2.jpg" alt="">
-  <img class="stage-bg" src="h2o-assets/aquaask-bg-3.jpg" alt="">
-  <img class="stage-bg" src="h2o-assets/aquaask-bg-4.jpg" alt="">
-  <div class="veil"></div>
-  <div class="rays"></div>
-  <div class="caustics"></div>
-  <div class="grain"></div>
+  <img class="stage-bg" src="h2o-assets/desk-bg.jpg" alt="">
 </div>
 
 <div class="toast-stack" id="toastStack" aria-live="polite" aria-label="Apps Script events"></div>
@@ -906,12 +843,12 @@
       <button class="icon-btn" id="lensBtn" type="button" aria-label="Look up or reverse image search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/><path d="M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3" stroke-linecap="round"/></svg>
       </button>
-      <button class="ai-mode gem-glow" id="aiBtn" type="button">
+      <button class="ai-mode gem-glow" id="aiModeToggle" type="button" aria-pressed="false" title="Desk Search">
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M12 3.2 13.3 8.2 18.3 9.5 13.3 10.8 12 15.8 10.7 10.8 5.7 9.5 10.7 8.2 12 3.2Z" fill="#1a73e8"/>
           <path d="M18 14.2 18.7 16.4 18.9 16.6 21.1 17.3 18.9 18 18.7 18.2 18 20.4 17.3 18.2 17.1 18 14.9 17.3 17.1 16.6 17.3 16.4 18 14.2Z" fill="#9334e6"/>
         </svg>
-        <span>Modeled</span>
+        <span class="ai-badge">Desk Search</span>
       </button>
     </form>
     <div class="plus-menu" id="plusMenu">
@@ -986,6 +923,7 @@
                   <input id="deskSearch" type="search" placeholder="Search" aria-label="Search this session" autocomplete="off">
                 </label>
                 <div class="dk-top-right">
+                  <button type="button" class="dk-addbtn" id="deskUpload">+ Upload folder</button>
                   <button type="button" class="dk-bell" id="deskBell" aria-label="Session alerts">
                     <svg viewBox="0 0 24 24"><path d="M6 16V10a6 6 0 1 1 12 0v6l1.5 2h-15z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>
                   </button>
@@ -1002,9 +940,7 @@
               <div class="dk-body">
                 <div class="dk-title-row">
                   <h1>Dashboard</h1>
-                  <button type="button" class="dk-addbtn" id="deskUpload">+ Upload folder</button>
                 </div>
-                <p class="dk-note" id="deskNote">Folders stay in this tab only. A refresh clears them. Modeled books stay until the server restarts.</p>
                 <div class="dk-tabs" role="tablist">
                   <button type="button" data-tab="queue" class="on" role="tab">Event queue</button>
                   <button type="button" data-tab="files" role="tab">Files</button>
@@ -1193,39 +1129,6 @@
     shortcuts.appendChild(add);
   }
 
-  var slides = [].slice.call(document.querySelectorAll(".stage-bg"));
-  if(slides.length > 1){
-    var cur = 0;
-    var cycling = false;
-    var reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    setInterval(function(){
-      if(cycling) return;
-      var pick = cur;
-      while(pick === cur) pick = Math.floor(Math.random()*slides.length);
-      var outgoing = slides[cur];
-      var incoming = slides[pick];
-      if(reduceMotion){
-        outgoing.classList.remove("is-on","is-leave","is-enter");
-        incoming.classList.add("is-on");
-        cur = pick;
-        return;
-      }
-      cycling = true;
-      outgoing.classList.remove("is-on","is-enter");
-      incoming.classList.remove("is-on","is-leave");
-      outgoing.classList.add("is-leave");
-      incoming.classList.add("is-enter");
-      incoming.addEventListener("animationend", function done(){
-        incoming.removeEventListener("animationend", done);
-        outgoing.classList.remove("is-leave");
-        incoming.classList.remove("is-enter");
-        incoming.classList.add("is-on");
-        cycling = false;
-      });
-      cur = pick;
-    }, 10000);
-  }
-
   var q = document.getElementById("q");
   var askForm = document.getElementById("askForm");
   var queryRail = document.getElementById("queryRail");
@@ -1234,6 +1137,61 @@
   var resultAnswer = document.getElementById("resultAnswer");
   var searching = false;
   var sessionFiles = [];
+  var FILE_DB = "catmod-desk";
+  var FILE_STORE = "files";
+  function openFileDb(){
+    return new Promise(function(resolve, reject){
+      if(!window.indexedDB){ reject(new Error("no indexedDB")); return; }
+      var req = indexedDB.open(FILE_DB, 1);
+      req.onupgradeneeded = function(){
+        var db = req.result;
+        if(!db.objectStoreNames.contains(FILE_STORE)) db.createObjectStore(FILE_STORE, {keyPath:"id"});
+      };
+      req.onsuccess = function(){ resolve(req.result); };
+      req.onerror = function(){ reject(req.error); };
+    });
+  }
+  function fileStore(mode, run){
+    return openFileDb().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction(FILE_STORE, mode);
+        var req;
+        try{ req = run(tx.objectStore(FILE_STORE)); }
+        catch(err){ reject(err); return; }
+        tx.oncomplete = function(){ resolve(req && req.result); };
+        tx.onerror = function(){ reject(tx.error); };
+        tx.onabort = function(){ reject(tx.error || new Error("aborted")); };
+      });
+    });
+  }
+  var retiredFileIds = {};
+  var filesCleared = false;
+  function loadStoredFiles(){
+    return fileStore("readonly", function(store){ return store.getAll(); }).then(function(rows){
+      if(filesCleared) return;
+      var byId = {};
+      sessionFiles.forEach(function(row){ if(row && row.id) byId[row.id] = row; });
+      (rows || []).forEach(function(row){
+        if(row && row.id && !retiredFileIds[row.id] && !byId[row.id]) byId[row.id] = row;
+      });
+      sessionFiles = Object.keys(byId).map(function(id){ return byId[id]; }).sort(function(a, b){
+        return String(a.ingested || "").localeCompare(String(b.ingested || ""));
+      });
+      if(document.body.classList.contains("has-desk")) renderDesk();
+    }).catch(function(){});
+  }
+  function saveSessionFile(row){
+    if(row && row.id) delete retiredFileIds[row.id];
+    return fileStore("readwrite", function(store){ return store.put(row); }).catch(function(){});
+  }
+  function forgetSessionFile(id){
+    retiredFileIds[id] = true;
+    return fileStore("readwrite", function(store){ return store.delete(id); }).catch(function(){});
+  }
+  function forgetAllSessionFiles(){
+    filesCleared = true;
+    return fileStore("readwrite", function(store){ return store.clear(); }).catch(function(){});
+  }
   var deskEvents = [];
   var deskTab = "queue";
   var deskQuery = "";
@@ -1464,10 +1422,14 @@
   }
   function yn(v){ return v ? "true" : "false"; }
   var lastEventId = "";
+  var ragAssetIds = [];
   function showCatmodMap(){
     var frame = document.getElementById("mapFrame");
-    if(!frame || !lastEventId) return;
-    frame.src = "map.html?event_id=" + encodeURIComponent(lastEventId) + "&t=" + Date.now();
+    if(!frame || (!lastEventId && !ragAssetIds.length)) return;
+    var src = "map.html?t=" + Date.now();
+    if(lastEventId) src += "&event_id=" + encodeURIComponent(lastEventId);
+    if(ragAssetIds.length) src += "&assets=" + encodeURIComponent(ragAssetIds.join(","));
+    frame.src = src;
   }
   window.showCatmodMap = showCatmodMap;
   function categoryIcon(label, used){
@@ -1603,12 +1565,12 @@
     var rows = (data && data.events) || [];
     var lines = rows.length ? rows.map(function(ev){
       return ev.event_id + "  gross " + money(ev.total_gross_claim) + "  reinsurer " + money(ev.reinsurer_payout) + "  flags " + ev.flagged_count;
-    }) : ["No modeled events in memory yet. Run a Nairobi or Nzoia book."];
+    }) : ["No modeled events saved yet. Run a Nairobi or Nzoia book."];
     return {
       status: "Read " + rows.length + " event" + (rows.length === 1 ? "" : "s") + " from /api/v1/events.",
       answer: lines.join("\n"),
       sources: rows.slice(0, 8).map(function(ev){ return {publication_title: ev.event_id, source_origin: "event.csv"}; }),
-      modes: {note:"Events live in this server process. A restart clears the list."}
+      modes: {note:"Modeled events are saved on this computer and loaded again when the server starts."}
     };
   }
   function auditView(data){
@@ -1805,7 +1767,7 @@
           '<span class="dk-more"><button type="button" class="dk-kebab" data-kebab="' + esc(file.id) + '" aria-label="File actions">⋮</button>' +
           '<div class="dk-menu"' + (open ? "" : " hidden") + ">" +
           '<button type="button" data-act="query" data-file="' + esc(file.id) + '">Query this file</button>' +
-          '<button type="button" data-act="drop" data-file="' + esc(file.id) + '">Drop from session</button>' +
+          '<button type="button" data-act="drop" data-file="' + esc(file.id) + '">Remove</button>' +
           "</div></span></div>";
       });
     }else{
@@ -1862,10 +1824,7 @@
     }
     document.getElementById("deskRows").innerHTML = rows.length
       ? rows.join("")
-      : '<p class="dk-empty">' + (query ? "Nothing in this session matches that search." : "Upload a folder, or run a book. The queue lists what this session is holding.") + "</p>";
-    document.getElementById("deskNote").textContent = sessionFiles.length
-      ? sessionFiles.length + " file" + (sessionFiles.length === 1 ? "" : "s") + " in this tab. Refresh clears the folders. Modeled books stay until the server restarts."
-      : "Folders stay in this tab only. A refresh clears them. Modeled books stay until the server restarts.";
+      : '<p class="dk-empty">' + (query ? "Nothing saved matches that search." : "Upload a folder, or run a book. The queue lists what is saved on this computer.") + "</p>";
   }
   function showDesk(){
     document.body.classList.add("has-result", "has-desk");
@@ -1891,13 +1850,13 @@
     if(opts.query != null) deskQuery = opts.query;
     deskKebab = "";
     showDesk();
-    if(opts.pick) document.getElementById("folderPick").click();
+    if(opts.pick) chooseFolder();
     return refreshDeskEvents().then(function(data){
       return {
-        status: "Opened the event queue. " + sessionFiles.length + " uploaded file" + (sessionFiles.length === 1 ? "" : "s") + " in this session.",
+        status: "Opened the event queue. " + sessionFiles.length + " uploaded file" + (sessionFiles.length === 1 ? "" : "s") + " saved in this browser.",
         answer: eventsView(data).answer,
         sources: eventsView(data).sources,
-        modes: {note:"Uploaded folders live in this tab until you refresh. Modeled events live in the server process until it restarts."}
+        modes: {note:"Uploaded folders stay in this browser. Modeled events stay on this computer."}
       };
     });
   }
@@ -1915,6 +1874,7 @@
     }).then(function(data){
       row.eventId = data.event_id || "";
       row.kind = "Bordereau";
+      saveSessionFile(row);
       if(data.event_id) lastEventId = data.event_id;
       return refreshDeskEvents();
     }).catch(function(){
@@ -1922,13 +1882,51 @@
       renderDesk();
     });
   }
+  function collectDir(handle, prefix){
+    var files = [];
+    var iter = handle.values();
+    function step(){
+      return iter.next().then(function(item){
+        if(item.done) return files;
+        var entry = item.value;
+        var rel = prefix ? prefix + "/" + entry.name : entry.name;
+        if(entry.kind === "file"){
+          return entry.getFile().then(function(file){
+            file.deskPath = rel;
+            files.push(file);
+            return step();
+          });
+        }
+        if(entry.kind === "directory"){
+          return collectDir(entry, rel).then(function(nested){
+            Array.prototype.push.apply(files, nested);
+            return step();
+          });
+        }
+        return step();
+      });
+    }
+    return step();
+  }
+  function chooseFolder(){
+    if(window.showDirectoryPicker){
+      return showDirectoryPicker({mode:"read"}).then(function(dir){
+        return collectDir(dir, dir.name);
+      }).then(function(files){
+        if(files && files.length) return ingestFolder(files);
+      }).catch(function(err){
+        if(err && err.name === "AbortError") return;
+      });
+    }
+    document.getElementById("folderPick").click();
+  }
   function ingestFolder(fileList){
     var files = Array.prototype.slice.call(fileList || []);
     if(!files.length) return Promise.resolve();
     showDesk();
     deskTab = "queue";
     return Promise.all(files.map(function(file){
-      var rel = file.webkitRelativePath || file.name;
+      var rel = file.deskPath || file.webkitRelativePath || file.name;
       var folder = rel.split("/")[0] || file.name;
       return readFileText(file).then(function(text){
         return {
@@ -1945,6 +1943,7 @@
       });
     })).then(function(rows){
       sessionFiles = sessionFiles.concat(rows);
+      rows.forEach(saveSessionFile);
       renderDesk();
       var books = rows.filter(function(row){ return row.kind === "Bordereau" && row.text; });
       return books.reduce(function(chain, row){
@@ -1967,13 +1966,13 @@
     bindDesk.done = true;
     document.getElementById("deskHome").addEventListener("click", function(){ resetHome(); });
     document.getElementById("deskUpload").addEventListener("click", function(){
-      document.getElementById("folderPick").click();
+      chooseFolder();
     });
     desk.addEventListener("click", function(e){
       var rail = e.target.closest("[data-rail]");
       if(rail){
         if(rail.getAttribute("data-rail") === "upload"){
-          document.getElementById("folderPick").click();
+          chooseFolder();
           return;
         }
         deskTab = rail.getAttribute("data-rail") === "files" ? "files" : "queue";
@@ -2002,6 +2001,7 @@
         if(action === "drop"){
           var id = act.getAttribute("data-file");
           sessionFiles = sessionFiles.filter(function(file){ return file.id !== id; });
+          forgetSessionFile(id);
           deskKebab = "";
           renderDesk();
           return;
@@ -2037,6 +2037,7 @@
     document.getElementById("deskClear").addEventListener("click", function(e){
       e.stopPropagation();
       sessionFiles = [];
+      forgetAllSessionFiles();
       deskKebab = "";
       deskMenuOpen = false;
       document.getElementById("deskUserMenu").hidden = true;
@@ -2083,14 +2084,14 @@
     if(hits.length){
       return openEventsDesk({tab:"files", query:text}).then(function(){
         return {
-          status: "Queried " + hits.length + " file" + (hits.length === 1 ? "" : "s") + " held in this session.",
+          status: "Queried " + hits.length + " file" + (hits.length === 1 ? "" : "s") + " saved in this browser.",
           answer: hits.slice(0, 8).map(function(file){
             return file.name + "\n" + hitSnippet(file, text);
           }).join("\n\n"),
           sources: hits.slice(0, 6).map(function(file){
             return {publication_title: file.name, source_origin: file.path};
           }),
-          modes: {note:"Matches come from folders uploaded in this tab. Refresh clears them."}
+          modes: {note:"Matches come from folders saved in this browser."}
         };
       });
     }
@@ -2150,10 +2151,71 @@
     document.getElementById("result").setAttribute("aria-hidden","false");
     searching = false;
   }
+  var aiMode = false;
+  try{ aiMode = sessionStorage.getItem("catmod-ai-mode") === "1"; }catch(err){}
+  function paintAiToggle(){
+    var btn = document.getElementById("aiModeToggle");
+    if(!btn) return;
+    var label = aiMode ? "AI Mode (Gemini RAG)" : "Desk Search";
+    btn.classList.toggle("is-on", aiMode);
+    btn.setAttribute("aria-pressed", aiMode ? "true" : "false");
+    btn.title = label;
+    var badge = btn.querySelector(".ai-badge");
+    if(badge) badge.textContent = label;
+    q.placeholder = aiMode
+      ? "Ask about the portfolio in plain English"
+      : "Nairobi, Nzoia, an address, or audit an event";
+  }
+  function sessionCsvText(){
+    return sessionFiles.filter(function(file){
+      return file.text && /\.csv$/i.test(file.name || "");
+    }).slice(0, 3).map(function(file){
+      return file.text;
+    }).join("\n");
+  }
+  function runRag(text){
+    text = String(text || "").trim();
+    if(!text){ q.focus(); return; }
+    if(searching) return;
+    begin(text);
+    var csv = sessionCsvText();
+    if(csv.length > 120000) csv = csv.slice(0, 120000);
+    postJSON("/api/v1/nlp/query", {
+      query: text,
+      event_id: lastEventId || null,
+      csv_text: csv || null
+    }).then(function(data){
+      var ids = data.matched_asset_ids || [];
+      ragAssetIds = ids.slice();
+      if(data.event_id) lastEventId = data.event_id;
+      var answer = data.answer || "";
+      if(ids.length && answer.indexOf(ids[0]) < 0){
+        answer += "\n\nMatched assets: " + ids.join(", ");
+      }
+      present({
+        status: (data.source === "local-keyword" ? "Local dataset match" : "Gemini RAG") + " · " + (data.dataset_name || "portfolio"),
+        answer: answer,
+        eventId: data.event_id || lastEventId,
+        sources: [{publication_title: data.dataset_name || "Portfolio", source_origin: "gemini-rag"}],
+        modes: {
+          default_tab: data.tab || "answer",
+          note: "Natural language over the portfolio. Treaty payouts stay on the decimal waterfall."
+        }
+      });
+      if(ids.length) showCatmodMap();
+    }).catch(function(err){
+      window.clearInterval(statusTimer);
+      settlePips([]);
+      resultStatus.textContent = "The dataset question failed.";
+      resultAnswer.textContent = (err && err.message) || "Try again in a moment.";
+      applyModes({default_tab:"answer"});
+    }).finally(finish);
+  }
   function runSearch(text, modeled){
     text = String(text || "").trim();
     if(!text){ q.focus(); return; }
     if(searching) return;
+    ragAssetIds = [];
     begin(text);
     dispatch(text, !!modeled).then(present).catch(function(err){
       window.clearInterval(statusTimer);
@@ -2169,11 +2231,15 @@
 
   document.getElementById("askForm").addEventListener("submit", function(e){
     e.preventDefault();
-    runSearch(q.value, false);
+    if(aiMode) runRag(q.value);
+    else runSearch(q.value, false);
   });
-  document.getElementById("aiBtn").addEventListener("click", function(){
-    runSearch(q.value || "Run the Nairobi modeled portfolio", true);
+  document.getElementById("aiModeToggle").addEventListener("click", function(){
+    aiMode = !aiMode;
+    try{ sessionStorage.setItem("catmod-ai-mode", aiMode ? "1" : "0"); }catch(err){}
+    paintAiToggle();
   });
+  paintAiToggle();
   document.getElementById("lensBtn").addEventListener("click", function(){
     document.getElementById("lensFile").click();
   });
@@ -2237,7 +2303,7 @@
       e.preventDefault();
       closeMenus();
       showDesk();
-      document.getElementById("folderPick").click();
+      chooseFolder();
       return;
     }
     var pwa = e.target.closest("[data-pwa]");
@@ -2291,6 +2357,7 @@
   }
   renderShortcuts();
   bindDesk();
+  loadStoredFiles();
   plusBtn.addEventListener("click", function(e){
     e.stopPropagation();
     var open = plusMenu.classList.toggle("open");
@@ -2306,7 +2373,7 @@
     if(upload){
       closeMenus();
       showDesk();
-      document.getElementById("folderPick").click();
+      chooseFolder();
       return;
     }
     var pwa = e.target.closest("[data-pwa]");

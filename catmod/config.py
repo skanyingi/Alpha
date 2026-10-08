@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     default_layer_premium: float = 500_000.0
 
     audit_dir: str = "audit_logs"
+    jobs_dir: str = "jobs"
     jobs_keep: int = 32
 
     google_maps_api_key: str | None = None
@@ -67,6 +68,7 @@ class Settings(BaseSettings):
             "CATMOD_DEFAULT_REINSTATEMENTS": ("default_reinstatements", int),
             "CATMOD_DEFAULT_LAYER_PREMIUM": ("default_layer_premium", float),
             "CATMOD_AUDIT_DIR": ("audit_dir", str),
+            "CATMOD_JOBS_DIR": ("jobs_dir", str),
             "GOOGLE_MAPS_API_KEY": ("google_maps_api_key", str),
             "GEMINI_API_KEY": ("gemini_api_key", str),
             "GEMINI_MODEL": ("gemini_model", str),

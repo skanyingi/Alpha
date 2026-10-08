@@ -2,7 +2,7 @@
 HYPERVECTOR RAG — FULL CODEBASE DUMP
 Generated for architecture review. Canonical tree is the repo itself.
 See ARCHITECTURE.md for diagrams. See README.md for run instructions.
-File count: 89
+File count: 95
 ========================================================================================
 
 TABLE OF CONTENTS
@@ -50,52 +50,58 @@ TABLE OF CONTENTS
   041. catmod/jev/harness.py
   042. catmod/jev/occupancy.py
   043. catmod/jev/primitives.py
-  044. catmod/leaflet/__init__.py
-  045. catmod/leaflet/geojson.py
-  046. catmod/pipeline.py
-  047. catmod/schemas.py
-  048. catmod/spatial/__init__.py
-  049. catmod/spatial/blender.py
-  050. catmod/spatial/elevation.py
-  051. catmod/spatial/presets.py
-  052. catmod/spatial/tiles3d.py
-  053. catmod/vulnerability/__init__.py
-  054. catmod/vulnerability/curves.py
-  055. catmod/vulnerability/engine.py
-  056. catmod/vulnerability/stochastic_engine.py
-  057. data/exposure_nairobi_synthetic.csv
-  058. data/exposure_nzoia_synthetic.csv
-  059. data/sample_nairobi_bordereau.csv
-  060. data/sample_nzoia_bordereau.csv
-  061. main.py
-  062. pytest.ini
-  063. README.md
-  064. requirements.txt
-  065. save-the-earth.html
-  066. scripts/dump_codebase.py
-  067. scripts/run_sample_job.py
-  068. setup.js
-  069. static/index.html
-  070. static/map.html
-  071. static/modes.js
-  072. static/renderPresets.js
-  073. static/samples/sample_nairobi_bordereau.csv
-  074. static/samples/sample_nzoia_bordereau.csv
-  075. templates/reinsurance_audit_report.txt
-  076. tests/__init__.py
-  077. tests/test_ep_curve.py
-  078. tests/test_fallback.py
-  079. tests/test_finance.py
-  080. tests/test_flood.py
-  081. tests/test_hazard.py
-  082. tests/test_hdc.py
-  083. tests/test_ingestion.py
-  084. tests/test_jev.py
-  085. tests/test_pipeline.py
-  086. tests/test_spatial.py
-  087. tests/test_stochastic_hazard.py
-  088. tests/test_stochastic_vulnerability.py
-  089. tests/test_vulnerability.py
+  044. catmod/jobs.py
+  045. catmod/leaflet/__init__.py
+  046. catmod/leaflet/geojson.py
+  047. catmod/nlp/__init__.py
+  048. catmod/nlp/gemini_rag.py
+  049. catmod/pipeline.py
+  050. catmod/schemas.py
+  051. catmod/spatial/__init__.py
+  052. catmod/spatial/blender.py
+  053. catmod/spatial/elevation.py
+  054. catmod/spatial/presets.py
+  055. catmod/spatial/tiles3d.py
+  056. catmod/vulnerability/__init__.py
+  057. catmod/vulnerability/curves.py
+  058. catmod/vulnerability/engine.py
+  059. catmod/vulnerability/stochastic_engine.py
+  060. data/exposure_nairobi_synthetic.csv
+  061. data/exposure_nzoia_synthetic.csv
+  062. data/sample_nairobi_bordereau.csv
+  063. data/sample_nzoia_bordereau.csv
+  064. main.py
+  065. pytest.ini
+  066. README.md
+  067. requirements.txt
+  068. save-the-earth.html
+  069. scripts/dump_codebase.py
+  070. scripts/run_sample_job.py
+  071. setup.js
+  072. static/index.html
+  073. static/landing.html
+  074. static/map.html
+  075. static/modes.js
+  076. static/renderPresets.js
+  077. static/samples/sample_nairobi_bordereau.csv
+  078. static/samples/sample_nzoia_bordereau.csv
+  079. templates/reinsurance_audit_report.txt
+  080. tests/__init__.py
+  081. tests/test_ep_curve.py
+  082. tests/test_fallback.py
+  083. tests/test_finance.py
+  084. tests/test_flood.py
+  085. tests/test_hazard.py
+  086. tests/test_hdc.py
+  087. tests/test_ingestion.py
+  088. tests/test_jev.py
+  089. tests/test_jobs.py
+  090. tests/test_nlp_rag.py
+  091. tests/test_pipeline.py
+  092. tests/test_spatial.py
+  093. tests/test_stochastic_hazard.py
+  094. tests/test_stochastic_vulnerability.py
+  095. tests/test_vulnerability.py
 
 ========================================================================================
 FILE: .env.example
@@ -138,6 +144,7 @@ __pycache__/
 venv/
 .env
 audit_logs/
+jobs/
 .pytest_cache/
 .mypy_cache/
 dist/
@@ -2225,16 +2232,25 @@ FILE: catmod/api.py
 
 from __future__ import annotations
 
-from collections import OrderedDict
+from pathlib import Path
 from typing import Any
 import json
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from catmod.audit import AuditLog
 from catmod.config import get_settings
+from catmod.jobs import JobStore
+from catmod.nlp.gemini_rag import (
+    build_dataset_context,
+    load_named_dataset,
+    parse_csv_text,
+    query_dataset_rag,
+    rows_from_claims,
+)
 from catmod.flood.gemini import gemini_configured
 from catmod.flood.maps import MapsError, fetch_aerial, fetch_street_view, geocode_address, maps_configured
 from catmod.spatial.elevation import lookup_elevation_m
@@ -2250,6 +2266,7 @@ from catmod.schemas import (
     BordereauWebhook,
     ElevationIn,
     FloodEvaluateIn,
+    RAGQueryIn,
     TilesSessionIn,
 )
 from catmod.spatial.blender import build_blender_manifest
@@ -2272,15 +2289,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-_JOBS: OrderedDict[str, dict[str, Any]] = OrderedDict()
+_STORE: JobStore | None = None
+
+
+def job_store() -> JobStore:
+    global _STORE
+    if _STORE is None:
+        settings = get_settings()
+        _STORE = JobStore(settings.jobs_dir, settings.jobs_keep)
+    return _STORE
 
 
 def _remember(result: dict[str, Any]) -> dict[str, Any]:
-    settings = get_settings()
-    _JOBS[result["event_id"]] = result
-    while len(_JOBS) > settings.jobs_keep:
-        _JOBS.popitem(last=False)
-    return result
+    return job_store().remember(result)
 
 
 @app.get("/health")
@@ -2289,8 +2310,8 @@ def health() -> dict[str, str]:
 
 
 @app.get("/")
-def desk_home() -> RedirectResponse:
-    return RedirectResponse(url="/map/")
+def desk_home() -> FileResponse:
+    return FileResponse(Path(__file__).resolve().parents[1] / "static" / "landing.html")
 
 
 @app.post("/v1/process-bordereau")
@@ -2304,20 +2325,21 @@ def process_bordereau(payload: BordereauWebhook) -> JSONResponse:
 
 @app.get("/api/v1/leaflet-export")
 def leaflet_export(event_id: str | None = Query(default=None)) -> JSONResponse:
-    if not _JOBS:
-        raise HTTPException(status_code=404, detail="No modeled events in memory. POST /v1/process-bordereau first.")
+    store = job_store()
+    if not store:
+        raise HTTPException(status_code=404, detail="No modeled events saved yet. POST /v1/process-bordereau first.")
     if event_id:
-        job = _JOBS.get(event_id)
+        job = store.get(event_id)
         if job is None:
             raise HTTPException(status_code=404, detail=f"Unknown event_id {event_id}")
     else:
-        job = next(reversed(_JOBS.values()))
+        job = store.latest()
     return JSONResponse(job["geojson"])
 
 
 @app.get("/api/v1/audit/{event_id}")
 def audit(event_id: str) -> JSONResponse:
-    job = _JOBS.get(event_id)
+    job = job_store().get(event_id)
     if job is None:
         raise HTTPException(status_code=404, detail=f"Unknown event_id {event_id}")
     return JSONResponse(job["audit"])
@@ -2334,9 +2356,84 @@ def events() -> dict[str, Any]:
                 "reinsurer_payout": j["reinsurer_payout"],
                 "flagged_count": j["flagged_count"],
             }
-            for j in _JOBS.values()
+            for j in job_store().values()
         ]
     }
+
+
+def _rag_context(payload: RAGQueryIn) -> dict[str, Any]:
+    store = job_store()
+    if payload.event_id:
+        job = store.get(payload.event_id)
+        if job is not None:
+            claims = rows_from_claims(list(job.get("claims") or []))
+            return build_dataset_context(
+                claims,
+                name=str(job.get("filename") or payload.event_id),
+                event_id=str(job.get("event_id") or payload.event_id),
+            )
+    if payload.csv_text and payload.csv_text.strip():
+        return build_dataset_context(parse_csv_text(payload.csv_text), name="uploaded-session.csv", event_id=payload.event_id)
+    if payload.dataset_name:
+        filename, rows = load_named_dataset(payload.dataset_name)
+        return build_dataset_context(rows, name=filename, event_id=payload.event_id)
+    latest = store.latest()
+    if latest is not None:
+        claims = rows_from_claims(list(latest.get("claims") or []))
+        return build_dataset_context(
+            claims,
+            name=str(latest.get("filename") or latest.get("event_id")),
+            event_id=str(latest.get("event_id")),
+        )
+    query = payload.query.lower()
+    if "nzoia" in query:
+        filename, rows = load_named_dataset("sample_nzoia_bordereau")
+    else:
+        filename, rows = load_named_dataset("sample_nairobi_bordereau")
+    return build_dataset_context(rows, name=filename, event_id=None)
+
+
+def _record_rag(event_id: str, detail: dict[str, Any]) -> None:
+    settings = get_settings()
+    log = AuditLog(event_id or "NLP-SESSION", audit_dir=settings.audit_dir)
+    log.record(layer=1, name="gemini_nlp_rag_queried", status="ok", detail=detail)
+
+
+@app.post("/api/v1/nlp/query")
+def nlp_query(payload: RAGQueryIn) -> JSONResponse:
+    try:
+        context = _rag_context(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    result = query_dataset_rag(payload.query, context, get_settings())
+    event_id = str(context.get("event_id") or "NLP-SESSION")
+    try:
+        _record_rag(
+            event_id,
+            {
+                "query": payload.query[:500],
+                "dataset": context.get("name"),
+                "matched_count": len(result.get("matched_asset_ids") or []),
+                "matched_asset_ids": (result.get("matched_asset_ids") or [])[:40],
+                "source": result.get("source"),
+                "confidence": result.get("confidence"),
+            },
+        )
+    except Exception:
+        pass
+    matched = result.get("matched_asset_ids") or []
+    return JSONResponse(
+        {
+            "answer": result.get("answer") or "",
+            "matched_asset_ids": matched,
+            "summary_stats": result.get("summary_stats") or {},
+            "confidence": result.get("confidence"),
+            "source": result.get("source"),
+            "event_id": context.get("event_id"),
+            "dataset_name": context.get("name"),
+            "tab": "map" if matched and context.get("event_id") else "answer",
+        }
+    )
 
 
 @app.get("/api/v1/flood/status")
@@ -2385,12 +2482,13 @@ def flood_evaluate(payload: FloodEvaluateIn) -> JSONResponse:
 
 @app.get("/api/v1/flood/footprints")
 def flood_footprints(event_id: str | None = Query(default=None)) -> JSONResponse:
+    store = job_store()
     if event_id:
-        job = _JOBS.get(event_id)
+        job = store.get(event_id)
         if job is None:
             raise HTTPException(status_code=404, detail=f"Unknown event_id {event_id}")
-    elif _JOBS:
-        job = next(reversed(_JOBS.values()))
+    elif store:
+        job = store.latest()
     else:
         return JSONResponse(footprints_for_points([]))
     return JSONResponse(footprints_for_points(job.get("claims") or []))
@@ -2436,14 +2534,13 @@ def flood_street(lat: float = Query(...), lng: float = Query(...)) -> Response:
 
 
 def _job_or_none(event_id: str | None) -> dict[str, Any] | None:
+    store = job_store()
     if event_id:
-        job = _JOBS.get(event_id)
+        job = store.get(event_id)
         if job is None:
             raise HTTPException(status_code=404, detail=f"Unknown event_id {event_id}")
         return job
-    if _JOBS:
-        return next(reversed(_JOBS.values()))
-    return None
+    return store.latest()
 
 
 def _blender_payload(event_id: str | None, shader_preset: str, storey_height_m: float) -> dict[str, Any]:
@@ -2747,6 +2844,7 @@ class Settings(BaseSettings):
     default_layer_premium: float = 5_000_000.0
 
     audit_dir: str = "audit_logs"
+    jobs_dir: str = "jobs"
     jobs_keep: int = 32
 
     google_maps_api_key: str | None = None
@@ -2781,6 +2879,7 @@ class Settings(BaseSettings):
             "CATMOD_DEFAULT_REINSTATEMENTS": ("default_reinstatements", int),
             "CATMOD_DEFAULT_LAYER_PREMIUM": ("default_layer_premium", float),
             "CATMOD_AUDIT_DIR": ("audit_dir", str),
+            "CATMOD_JOBS_DIR": ("jobs_dir", str),
             "GOOGLE_MAPS_API_KEY": ("google_maps_api_key", str),
             "GEMINI_API_KEY": ("gemini_api_key", str),
             "GEMINI_MODEL": ("gemini_model", str),
@@ -6992,6 +7091,98 @@ def parse_hosted_answer(raw: dict[str, Any]) -> ChoiceAnswer | ScoreAnswer | Nou
     return NoulAnswer(noul=float(raw.get("noul") or 0.0))
 
 ========================================================================================
+FILE: catmod/jobs.py
+========================================================================================
+"""Disk-backed store for modeled bordereau jobs.
+
+Jobs are written as one JSON file per event and reloaded when the process starts.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import threading
+from collections import OrderedDict
+from pathlib import Path
+from typing import Any
+
+from fastapi.encoders import jsonable_encoder
+
+_SAFE_ID = re.compile(r"^[A-Za-z0-9._-]+$")
+
+
+class JobStore:
+    def __init__(self, directory: str | os.PathLike[str], keep: int = 32) -> None:
+        self.directory = Path(directory)
+        self.keep = max(1, int(keep))
+        self._lock = threading.Lock()
+        self._jobs: OrderedDict[str, dict[str, Any]] = OrderedDict()
+        self.directory.mkdir(parents=True, exist_ok=True)
+        self._load()
+
+    def _path(self, event_id: str) -> Path:
+        name = event_id if _SAFE_ID.fullmatch(event_id) else re.sub(r"[^A-Za-z0-9._-]+", "_", event_id)
+        return self.directory / f"{name}.json"
+
+    def _load(self) -> None:
+        files = [path for path in self.directory.glob("*.json") if not path.name.endswith(".tmp")]
+        files.sort(key=lambda path: path.stat().st_mtime)
+        for path in files:
+            try:
+                job = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError, UnicodeError):
+                continue
+            if not isinstance(job, dict):
+                continue
+            event_id = str(job.get("event_id") or path.stem)
+            self._jobs[event_id] = job
+            self._jobs.move_to_end(event_id)
+        self._trim()
+
+    def remember(self, result: dict[str, Any]) -> dict[str, Any]:
+        job = jsonable_encoder(result)
+        event_id = str(job["event_id"])
+        with self._lock:
+            self._jobs[event_id] = job
+            self._jobs.move_to_end(event_id)
+            self._write(event_id, job)
+            self._trim()
+        return job
+
+    def _write(self, event_id: str, job: dict[str, Any]) -> None:
+        path = self._path(event_id)
+        temporary = path.with_suffix(".json.tmp")
+        temporary.write_text(json.dumps(job), encoding="utf-8")
+        os.replace(temporary, path)
+
+    def _trim(self) -> None:
+        while len(self._jobs) > self.keep:
+            old_id, _job = self._jobs.popitem(last=False)
+            try:
+                self._path(old_id).unlink(missing_ok=True)
+            except OSError:
+                pass
+
+    def get(self, event_id: str) -> dict[str, Any] | None:
+        return self._jobs.get(event_id)
+
+    def values(self) -> list[dict[str, Any]]:
+        return list(self._jobs.values())
+
+    def latest(self) -> dict[str, Any] | None:
+        if not self._jobs:
+            return None
+        return next(reversed(self._jobs.values()))
+
+    def __bool__(self) -> bool:
+        return bool(self._jobs)
+
+    def __len__(self) -> int:
+        return len(self._jobs)
+
+========================================================================================
 FILE: catmod/leaflet/__init__.py
 ========================================================================================
 from catmod.leaflet.geojson import build_export, generate_leaflet_geojson, marker_color
@@ -7110,6 +7301,427 @@ def build_export(
     if extra_metadata:
         collection["metadata"].update(extra_metadata)
     return collection
+
+========================================================================================
+FILE: catmod/nlp/__init__.py
+========================================================================================
+"""Natural-language questions over portfolio datasets. Not a finance engine."""
+
+from catmod.nlp.gemini_rag import query_dataset_rag
+
+__all__ = ["query_dataset_rag"]
+
+========================================================================================
+FILE: catmod/nlp/gemini_rag.py
+========================================================================================
+"""Gemini RAG over uploaded portfolios.
+
+Answers come from dataset context only. Treaty payouts stay in the decimal
+waterfall and are not computed here.
+"""
+
+from __future__ import annotations
+
+import csv
+import io
+import json
+import re
+from collections import Counter
+from pathlib import Path
+from typing import Any
+
+import httpx
+
+from catmod.config import Settings, get_settings
+
+GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+MODEL_NAME = "gemini-2.0-flash"
+
+SYSTEM_PROMPT = (
+    "You are an expert catastrophe reinsurance analyst assistant for CatMod. "
+    "You are provided with structured context from uploaded portfolio datasets. "
+    "Answer the user's natural language question accurately based ONLY on the provided dataset context. "
+    "If filtering rows, return structured matching asset IDs alongside a clear text answer. "
+    "Do not calculate treaty payouts, cedant retention, or reinstatement premium. "
+    "Those contractual amounts belong to the deterministic waterfall and are outside this answer."
+)
+
+_PAYOUT_KEYS = {
+    "allocated_reinsurer_payout",
+    "allocated_cedant_retention",
+    "covered_loss",
+    "reinsurer_payout",
+    "cedant_retained_loss",
+    "reinstatement_premium_due",
+    "layer_loss",
+    "exhaustion_ratio",
+}
+
+_DATASETS = {
+    "sample_nairobi_bordereau": "sample_nairobi_bordereau.csv",
+    "sample_nzoia_bordereau": "sample_nzoia_bordereau.csv",
+    "exposure_nairobi_synthetic": "exposure_nairobi_synthetic.csv",
+    "exposure_nzoia_synthetic": "exposure_nzoia_synthetic.csv",
+}
+
+_STOP = {
+    "which", "what", "where", "who", "are", "the", "and", "for", "with", "have",
+    "has", "from", "that", "this", "into", "over", "above", "under", "than",
+    "their", "there", "about", "show", "list", "please", "properties", "property",
+    "assets", "asset", "portfolio", "dataset", "summarize", "summary", "total",
+    "exposed", "exposure", "corridor",
+}
+
+_DEPTH_RE = re.compile(
+    r"(?:depth|flood).{0,40}?(?:over|above|greater than|>)\s*(\d+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
+
+
+def data_root() -> Path:
+    return Path(__file__).resolve().parents[2] / "data"
+
+
+def parse_csv_text(text: str) -> list[dict[str, Any]]:
+    reader = csv.DictReader(io.StringIO(text or ""))
+    rows: list[dict[str, Any]] = []
+    for raw in reader:
+        if not raw or not any(str(value or "").strip() for value in raw.values()):
+            continue
+        rows.append({str(key or "").strip(): _coerce_cell(value) for key, value in raw.items() if key})
+    return rows
+
+
+def rows_from_claims(claims: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    kept: list[dict[str, Any]] = []
+    for claim in claims:
+        if not isinstance(claim, dict):
+            continue
+        row = {key: value for key, value in claim.items() if key not in _PAYOUT_KEYS}
+        kept.append(row)
+    return kept
+
+
+def load_named_dataset(dataset_name: str) -> tuple[str, list[dict[str, Any]]]:
+    stem = Path(dataset_name).name
+    stem = re.sub(r"\.(csv|xlsx)$", "", stem, flags=re.IGNORECASE)
+    filename = _DATASETS.get(stem)
+    if filename is None:
+        known = ", ".join(sorted(_DATASETS))
+        raise ValueError(f"Unknown dataset_name {dataset_name}. Known datasets: {known}")
+    path = data_root() / filename
+    return filename, parse_csv_text(path.read_text(encoding="utf-8"))
+
+
+def build_dataset_context(
+    rows: list[dict[str, Any]],
+    *,
+    name: str,
+    event_id: str | None = None,
+) -> dict[str, Any]:
+    clean = [_public_row(row) for row in rows]
+    return {
+        "name": name,
+        "event_id": event_id,
+        "row_count": len(clean),
+        "columns": _columns(clean),
+        "summary_stats": _summary(clean),
+        "sample_rows": clean[:5],
+        "rows": clean[:250],
+    }
+
+
+def query_dataset_rag(
+    query: str,
+    dataset_context: dict[str, Any],
+    settings: Settings | None = None,
+) -> dict[str, Any]:
+    settings = settings or get_settings()
+    question = (query or "").strip()
+    if not question:
+        return _pack("Ask a question about the portfolio.", [], _summary([]), 0.0, "local-keyword")
+    key = (getattr(settings, "gemini_api_key", None) or "").strip()
+    model = (getattr(settings, "gemini_model", None) or MODEL_NAME).strip() or MODEL_NAME
+    if not key:
+        return _local_fallback(question, dataset_context)
+    try:
+        parsed = _ask_gemini(question, dataset_context, key, model)
+    except Exception:
+        return _local_fallback(question, dataset_context)
+    return _from_model(parsed, dataset_context, model)
+
+
+def _ask_gemini(query: str, context: dict[str, Any], key: str, model: str) -> dict[str, Any]:
+    packed = {
+        "name": context.get("name"),
+        "event_id": context.get("event_id"),
+        "row_count": context.get("row_count"),
+        "columns": context.get("columns"),
+        "summary_stats": context.get("summary_stats"),
+        "sample_rows": context.get("sample_rows"),
+        "rows": (context.get("rows") or [])[:40],
+    }
+    user = (
+        "Dataset context (JSON):\n"
+        + json.dumps(packed, default=str)
+        + "\n\nQuestion:\n"
+        + query
+        + '\n\nReturn JSON with keys answer, matched_asset_ids, summary_stats, confidence.'
+    )
+    payload = {
+        "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
+        "contents": [{"role": "user", "parts": [{"text": user}]}],
+        "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"},
+    }
+    url = GEMINI_ENDPOINT.format(model=model)
+    with httpx.Client(timeout=45.0) as client:
+        response = client.post(url, params={"key": key}, json=payload)
+        response.raise_for_status()
+        body = response.json()
+    candidates = body.get("candidates") or []
+    if not candidates:
+        raise ValueError("Gemini returned no candidates")
+    texts = []
+    for part in ((candidates[0].get("content") or {}).get("parts") or []):
+        if "text" in part:
+            texts.append(part["text"])
+    parsed = _parse_json("\n".join(texts) or "{}")
+    if not isinstance(parsed, dict):
+        raise ValueError("Gemini JSON was not an object")
+    return parsed
+
+
+def _from_model(parsed: dict[str, Any], context: dict[str, Any], model: str) -> dict[str, Any]:
+    known = _known_ids(context)
+    raw_ids = parsed.get("matched_asset_ids") or []
+    if not isinstance(raw_ids, list):
+        raw_ids = []
+    ids = [str(item) for item in raw_ids if str(item) in known] if known else [str(item) for item in raw_ids]
+    answer = str(parsed.get("answer") or "").strip()
+    if not answer:
+        return _local_fallback_from_ids(context, ids)
+    stats = parsed.get("summary_stats") if isinstance(parsed.get("summary_stats"), dict) else _summary_for(context, ids)
+    try:
+        confidence = float(parsed.get("confidence") if parsed.get("confidence") is not None else 0.7)
+    except (TypeError, ValueError):
+        confidence = 0.7
+    confidence = max(0.0, min(1.0, confidence))
+    return _pack(answer, ids, stats, confidence, f"gemini:{model}")
+
+
+def _local_fallback(query: str, context: dict[str, Any]) -> dict[str, Any]:
+    rows = list(context.get("rows") or [])
+    name = str(context.get("name") or "")
+    phrase = _occupancy_phrase(query, rows)
+    depth = _depth_limit(query)
+    tokens = _tokens(query, name, phrase)
+    matched = [row for row in rows if _row_matches(row, phrase, tokens, depth, name)]
+    if phrase and not matched:
+        matched = [row for row in rows if phrase in _blob(row)]
+    ids = [str(row.get("asset_id")) for row in matched if row.get("asset_id")]
+    stats = _summary(matched if matched else rows)
+    if not rows:
+        answer = "No portfolio rows are loaded for this question."
+    elif _is_summary(query) and not phrase and depth is None:
+        ids = [str(row.get("asset_id")) for row in rows if row.get("asset_id")]
+        stats = _summary(rows)
+        answer = _summary_sentence(name, stats, ids)
+    elif matched:
+        answer = _match_sentence(name, phrase, depth, stats, ids)
+    else:
+        ids = []
+        stats = _summary([])
+        answer = f"No rows in {name or 'the dataset'} match that question."
+    return _pack(answer, ids, stats, 0.55 if ids else 0.35, "local-keyword")
+
+
+def _local_fallback_from_ids(context: dict[str, Any], ids: list[str]) -> dict[str, Any]:
+    if not ids:
+        return _pack("No matching assets were returned for that question.", [], _summary([]), 0.3, "local-keyword")
+    wanted = set(ids)
+    rows = [row for row in (context.get("rows") or []) if str(row.get("asset_id")) in wanted]
+    stats = _summary(rows)
+    answer = _match_sentence(str(context.get("name") or ""), "", None, stats, ids)
+    return _pack(answer, ids, stats, 0.4, "local-keyword")
+
+
+def _pack(
+    answer: str,
+    ids: list[str],
+    stats: dict[str, Any],
+    confidence: float,
+    source: str,
+) -> dict[str, Any]:
+    return {
+        "answer": answer,
+        "matched_asset_ids": ids,
+        "summary_stats": stats,
+        "confidence": confidence,
+        "source": source,
+    }
+
+
+def _public_row(row: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in row.items() if key not in _PAYOUT_KEYS}
+
+
+def _columns(rows: list[dict[str, Any]]) -> list[dict[str, str]]:
+    names: list[str] = []
+    for row in rows:
+        for key in row:
+            if key not in names:
+                names.append(key)
+    described = []
+    for name in names:
+        values = [row.get(name) for row in rows if row.get(name) not in (None, "")]
+        kind = "number" if values and all(_is_number(value) for value in values) else "text"
+        described.append({"name": name, "type": kind})
+    return described
+
+
+def _summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    tivs = [_num(row.get("tiv")) for row in rows]
+    tivs = [value for value in tivs if value is not None]
+    losses = [_num(row.get("ground_up_loss")) for row in rows]
+    losses = [value for value in losses if value is not None]
+    occupancies = Counter(str(row.get("occupancy") or row.get("occupancy_raw") or "Unknown") for row in rows)
+    return {
+        "row_count": len(rows),
+        "total_tiv": round(sum(tivs), 2) if tivs else 0.0,
+        "loss_sum": round(sum(losses), 2) if losses else 0.0,
+        "loss_mean": round(sum(losses) / len(losses), 2) if losses else 0.0,
+        "occupancy_counts": dict(occupancies),
+    }
+
+
+def _summary_for(context: dict[str, Any], ids: list[str]) -> dict[str, Any]:
+    wanted = set(ids)
+    rows = [row for row in (context.get("rows") or []) if str(row.get("asset_id")) in wanted]
+    return _summary(rows if rows else list(context.get("rows") or []))
+
+
+def _known_ids(context: dict[str, Any]) -> set[str]:
+    return {str(row.get("asset_id")) for row in (context.get("rows") or []) if row.get("asset_id")}
+
+
+def _occupancy_phrase(query: str, rows: list[dict[str, Any]]) -> str:
+    hay = query.lower()
+    phrases = []
+    for row in rows:
+        for key in ("occupancy", "occupancy_raw"):
+            value = str(row.get(key) or "").strip().lower()
+            if len(value) >= 4:
+                phrases.append(value)
+    phrases.sort(key=len, reverse=True)
+    for phrase in phrases:
+        if phrase in hay:
+            return phrase
+    return ""
+
+
+def _tokens(query: str, name: str, phrase: str) -> list[str]:
+    name_bits = set(re.findall(r"[a-z0-9]+", name.lower()))
+    phrase_bits = set(phrase.split())
+    tokens = []
+    for token in re.findall(r"[a-z0-9]+", query.lower()):
+        if token in _STOP or token in name_bits or token in phrase_bits or token.isdigit() or len(token) < 3:
+            continue
+        tokens.append(token)
+    return tokens
+
+
+def _row_matches(row: dict[str, Any], phrase: str, tokens: list[str], depth: float | None, name: str) -> bool:
+    blob = _blob(row)
+    if phrase and phrase not in blob:
+        return False
+    if depth is not None:
+        value = _num(row.get("flood_depth_m"))
+        if value is None or value <= depth:
+            return False
+    name_blob = name.lower()
+    for token in tokens:
+        if token not in blob and token not in name_blob:
+            return False
+    return True
+
+
+def _blob(row: dict[str, Any]) -> str:
+    return " ".join(str(value).lower() for value in row.values())
+
+
+def _depth_limit(query: str) -> float | None:
+    match = _DEPTH_RE.search(query or "")
+    if not match:
+        return None
+    return float(match.group(1))
+
+
+def _is_summary(query: str) -> bool:
+    text = query.lower()
+    return any(word in text for word in ("summar", "total tiv", "how many", "count"))
+
+
+def _summary_sentence(name: str, stats: dict[str, Any], ids: list[str]) -> str:
+    label = name or "the dataset"
+    occ = ", ".join(
+        f"{key} {value}" for key, value in (stats.get("occupancy_counts") or {}).items()
+    )
+    return (
+        f"{label} has {stats.get('row_count', 0)} rows. "
+        f"Total TIV is {stats.get('total_tiv', 0):,.2f}. "
+        f"Occupancy mix: {occ or 'not recorded'}. "
+        f"Assets: {', '.join(ids[:12]) or 'none'}."
+    )
+
+
+def _match_sentence(name: str, phrase: str, depth: float | None, stats: dict[str, Any], ids: list[str]) -> str:
+    label = name or "the dataset"
+    focus = phrase or (f"flood depth over {depth} m" if depth is not None else "the question")
+    shown = ", ".join(ids[:12])
+    extra = "" if len(ids) <= 12 else f" and {len(ids) - 12} more"
+    count = int(stats.get("row_count") or 0)
+    noun = "property" if count == 1 else "properties"
+    verb = "matches" if count == 1 else "match"
+    return (
+        f"{count} {noun} in {label} {verb} {focus}: {shown}{extra}. "
+        f"Their total TIV is {stats.get('total_tiv', 0):,.2f}."
+    )
+
+
+def _coerce_cell(value: Any) -> Any:
+    if value is None:
+        return ""
+    text = str(value).strip()
+    if text == "":
+        return ""
+    return _num(text) if _looks_number(text) else text
+
+
+def _looks_number(text: str) -> bool:
+    return bool(re.fullmatch(r"-?\d+(?:\.\d+)?", text))
+
+
+def _is_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _num(value: Any) -> float | None:
+    if isinstance(value, bool) or value is None or value == "":
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    try:
+        return float(str(value).replace(",", ""))
+    except ValueError:
+        return None
+
+
+def _parse_json(text: str) -> Any:
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?", "", cleaned).strip()
+        cleaned = re.sub(r"```$", "", cleaned).strip()
+    return json.loads(cleaned)
 
 ========================================================================================
 FILE: catmod/pipeline.py
@@ -7937,6 +8549,17 @@ class TilesSessionIn(BaseModel):
     east: float | None = None
     north: float | None = None
     renderer: str = "cesium"
+
+
+class RAGQueryIn(BaseModel):
+    query: str = Field(..., min_length=1, max_length=4000)
+    event_id: str | None = None
+    dataset_name: str | None = None
+    csv_text: str | None = Field(
+        default=None,
+        max_length=400_000,
+        description="Optional CSV text from folders held in the browser",
+    )
 
 
 class BlenderManifestIn(BaseModel):
@@ -11458,62 +12081,9 @@ FILE: static/index.html
     object-fit:cover;
     object-position:center;
     pointer-events:none;
-    opacity:0;
-    transform:translate3d(0,0,0);
+    filter:none;
     z-index:0;
   }
-  .stage-bg.is-on{
-    opacity:1;
-    z-index:1;
-  }
-  .stage-bg.is-leave{
-    opacity:1;
-    z-index:2;
-    animation:bg-scroll-out 1.15s cubic-bezier(.22,1,.36,1) forwards;
-  }
-  .stage-bg.is-enter{
-    opacity:1;
-    z-index:3;
-    animation:bg-scroll-in 1.15s cubic-bezier(.22,1,.36,1) forwards;
-  }
-  @keyframes bg-scroll-out{
-    from{transform:translate3d(0,0,0);}
-    to{transform:translate3d(-100%,0,0);}
-  }
-  @keyframes bg-scroll-in{
-    from{transform:translate3d(100%,0,0);}
-    to{transform:translate3d(0,0,0);}
-  }
-  .veil{
-    position:absolute;inset:0;z-index:1;pointer-events:none;
-    background:
-      radial-gradient(ellipse 58% 48% at 58% 42%, rgba(3,18,28,.08) 0%, transparent 62%),
-      linear-gradient(180deg, rgba(4,22,32,.34) 0%, rgba(4,22,32,.08) 32%, rgba(4,22,32,.1) 70%, rgba(4,22,32,.4) 100%);
-  }
-  .rays,.caustics,.grain{position:absolute;inset:0;z-index:2;pointer-events:none;}
-  .rays{
-    background:
-      radial-gradient(ellipse 22% 80% at 22% 8%, rgba(255,255,255,.16), transparent 72%),
-      radial-gradient(ellipse 18% 55% at 70% 12%, rgba(180,240,255,.10), transparent 70%);
-    mix-blend-mode:screen;
-    animation:breathe 9s ease-in-out infinite alternate;
-  }
-  .caustics{
-    background:
-      radial-gradient(circle at 20% 30%, rgba(90,220,240,.07) 0 1px, transparent 2px),
-      radial-gradient(circle at 70% 60%, rgba(255,255,255,.05) 0 1px, transparent 2px),
-      radial-gradient(circle at 45% 80%, rgba(255,130,0,.06) 0 1.2px, transparent 2.4px);
-    background-size:180px 180px, 240px 240px, 160px 160px;
-    opacity:.55;
-    animation:drift 22s linear infinite;
-  }
-  .grain{
-    opacity:.08;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
-    mix-blend-mode:overlay;
-  }
-  @keyframes breathe{from{opacity:.55;}to{opacity:1;}}
-  @keyframes drift{from{background-position:0 0,0 0,0 0;}to{background-position:180px 90px,-120px 80px,80px -60px;}}
 
   .top{
     position:fixed;top:0;right:0;z-index:20;
@@ -12149,13 +12719,12 @@ FILE: static/index.html
   }
   #eventsDesk .who-menu button:hover{background:#f5f6fa;}
   #eventsDesk .dk-body{flex:1;min-height:0;overflow:auto;padding:26px 22px 18px;}
-  #eventsDesk .dk-title-row{display:flex;align-items:center;justify-content:space-between;margin:0 6px 18px;gap:12px;}
+  #eventsDesk .dk-title-row{display:flex;align-items:center;margin:0 6px 14px;}
   #eventsDesk .dk-title-row h1{margin:0;font:700 28px/1 Poppins,sans-serif;letter-spacing:-.4px;color:#191c23;}
   #eventsDesk .dk-addbtn{
     height:34px;padding:0 14px;border:0;border-radius:6px;background:#0dd573;color:#fff;
     font:600 13px Poppins,sans-serif;cursor:pointer;box-shadow:0 8px 16px rgba(13,213,115,.32);white-space:nowrap;
   }
-  #eventsDesk .dk-note{margin:-8px 6px 14px;color:#8b919c;font:400 12px Poppins,sans-serif;}
   #eventsDesk .dk-tabs{display:flex;gap:28px;margin:0 6px;border-bottom:1px solid #e6e8ee;}
   #eventsDesk .dk-tabs button{
     border:0;background:transparent;padding:8px 0 11px;font:500 13px Poppins,sans-serif;color:#a0a6b0;cursor:pointer;position:relative;
@@ -12212,7 +12781,7 @@ FILE: static/index.html
     .wordmark{font-size:clamp(36px,10vw,56px);}
     .search{height:52px;}
     .search-wrap{width:100%;}
-    .ai-mode span{display:none;}
+    .ai-mode span{font-size:12px;max-width:108px;overflow:hidden;text-overflow:ellipsis;}
     .ai-mode{padding:0 10px;}
     .cards{max-height:none;gap:10px;}
     .gcard{min-width:0;width:min(320px,100%);}
@@ -12265,8 +12834,6 @@ FILE: static/index.html
   }
 
   @media (prefers-reduced-motion:reduce){
-    .stage-bg.is-leave,.stage-bg.is-enter{animation:none;}
-    .rays,.caustics{animation:none;}
     .gem-glow::after,body.is-thinking .gem-glow{animation:none;}
     .query-pip.is-fly,.query-pip.is-settled{animation:none;opacity:1;transform:none;}
     .toast-card,.toast-card.is-leave{animation:none;}
@@ -12275,14 +12842,7 @@ FILE: static/index.html
 </head>
 <body>
 <div class="stage" aria-hidden="true">
-  <img class="stage-bg is-on" src="h2o-assets/aquaask-bg-1.jpg" alt="">
-  <img class="stage-bg" src="h2o-assets/aquaask-bg-2.jpg" alt="">
-  <img class="stage-bg" src="h2o-assets/aquaask-bg-3.jpg" alt="">
-  <img class="stage-bg" src="h2o-assets/aquaask-bg-4.jpg" alt="">
-  <div class="veil"></div>
-  <div class="rays"></div>
-  <div class="caustics"></div>
-  <div class="grain"></div>
+  <img class="stage-bg" src="h2o-assets/desk-bg.jpg" alt="">
 </div>
 
 <div class="toast-stack" id="toastStack" aria-live="polite" aria-label="Apps Script events"></div>
@@ -12328,12 +12888,12 @@ FILE: static/index.html
       <button class="icon-btn" id="lensBtn" type="button" aria-label="Look up or reverse image search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3.2"/><path d="M4 8V5h3M17 5h3v3M20 16v3h-3M7 19H4v-3" stroke-linecap="round"/></svg>
       </button>
-      <button class="ai-mode gem-glow" id="aiBtn" type="button">
+      <button class="ai-mode gem-glow" id="aiModeToggle" type="button" aria-pressed="false" title="Desk Search">
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M12 3.2 13.3 8.2 18.3 9.5 13.3 10.8 12 15.8 10.7 10.8 5.7 9.5 10.7 8.2 12 3.2Z" fill="#1a73e8"/>
           <path d="M18 14.2 18.7 16.4 18.9 16.6 21.1 17.3 18.9 18 18.7 18.2 18 20.4 17.3 18.2 17.1 18 14.9 17.3 17.1 16.6 17.3 16.4 18 14.2Z" fill="#9334e6"/>
         </svg>
-        <span>Modeled</span>
+        <span class="ai-badge">Desk Search</span>
       </button>
     </form>
     <div class="plus-menu" id="plusMenu">
@@ -12408,6 +12968,7 @@ FILE: static/index.html
                   <input id="deskSearch" type="search" placeholder="Search" aria-label="Search this session" autocomplete="off">
                 </label>
                 <div class="dk-top-right">
+                  <button type="button" class="dk-addbtn" id="deskUpload">+ Upload folder</button>
                   <button type="button" class="dk-bell" id="deskBell" aria-label="Session alerts">
                     <svg viewBox="0 0 24 24"><path d="M6 16V10a6 6 0 1 1 12 0v6l1.5 2h-15z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>
                   </button>
@@ -12424,9 +12985,7 @@ FILE: static/index.html
               <div class="dk-body">
                 <div class="dk-title-row">
                   <h1>Dashboard</h1>
-                  <button type="button" class="dk-addbtn" id="deskUpload">+ Upload folder</button>
                 </div>
-                <p class="dk-note" id="deskNote">Folders stay in this tab only. A refresh clears them. Modeled books stay until the server restarts.</p>
                 <div class="dk-tabs" role="tablist">
                   <button type="button" data-tab="queue" class="on" role="tab">Event queue</button>
                   <button type="button" data-tab="files" role="tab">Files</button>
@@ -12615,39 +13174,6 @@ FILE: static/index.html
     shortcuts.appendChild(add);
   }
 
-  var slides = [].slice.call(document.querySelectorAll(".stage-bg"));
-  if(slides.length > 1){
-    var cur = 0;
-    var cycling = false;
-    var reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    setInterval(function(){
-      if(cycling) return;
-      var pick = cur;
-      while(pick === cur) pick = Math.floor(Math.random()*slides.length);
-      var outgoing = slides[cur];
-      var incoming = slides[pick];
-      if(reduceMotion){
-        outgoing.classList.remove("is-on","is-leave","is-enter");
-        incoming.classList.add("is-on");
-        cur = pick;
-        return;
-      }
-      cycling = true;
-      outgoing.classList.remove("is-on","is-enter");
-      incoming.classList.remove("is-on","is-leave");
-      outgoing.classList.add("is-leave");
-      incoming.classList.add("is-enter");
-      incoming.addEventListener("animationend", function done(){
-        incoming.removeEventListener("animationend", done);
-        outgoing.classList.remove("is-leave");
-        incoming.classList.remove("is-enter");
-        incoming.classList.add("is-on");
-        cycling = false;
-      });
-      cur = pick;
-    }, 10000);
-  }
-
   var q = document.getElementById("q");
   var askForm = document.getElementById("askForm");
   var queryRail = document.getElementById("queryRail");
@@ -12656,6 +13182,61 @@ FILE: static/index.html
   var resultAnswer = document.getElementById("resultAnswer");
   var searching = false;
   var sessionFiles = [];
+  var FILE_DB = "catmod-desk";
+  var FILE_STORE = "files";
+  function openFileDb(){
+    return new Promise(function(resolve, reject){
+      if(!window.indexedDB){ reject(new Error("no indexedDB")); return; }
+      var req = indexedDB.open(FILE_DB, 1);
+      req.onupgradeneeded = function(){
+        var db = req.result;
+        if(!db.objectStoreNames.contains(FILE_STORE)) db.createObjectStore(FILE_STORE, {keyPath:"id"});
+      };
+      req.onsuccess = function(){ resolve(req.result); };
+      req.onerror = function(){ reject(req.error); };
+    });
+  }
+  function fileStore(mode, run){
+    return openFileDb().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction(FILE_STORE, mode);
+        var req;
+        try{ req = run(tx.objectStore(FILE_STORE)); }
+        catch(err){ reject(err); return; }
+        tx.oncomplete = function(){ resolve(req && req.result); };
+        tx.onerror = function(){ reject(tx.error); };
+        tx.onabort = function(){ reject(tx.error || new Error("aborted")); };
+      });
+    });
+  }
+  var retiredFileIds = {};
+  var filesCleared = false;
+  function loadStoredFiles(){
+    return fileStore("readonly", function(store){ return store.getAll(); }).then(function(rows){
+      if(filesCleared) return;
+      var byId = {};
+      sessionFiles.forEach(function(row){ if(row && row.id) byId[row.id] = row; });
+      (rows || []).forEach(function(row){
+        if(row && row.id && !retiredFileIds[row.id] && !byId[row.id]) byId[row.id] = row;
+      });
+      sessionFiles = Object.keys(byId).map(function(id){ return byId[id]; }).sort(function(a, b){
+        return String(a.ingested || "").localeCompare(String(b.ingested || ""));
+      });
+      if(document.body.classList.contains("has-desk")) renderDesk();
+    }).catch(function(){});
+  }
+  function saveSessionFile(row){
+    if(row && row.id) delete retiredFileIds[row.id];
+    return fileStore("readwrite", function(store){ return store.put(row); }).catch(function(){});
+  }
+  function forgetSessionFile(id){
+    retiredFileIds[id] = true;
+    return fileStore("readwrite", function(store){ return store.delete(id); }).catch(function(){});
+  }
+  function forgetAllSessionFiles(){
+    filesCleared = true;
+    return fileStore("readwrite", function(store){ return store.clear(); }).catch(function(){});
+  }
   var deskEvents = [];
   var deskTab = "queue";
   var deskQuery = "";
@@ -12886,10 +13467,14 @@ FILE: static/index.html
   }
   function yn(v){ return v ? "true" : "false"; }
   var lastEventId = "";
+  var ragAssetIds = [];
   function showCatmodMap(){
     var frame = document.getElementById("mapFrame");
-    if(!frame || !lastEventId) return;
-    frame.src = "map.html?event_id=" + encodeURIComponent(lastEventId) + "&t=" + Date.now();
+    if(!frame || (!lastEventId && !ragAssetIds.length)) return;
+    var src = "map.html?t=" + Date.now();
+    if(lastEventId) src += "&event_id=" + encodeURIComponent(lastEventId);
+    if(ragAssetIds.length) src += "&assets=" + encodeURIComponent(ragAssetIds.join(","));
+    frame.src = src;
   }
   window.showCatmodMap = showCatmodMap;
   function categoryIcon(label, used){
@@ -13023,12 +13608,12 @@ FILE: static/index.html
     var rows = (data && data.events) || [];
     var lines = rows.length ? rows.map(function(ev){
       return ev.event_id + "  gross " + money(ev.total_gross_claim) + "  reinsurer " + money(ev.reinsurer_payout) + "  flags " + ev.flagged_count;
-    }) : ["No modeled events in memory yet. Run a Nairobi or Nzoia book."];
+    }) : ["No modeled events saved yet. Run a Nairobi or Nzoia book."];
     return {
       status: "Read " + rows.length + " event" + (rows.length === 1 ? "" : "s") + " from /api/v1/events.",
       answer: lines.join("\n"),
       sources: rows.slice(0, 8).map(function(ev){ return {publication_title: ev.event_id, source_origin: "event.csv"}; }),
-      modes: {note:"Events live in this server process. A restart clears the list."}
+      modes: {note:"Modeled events are saved on this computer and loaded again when the server starts."}
     };
   }
   function auditView(data){
@@ -13225,7 +13810,7 @@ FILE: static/index.html
           '<span class="dk-more"><button type="button" class="dk-kebab" data-kebab="' + esc(file.id) + '" aria-label="File actions">⋮</button>' +
           '<div class="dk-menu"' + (open ? "" : " hidden") + ">" +
           '<button type="button" data-act="query" data-file="' + esc(file.id) + '">Query this file</button>' +
-          '<button type="button" data-act="drop" data-file="' + esc(file.id) + '">Drop from session</button>' +
+          '<button type="button" data-act="drop" data-file="' + esc(file.id) + '">Remove</button>' +
           "</div></span></div>";
       });
     }else{
@@ -13282,10 +13867,7 @@ FILE: static/index.html
     }
     document.getElementById("deskRows").innerHTML = rows.length
       ? rows.join("")
-      : '<p class="dk-empty">' + (query ? "Nothing in this session matches that search." : "Upload a folder, or run a book. The queue lists what this session is holding.") + "</p>";
-    document.getElementById("deskNote").textContent = sessionFiles.length
-      ? sessionFiles.length + " file" + (sessionFiles.length === 1 ? "" : "s") + " in this tab. Refresh clears the folders. Modeled books stay until the server restarts."
-      : "Folders stay in this tab only. A refresh clears them. Modeled books stay until the server restarts.";
+      : '<p class="dk-empty">' + (query ? "Nothing saved matches that search." : "Upload a folder, or run a book. The queue lists what is saved on this computer.") + "</p>";
   }
   function showDesk(){
     document.body.classList.add("has-result", "has-desk");
@@ -13311,13 +13893,13 @@ FILE: static/index.html
     if(opts.query != null) deskQuery = opts.query;
     deskKebab = "";
     showDesk();
-    if(opts.pick) document.getElementById("folderPick").click();
+    if(opts.pick) chooseFolder();
     return refreshDeskEvents().then(function(data){
       return {
-        status: "Opened the event queue. " + sessionFiles.length + " uploaded file" + (sessionFiles.length === 1 ? "" : "s") + " in this session.",
+        status: "Opened the event queue. " + sessionFiles.length + " uploaded file" + (sessionFiles.length === 1 ? "" : "s") + " saved in this browser.",
         answer: eventsView(data).answer,
         sources: eventsView(data).sources,
-        modes: {note:"Uploaded folders live in this tab until you refresh. Modeled events live in the server process until it restarts."}
+        modes: {note:"Uploaded folders stay in this browser. Modeled events stay on this computer."}
       };
     });
   }
@@ -13335,6 +13917,7 @@ FILE: static/index.html
     }).then(function(data){
       row.eventId = data.event_id || "";
       row.kind = "Bordereau";
+      saveSessionFile(row);
       if(data.event_id) lastEventId = data.event_id;
       return refreshDeskEvents();
     }).catch(function(){
@@ -13342,13 +13925,51 @@ FILE: static/index.html
       renderDesk();
     });
   }
+  function collectDir(handle, prefix){
+    var files = [];
+    var iter = handle.values();
+    function step(){
+      return iter.next().then(function(item){
+        if(item.done) return files;
+        var entry = item.value;
+        var rel = prefix ? prefix + "/" + entry.name : entry.name;
+        if(entry.kind === "file"){
+          return entry.getFile().then(function(file){
+            file.deskPath = rel;
+            files.push(file);
+            return step();
+          });
+        }
+        if(entry.kind === "directory"){
+          return collectDir(entry, rel).then(function(nested){
+            Array.prototype.push.apply(files, nested);
+            return step();
+          });
+        }
+        return step();
+      });
+    }
+    return step();
+  }
+  function chooseFolder(){
+    if(window.showDirectoryPicker){
+      return showDirectoryPicker({mode:"read"}).then(function(dir){
+        return collectDir(dir, dir.name);
+      }).then(function(files){
+        if(files && files.length) return ingestFolder(files);
+      }).catch(function(err){
+        if(err && err.name === "AbortError") return;
+      });
+    }
+    document.getElementById("folderPick").click();
+  }
   function ingestFolder(fileList){
     var files = Array.prototype.slice.call(fileList || []);
     if(!files.length) return Promise.resolve();
     showDesk();
     deskTab = "queue";
     return Promise.all(files.map(function(file){
-      var rel = file.webkitRelativePath || file.name;
+      var rel = file.deskPath || file.webkitRelativePath || file.name;
       var folder = rel.split("/")[0] || file.name;
       return readFileText(file).then(function(text){
         return {
@@ -13365,6 +13986,7 @@ FILE: static/index.html
       });
     })).then(function(rows){
       sessionFiles = sessionFiles.concat(rows);
+      rows.forEach(saveSessionFile);
       renderDesk();
       var books = rows.filter(function(row){ return row.kind === "Bordereau" && row.text; });
       return books.reduce(function(chain, row){
@@ -13387,13 +14009,13 @@ FILE: static/index.html
     bindDesk.done = true;
     document.getElementById("deskHome").addEventListener("click", function(){ resetHome(); });
     document.getElementById("deskUpload").addEventListener("click", function(){
-      document.getElementById("folderPick").click();
+      chooseFolder();
     });
     desk.addEventListener("click", function(e){
       var rail = e.target.closest("[data-rail]");
       if(rail){
         if(rail.getAttribute("data-rail") === "upload"){
-          document.getElementById("folderPick").click();
+          chooseFolder();
           return;
         }
         deskTab = rail.getAttribute("data-rail") === "files" ? "files" : "queue";
@@ -13422,6 +14044,7 @@ FILE: static/index.html
         if(action === "drop"){
           var id = act.getAttribute("data-file");
           sessionFiles = sessionFiles.filter(function(file){ return file.id !== id; });
+          forgetSessionFile(id);
           deskKebab = "";
           renderDesk();
           return;
@@ -13457,6 +14080,7 @@ FILE: static/index.html
     document.getElementById("deskClear").addEventListener("click", function(e){
       e.stopPropagation();
       sessionFiles = [];
+      forgetAllSessionFiles();
       deskKebab = "";
       deskMenuOpen = false;
       document.getElementById("deskUserMenu").hidden = true;
@@ -13503,14 +14127,14 @@ FILE: static/index.html
     if(hits.length){
       return openEventsDesk({tab:"files", query:text}).then(function(){
         return {
-          status: "Queried " + hits.length + " file" + (hits.length === 1 ? "" : "s") + " held in this session.",
+          status: "Queried " + hits.length + " file" + (hits.length === 1 ? "" : "s") + " saved in this browser.",
           answer: hits.slice(0, 8).map(function(file){
             return file.name + "\n" + hitSnippet(file, text);
           }).join("\n\n"),
           sources: hits.slice(0, 6).map(function(file){
             return {publication_title: file.name, source_origin: file.path};
           }),
-          modes: {note:"Matches come from folders uploaded in this tab. Refresh clears them."}
+          modes: {note:"Matches come from folders saved in this browser."}
         };
       });
     }
@@ -13570,10 +14194,71 @@ FILE: static/index.html
     document.getElementById("result").setAttribute("aria-hidden","false");
     searching = false;
   }
+  var aiMode = false;
+  try{ aiMode = sessionStorage.getItem("catmod-ai-mode") === "1"; }catch(err){}
+  function paintAiToggle(){
+    var btn = document.getElementById("aiModeToggle");
+    if(!btn) return;
+    var label = aiMode ? "AI Mode (Gemini RAG)" : "Desk Search";
+    btn.classList.toggle("is-on", aiMode);
+    btn.setAttribute("aria-pressed", aiMode ? "true" : "false");
+    btn.title = label;
+    var badge = btn.querySelector(".ai-badge");
+    if(badge) badge.textContent = label;
+    q.placeholder = aiMode
+      ? "Ask about the portfolio in plain English"
+      : "Nairobi, Nzoia, an address, or audit an event";
+  }
+  function sessionCsvText(){
+    return sessionFiles.filter(function(file){
+      return file.text && /\.csv$/i.test(file.name || "");
+    }).slice(0, 3).map(function(file){
+      return file.text;
+    }).join("\n");
+  }
+  function runRag(text){
+    text = String(text || "").trim();
+    if(!text){ q.focus(); return; }
+    if(searching) return;
+    begin(text);
+    var csv = sessionCsvText();
+    if(csv.length > 120000) csv = csv.slice(0, 120000);
+    postJSON("/api/v1/nlp/query", {
+      query: text,
+      event_id: lastEventId || null,
+      csv_text: csv || null
+    }).then(function(data){
+      var ids = data.matched_asset_ids || [];
+      ragAssetIds = ids.slice();
+      if(data.event_id) lastEventId = data.event_id;
+      var answer = data.answer || "";
+      if(ids.length && answer.indexOf(ids[0]) < 0){
+        answer += "\n\nMatched assets: " + ids.join(", ");
+      }
+      present({
+        status: (data.source === "local-keyword" ? "Local dataset match" : "Gemini RAG") + " · " + (data.dataset_name || "portfolio"),
+        answer: answer,
+        eventId: data.event_id || lastEventId,
+        sources: [{publication_title: data.dataset_name || "Portfolio", source_origin: "gemini-rag"}],
+        modes: {
+          default_tab: data.tab || "answer",
+          note: "Natural language over the portfolio. Treaty payouts stay on the decimal waterfall."
+        }
+      });
+      if(ids.length) showCatmodMap();
+    }).catch(function(err){
+      window.clearInterval(statusTimer);
+      settlePips([]);
+      resultStatus.textContent = "The dataset question failed.";
+      resultAnswer.textContent = (err && err.message) || "Try again in a moment.";
+      applyModes({default_tab:"answer"});
+    }).finally(finish);
+  }
   function runSearch(text, modeled){
     text = String(text || "").trim();
     if(!text){ q.focus(); return; }
     if(searching) return;
+    ragAssetIds = [];
     begin(text);
     dispatch(text, !!modeled).then(present).catch(function(err){
       window.clearInterval(statusTimer);
@@ -13589,11 +14274,15 @@ FILE: static/index.html
 
   document.getElementById("askForm").addEventListener("submit", function(e){
     e.preventDefault();
-    runSearch(q.value, false);
+    if(aiMode) runRag(q.value);
+    else runSearch(q.value, false);
   });
-  document.getElementById("aiBtn").addEventListener("click", function(){
-    runSearch(q.value || "Run the Nairobi modeled portfolio", true);
+  document.getElementById("aiModeToggle").addEventListener("click", function(){
+    aiMode = !aiMode;
+    try{ sessionStorage.setItem("catmod-ai-mode", aiMode ? "1" : "0"); }catch(err){}
+    paintAiToggle();
   });
+  paintAiToggle();
   document.getElementById("lensBtn").addEventListener("click", function(){
     document.getElementById("lensFile").click();
   });
@@ -13657,7 +14346,7 @@ FILE: static/index.html
       e.preventDefault();
       closeMenus();
       showDesk();
-      document.getElementById("folderPick").click();
+      chooseFolder();
       return;
     }
     var pwa = e.target.closest("[data-pwa]");
@@ -13711,6 +14400,7 @@ FILE: static/index.html
   }
   renderShortcuts();
   bindDesk();
+  loadStoredFiles();
   plusBtn.addEventListener("click", function(e){
     e.stopPropagation();
     var open = plusMenu.classList.toggle("open");
@@ -13726,7 +14416,7 @@ FILE: static/index.html
     if(upload){
       closeMenus();
       showDesk();
-      document.getElementById("folderPick").click();
+      chooseFolder();
       return;
     }
     var pwa = e.target.closest("[data-pwa]");
@@ -13815,6 +14505,107 @@ FILE: static/index.html
 </html>
 
 ========================================================================================
+FILE: static/landing.html
+========================================================================================
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Alpha</title>
+<meta name="theme-color" content="#04141c">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500;6..96,600&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;height:100%;background:#04141c;overflow:hidden;}
+  .bg{
+    position:fixed;inset:0;width:100%;height:100%;
+    object-fit:cover;object-position:center;
+    filter:none;pointer-events:none;
+  }
+  .titles{
+    position:fixed;inset:0;z-index:2;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;color:#f4efe6;
+    padding:0 6vw 14vh;
+  }
+  .titles::before{
+    content:"";
+    position:absolute;
+    width:min(980px, 86vw);
+    height:46vh;
+    border-radius:50%;
+    background:radial-gradient(ellipse at center, rgba(6,12,20,.42) 0%, rgba(6,12,20,0) 70%);
+    z-index:-1;
+    pointer-events:none;
+  }
+  .hero,.sub{
+    margin:0;
+    font-family:"Bodoni Moda","Didot","Bodoni MT","Times New Roman",serif;
+    font-optical-sizing:auto;
+    font-weight:500;
+    font-variation-settings:"opsz" 96;
+    text-shadow:0 2px 18px rgba(4,10,18,.4);
+  }
+  .hero{
+    font-size:clamp(76px, 15vw, 188px);
+    line-height:.86;
+    opacity:0;
+    animation:hero-in 2.8s cubic-bezier(.16,.84,.24,1) .45s forwards;
+  }
+  .sub{
+    margin-top:.28em;
+    font-size:clamp(22px, 3.2vw, 48px);
+    font-weight:400;
+    line-height:1.15;
+    opacity:0;
+    animation:sub-in 2.4s cubic-bezier(.16,.84,.24,1) 1.85s forwards;
+  }
+  @keyframes hero-in{
+    0%{opacity:0;letter-spacing:.48em;transform:translateY(16px);}
+    100%{opacity:1;letter-spacing:.01em;transform:none;}
+  }
+  @keyframes sub-in{
+    0%{opacity:0;letter-spacing:.55em;transform:translateY(12px);}
+    100%{opacity:1;letter-spacing:.04em;transform:none;}
+  }
+  .titles.is-leave{animation:titles-out 1.15s cubic-bezier(.4,0,.2,1) forwards;}
+  @keyframes titles-out{
+    to{opacity:0;transform:translateY(-10px);}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .hero,.sub{opacity:1;letter-spacing:.04em;animation:none;transform:none;}
+    .sub{letter-spacing:.04em;}
+    .titles.is-leave{animation:none;opacity:0;}
+  }
+</style>
+</head>
+<body>
+<img class="bg" src="/map/h2o-assets/desk-bg.jpg" alt="">
+<div class="titles" id="titles">
+  <h1 class="hero">Alpha</h1>
+  <p class="sub">Cat Model</p>
+</div>
+<script>
+(function(){
+  var titles = document.getElementById("titles");
+  var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var gone = false;
+  function enter(){
+    if(gone) return;
+    gone = true;
+    titles.classList.add("is-leave");
+    setTimeout(function(){ location.assign("/map/"); }, reduce ? 0 : 1000);
+  }
+  titles.addEventListener("click", enter);
+  setTimeout(enter, reduce ? 1600 : 6200);
+})();
+</script>
+</body>
+</html>
+
+========================================================================================
 FILE: static/map.html
 ========================================================================================
 <!DOCTYPE html>
@@ -13897,6 +14688,9 @@ FILE: static/map.html
   <script>
     const params = new URLSearchParams(window.location.search);
     const eventId = params.get("event_id");
+    const focusIds = new Set(
+      (params.get("assets") || "").split(",").map((item) => item.trim()).filter(Boolean)
+    );
     const claimsUrl = eventId
       ? `/api/v1/leaflet-export?event_id=${encodeURIComponent(eventId)}`
       : "/api/v1/leaflet-export";
@@ -14063,12 +14857,17 @@ FILE: static/map.html
 
     fetch(claimsUrl).then((r) => r.ok ? r.json() : null).then((geojson) => {
       if (!geojson) return;
+      const matchedLatLngs = [];
       const layer = L.geoJSON(geojson, {
         pointToLayer: (feature, latlng) => {
-          const color = feature.properties["marker-color"] || "#3388ff";
+          const props = feature.properties || {};
+          const id = String(props.asset_id || props.id || "");
+          const hit = !focusIds.size || focusIds.has(id);
+          if (hit && focusIds.size) matchedLatLngs.push(latlng);
+          const color = hit ? (props["marker-color"] || "#1a73e8") : "#9aa0a6";
           return L.circleMarker(latlng, {
-            radius: (feature.properties.style && feature.properties.style.radius) || 8,
-            color, fillColor: color, fillOpacity: 0.85, weight: 1
+            radius: hit && focusIds.size ? 12 : ((props.style && props.style.radius) || 7),
+            color, fillColor: color, fillOpacity: hit ? 0.95 : 0.18, weight: hit && focusIds.size ? 3 : 1
           });
         },
         style: (feature) => feature.properties.style || {},
@@ -14086,7 +14885,9 @@ FILE: static/map.html
           );
         }
       }).addTo(claimsLayer);
-      if (layer.getBounds && layer.getBounds().isValid()) {
+      if (matchedLatLngs.length) {
+        map.fitBounds(L.latLngBounds(matchedLatLngs).pad(0.4));
+      } else if (layer.getBounds && layer.getBounds().isValid()) {
         map.fitBounds(layer.getBounds().pad(0.2));
       }
       setTimeout(() => map.invalidateSize(), 150);
@@ -15120,6 +15921,172 @@ def test_batch_under_500ms():
     elapsed_ms = (time.perf_counter() - t0) * 1000
     assert len(results) == 200
     assert elapsed_ms < 500, elapsed_ms
+
+========================================================================================
+FILE: tests/test_jobs.py
+========================================================================================
+from fastapi.testclient import TestClient
+
+from catmod.jobs import JobStore
+
+
+def _job(event_id: str, gross: float = 10.0) -> dict:
+    return {
+        "event_id": event_id,
+        "client_index_id": "desk",
+        "total_gross_claim": gross,
+        "reinsurer_payout": 1.0,
+        "flagged_count": 0,
+        "claims": [],
+        "geojson": {"type": "FeatureCollection", "features": []},
+        "audit": {"event_id": event_id, "entries": []},
+    }
+
+
+def test_jobs_reload_from_disk(tmp_path):
+    first = JobStore(tmp_path, keep=4)
+    first.remember(_job("EVT-ONE", 12))
+    first.remember(_job("EVT-TWO", 20))
+
+    second = JobStore(tmp_path, keep=4)
+    assert [job["event_id"] for job in second.values()] == ["EVT-ONE", "EVT-TWO"]
+    assert second.get("EVT-TWO")["total_gross_claim"] == 20
+    assert second.latest()["event_id"] == "EVT-TWO"
+
+
+def test_jobs_keep_drops_oldest_file(tmp_path):
+    store = JobStore(tmp_path, keep=1)
+    store.remember(_job("EVT-OLD"))
+    store.remember(_job("EVT-NEW"))
+    assert list(tmp_path.glob("*.json")) == [tmp_path / "EVT-NEW.json"]
+
+    reloaded = JobStore(tmp_path, keep=1)
+    assert reloaded.get("EVT-OLD") is None
+    assert reloaded.get("EVT-NEW")["event_id"] == "EVT-NEW"
+
+
+def test_events_endpoint_reads_saved_jobs(tmp_path, monkeypatch):
+    import catmod.api as api
+    from catmod.config import get_settings
+
+    monkeypatch.setenv("CATMOD_JOBS_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    previous = api._STORE
+    api._STORE = None
+    try:
+        api.job_store().remember(_job("EVT-KEEP", 42))
+        api._STORE = None
+        client = TestClient(api.app)
+        body = client.get("/api/v1/events").json()
+        assert body["events"][0]["event_id"] == "EVT-KEEP"
+        assert body["events"][0]["total_gross_claim"] == 42
+        audit = client.get("/api/v1/audit/EVT-KEEP")
+        assert audit.status_code == 200
+        assert audit.json()["event_id"] == "EVT-KEEP"
+    finally:
+        api._STORE = previous
+        get_settings.cache_clear()
+
+========================================================================================
+FILE: tests/test_nlp_rag.py
+========================================================================================
+from fastapi.testclient import TestClient
+
+from catmod.config import Settings
+from catmod.nlp.gemini_rag import build_dataset_context, parse_csv_text, query_dataset_rag
+
+
+NAIROBI = """asset_id,policy_id,latitude,longitude,elevation,occupancy,tiv,ground_up_loss,deductible,policy_limit,coinsurance,loss_date
+N-001,KN-100,-1.2921,36.8219,1660,informal iron sheet,2500000,0,50000,2500000,1.0,2026-04-12
+N-002,KN-101,-1.2864,36.8290,1685,permanent masonry,8000000,0,100000,8000000,1.0,2026-04-12
+N-003,KN-102,-1.2755,36.8148,1705,concrete rcc,15000000,0,250000,15000000,1.0,2026-04-12
+N-004,KN-103,-1.3012,36.7890,1680,mabati,900000,0,20000,900000,1.0,2026-04-12
+"""
+
+
+def _settings() -> Settings:
+    return Settings.model_construct(gemini_api_key="", gemini_model="gemini-2.0-flash")
+
+
+def _context() -> dict:
+    rows = parse_csv_text(NAIROBI)
+    return build_dataset_context(rows, name="sample_nairobi_bordereau.csv")
+
+
+def test_keyword_fallback_finds_informal_iron_sheet():
+    result = query_dataset_rag(
+        "Which properties are informal iron sheet in Nairobi?",
+        _context(),
+        _settings(),
+    )
+    assert result["matched_asset_ids"] == ["N-001"]
+    assert "N-001" in result["answer"]
+    assert result["source"] == "local-keyword"
+    assert 0.0 <= result["confidence"] <= 1.0
+    assert "allocated_reinsurer_payout" not in result["summary_stats"]
+    assert result["summary_stats"]["total_tiv"] == 2_500_000
+
+
+def test_blank_gemini_key_does_not_call_network(monkeypatch):
+    def explode(*_args, **_kwargs):
+        raise AssertionError("Gemini should not be called without a key")
+
+    monkeypatch.setattr("catmod.nlp.gemini_rag.httpx.Client", explode)
+    result = query_dataset_rag("Summarize the total TIV", _context(), _settings())
+    assert result["source"] == "local-keyword"
+    assert result["summary_stats"]["total_tiv"] == 26_400_000
+    assert result["answer"]
+
+
+def test_gemini_failure_falls_back(monkeypatch):
+    class Broken:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def post(self, *_args, **_kwargs):
+            raise RuntimeError("upstream down")
+
+    monkeypatch.setattr("catmod.nlp.gemini_rag.httpx.Client", lambda timeout=45.0: Broken())
+    settings = Settings.model_construct(gemini_api_key="present", gemini_model="gemini-2.0-flash")
+    result = query_dataset_rag(
+        "Which properties are informal iron sheet in Nairobi?",
+        _context(),
+        settings,
+    )
+    assert result["matched_asset_ids"] == ["N-001"]
+    assert result["source"] == "local-keyword"
+
+
+def test_nlp_endpoint_reads_named_dataset(tmp_path, monkeypatch):
+    import catmod.api as api
+
+    settings = Settings.model_construct(
+        gemini_api_key="",
+        gemini_model="gemini-2.0-flash",
+        jobs_dir=str(tmp_path / "jobs"),
+        jobs_keep=4,
+        audit_dir=str(tmp_path / "audit"),
+    )
+    monkeypatch.setattr(api, "get_settings", lambda: settings)
+    api._STORE = None
+    client = TestClient(api.app)
+    response = client.post(
+        "/api/v1/nlp/query",
+        json={
+            "query": "Which properties are informal iron sheet in Nairobi?",
+            "dataset_name": "sample_nairobi_bordereau",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert "N-001" in body["matched_asset_ids"]
+    assert body["tab"] == "answer"
+    assert "reinsurer_payout" not in body
+    audit = (tmp_path / "audit" / "NLP-SESSION.jsonl").read_text(encoding="utf-8")
+    assert "gemini_nlp_rag_queried" in audit
 
 ========================================================================================
 FILE: tests/test_pipeline.py
