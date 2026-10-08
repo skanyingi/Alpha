@@ -12619,15 +12619,15 @@ FILE: static/index.html
   }
   #eventsDesk .dk-main{flex:1;min-width:0;display:flex;flex-direction:column;background:#f5f6fa;}
   #eventsDesk .dk-top{
-    height:64px;flex:0 0 64px;background:#fff;display:flex;align-items:center;justify-content:space-between;
-    padding:0 22px 0 20px;border-bottom:1px solid #f2f3f6;
+    height:64px;flex:0 0 64px;background:#fff;display:flex;align-items:center;gap:36px;
+    padding:0 22px 0 20px;border-bottom:1px solid #e6e8ee;
   }
   #eventsDesk .dk-search{display:flex;align-items:center;gap:8px;color:#c5c8d0;width:min(280px,40%);}
   #eventsDesk .dk-search input{
     border:0;outline:none;background:transparent;width:100%;font:400 13px Poppins,sans-serif;color:#191c23;
   }
   #eventsDesk .dk-search input::placeholder{color:#c5c8d0;}
-  #eventsDesk .dk-top-right{display:flex;align-items:center;gap:16px;}
+  #eventsDesk .dk-top-right{display:flex;align-items:center;gap:16px;margin-left:auto;}
   #eventsDesk .dk-bell{
     width:32px;height:32px;border:0;background:transparent;color:#9aa1ad;position:relative;cursor:pointer;display:grid;place-items:center;
   }
@@ -12652,19 +12652,18 @@ FILE: static/index.html
     font:500 12px Poppins,sans-serif;color:#2a2e36;cursor:pointer;
   }
   #eventsDesk .who-menu button:hover{background:#f5f6fa;}
-  #eventsDesk .dk-body{flex:1;min-height:0;overflow:auto;padding:26px 22px 18px;}
-  #eventsDesk .dk-title-row{display:flex;align-items:center;margin:0 6px 14px;}
-  #eventsDesk .dk-title-row h1{margin:0;font:700 28px/1 Poppins,sans-serif;letter-spacing:-.4px;color:#191c23;}
+  #eventsDesk .dk-body{flex:1;min-height:0;overflow:auto;padding:16px 22px 18px;}
   #eventsDesk .dk-addbtn{
     height:34px;padding:0 14px;border:0;border-radius:6px;background:#0dd573;color:#fff;
     font:600 13px Poppins,sans-serif;cursor:pointer;box-shadow:0 8px 16px rgba(13,213,115,.32);white-space:nowrap;
   }
-  #eventsDesk .dk-tabs{display:flex;gap:28px;margin:0 6px;border-bottom:1px solid #e6e8ee;}
+  #eventsDesk .dk-tabs{display:flex;align-items:stretch;align-self:stretch;gap:28px;height:100%;margin:0;}
   #eventsDesk .dk-tabs button{
-    border:0;background:transparent;padding:8px 0 11px;font:500 13px Poppins,sans-serif;color:#a0a6b0;cursor:pointer;position:relative;
+    border:0;background:transparent;padding:0;height:100%;
+    font:500 14px Poppins,sans-serif;color:#a0a6b0;cursor:pointer;position:relative;
   }
   #eventsDesk .dk-tabs button.on{color:#1a1d24;}
-  #eventsDesk .dk-tabs button.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:#0dd573;}
+  #eventsDesk .dk-tabs button.on::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:#0dd573;}
   #eventsDesk .dk-cols,#eventsDesk .dk-row{
     display:grid;grid-template-columns:32px minmax(180px,1.7fr) 72px 1.1fr 1fr 1fr 36px;
     align-items:center;column-gap:8px;
@@ -12725,7 +12724,6 @@ FILE: static/index.html
     .quote-card{padding:18px 16px 14px;border-radius:22px;}
     .quote-card h2{font-size:16px;}
     #eventsDesk.dk{padding:10px;}
-    #eventsDesk .dk-title-row h1{font-size:22px;}
     #eventsDesk .dk-cols,#eventsDesk .dk-row{grid-template-columns:28px minmax(120px,1.4fr) 48px .8fr .8fr 32px;}
     #eventsDesk .dk-cols span:nth-child(6),#eventsDesk .dk-row .dk-when{display:none;}
     .pwa-card{width:min(420px, calc(100vw - 24px));}
@@ -12918,6 +12916,10 @@ FILE: static/index.html
                   <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg>
                   <input id="deskSearch" type="search" placeholder="Search" aria-label="Search this session" autocomplete="off">
                 </label>
+                <div class="dk-tabs" role="tablist">
+                  <button type="button" data-tab="queue" class="on" role="tab">Event queue</button>
+                  <button type="button" data-tab="files" role="tab">Files</button>
+                </div>
                 <div class="dk-top-right">
                   <button type="button" class="dk-addbtn" id="deskUpload">+ Upload folder</button>
                   <button type="button" class="dk-bell" id="deskBell" aria-label="Session alerts">
@@ -12934,13 +12936,6 @@ FILE: static/index.html
                 </div>
               </header>
               <div class="dk-body">
-                <div class="dk-title-row">
-                  <h1>Dashboard</h1>
-                </div>
-                <div class="dk-tabs" role="tablist">
-                  <button type="button" data-tab="queue" class="on" role="tab">Event queue</button>
-                  <button type="button" data-tab="files" role="tab">Files</button>
-                </div>
                 <div class="dk-cols" id="deskCols" aria-hidden="true">
                   <span></span>
                   <span>Event</span>
