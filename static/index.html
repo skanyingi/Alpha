@@ -844,8 +844,12 @@
   .studio-src span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .studio-src small{color:#80868b;font-size:11px;flex:none;}
   .studio-main{
-    display:flex;flex-direction:column;padding:28px 32px 18px;
-    min-height:0;overflow:auto;
+    display:flex;flex-direction:column;padding:0;
+    min-height:0;overflow:hidden;
+  }
+  .studio-scroll{
+    flex:1 1 auto;min-height:0;overflow:auto;
+    padding:28px 32px 8px;
   }
   .studio-mark{
     width:42px;height:42px;border-radius:12px;display:grid;place-items:center;
@@ -863,8 +867,8 @@
     margin-top:16px;font:400 15px/1.5 Inter,sans-serif;color:#202124;white-space:pre-wrap;
   }
   .studio-dock{
-    position:sticky;bottom:0;z-index:4;
-    margin-top:auto;padding-top:10px;
+    flex:0 0 auto;
+    margin:0;padding:8px 32px 0;
     background:#fff;
   }
   .studio-ask{
@@ -878,7 +882,7 @@
     font:400 15px Inter,sans-serif;color:#202124;
   }
   .studio-ask em{font-style:normal;color:#80868b;font-size:12px;white-space:nowrap;}
-  .studio-note{margin:10px 0 0;text-align:center;color:#80868b;font:400 12px Inter,sans-serif;}
+  .studio-note{margin:6px 0 8px;text-align:center;color:#80868b;font:400 12px Inter,sans-serif;}
   .studio-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
   .studio-out{
     all:unset;cursor:pointer;box-sizing:border-box;
@@ -934,6 +938,16 @@
   .sheet-wrap th,.sheet-wrap td{border-bottom:1px solid #e6e8eb;padding:8px 10px;text-align:left;white-space:nowrap;}
   .sheet-wrap th{background:#e6f4ea;color:#137333;font-weight:600;}
   .studio-chart{width:100%;height:180px;display:block;margin:8px 0 18px;background:#f7f8fa;border-radius:16px;}
+  .studio-radar{width:100%;height:auto;display:block;margin:0 0 18px;background:#f3efe6;border-radius:16px;}
+  .map-list{display:flex;flex-direction:column;gap:8px;}
+  .map-list button{
+    all:unset;cursor:pointer;box-sizing:border-box;width:100%;
+    display:flex;flex-direction:column;gap:2px;
+    background:#f7f8fa;border-radius:14px;padding:14px 16px;
+    font:500 15px Inter,sans-serif;color:#202124;
+  }
+  .map-list button:hover{background:#eef1f6;}
+  .map-list small{display:block;color:#80868b;font:400 12px Inter,sans-serif;}
   .studio-chart-label{margin:0 0 4px;font:600 13px Inter,sans-serif;}
   #mapPage{
     position:fixed;inset:0;z-index:30;display:none;background:#0b1c2c;
@@ -951,7 +965,8 @@
   .map-diorama{right:108px;}
   @media (max-width:980px){
     #studioPage{grid-template-columns:1fr;overflow:auto;}
-    .studio-card{overflow:visible;}
+    .studio-side{overflow:visible;}
+    .studio-main{overflow:hidden;}
   }
   #agentsPage{
     position:fixed;inset:0;z-index:15;
@@ -1431,6 +1446,7 @@
     <div class="studio-sources" id="studioSources"></div>
   </aside>
   <section class="studio-card studio-main">
+    <div class="studio-scroll">
     <div class="studio-mark" aria-hidden="true">
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#1a73e8" stroke-width="1.7" stroke-linejoin="round"><path d="M4 18V8h3v10H4zM10.5 18V5h3v13h-3zM17 18v-6h3v6h-3z" stroke="#2fb964"/></svg>
     </div>
@@ -1470,6 +1486,7 @@
       </article>
     </div>
     <p class="studio-reply" id="studioReply"></p>
+    </div>
     <div class="studio-dock">
       <form class="studio-ask" id="studioAsk">
         <input id="studioAskQ" type="text" placeholder="Ask a question or create something" autocomplete="off">
@@ -1484,6 +1501,7 @@
   <aside class="studio-card studio-side">
     <div class="studio-head"><span>Studio</span></div>
     <div class="studio-grid" id="studioGrid">
+      <button type="button" class="studio-out" data-out="maps"><svg viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="1.7"><path d="M9 4 3.5 6.2v13.6L9 17.5l6 2.3 5.5-2.2V4.2L15 6.4 9 4z"/><path d="M9 4v13.5M15 6.4v13.4"/></svg><span><b>Maps</b><small>2D plots and 3D city</small></span></button>
       <button type="button" class="studio-out" data-out="reports"><svg viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="1.7"><path d="M7 3.5h7l5 5V20a1.5 1.5 0 0 1-1.5 1.5h-10.5A1.5 1.5 0 0 1 5.5 20V5A1.5 1.5 0 0 1 7 3.5z"/><path d="M14 3.5V9h5M8 13h8M8 17h5"/></svg><span><b>Reports</b><small>Google Docs</small></span></button>
       <button type="button" class="studio-out" data-out="slides"><svg viewBox="0 0 24 24" fill="none" stroke="#f9ab00" stroke-width="1.7"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/></svg><span><b>Slide Deck</b><small>Google Slides</small></span></button>
       <button type="button" class="studio-out" data-out="graphs"><svg viewBox="0 0 24 24" fill="none" stroke="#e8453c" stroke-width="1.7"><path d="M4 19h16M7 16V10M12 16V6M17 16v-4"/></svg><span><b>Infographics</b><small>Graphs</small></span></button>
@@ -1916,7 +1934,7 @@
     if(ragAssetIds.length) src += "&assets=" + encodeURIComponent(ragAssetIds.join(","));
     frame.src = src;
   }
-  function openNairobiMap(){
+  function showMapShell(){
     document.body.classList.remove("has-desk","has-result","is-thinking","has-studio","has-agents","has-workspace");
     var studio = document.getElementById("studioPage");
     if(studio) studio.hidden = true;
@@ -1924,8 +1942,17 @@
     if(agentsPage) agentsPage.hidden = true;
     var workspacePage = document.getElementById("workspacePage");
     if(workspacePage) workspacePage.hidden = true;
+    var drawer = document.getElementById("studioDrawer");
+    if(drawer){ drawer.classList.remove("is-open"); drawer.setAttribute("aria-hidden", "true"); }
     document.body.classList.add("has-map");
     document.getElementById("mapPage").hidden = false;
+  }
+  function openDioramaMap(){
+    showMapShell();
+    document.getElementById("deskMap").src = "diorama.html?t=" + Date.now();
+  }
+  function openNairobiMap(){
+    showMapShell();
     function load(id){
       var src = "map.html?region=nairobi&t=" + Date.now();
       if(id) src += "&event_id=" + encodeURIComponent(id);
@@ -3034,6 +3061,67 @@
       '<text x="' + (padL + plotW / 2) + '" y="' + (h - 3) + '" fill="#5f6368" font-size="11" text-anchor="middle">' + esc(title) + '</text>';
     return '<p class="studio-chart-label">' + esc(title) + '</p><svg class="studio-chart" viewBox="0 0 ' + w + ' ' + h + '" role="img">' + axes + '</svg>';
   }
+  function studioRadar(radar){
+    var spokes = (radar && radar.spokes) || [];
+    var series = (radar && radar.series) || [];
+    if(!spokes.length || !series.length) return "";
+    var w = 640, h = 780, cx = 320, cy = 400, radius = 188;
+    var n = spokes.length;
+    function at(index, value){
+      var angle = (-Math.PI / 2) + index * 2 * Math.PI / n;
+      var reach = radius * Math.max(0, Math.min(100, Number(value) || 0)) / 100;
+      return {x: cx + Math.cos(angle) * reach, y: cy + Math.sin(angle) * reach, angle: angle};
+    }
+    function smooth(points){
+      var d = "";
+      points.forEach(function(p1, i){
+        var p0 = points[(i - 1 + points.length) % points.length];
+        var p2 = points[(i + 1) % points.length];
+        var p3 = points[(i + 2) % points.length];
+        var c1x = p1.x + (p2.x - p0.x) / 6;
+        var c1y = p1.y + (p2.y - p0.y) / 6;
+        var c2x = p2.x - (p3.x - p1.x) / 6;
+        var c2y = p2.y - (p3.y - p1.y) / 6;
+        d += (i ? "" : "M" + p1.x.toFixed(1) + " " + p1.y.toFixed(1));
+        d += "C" + c1x.toFixed(1) + " " + c1y.toFixed(1) + " " + c2x.toFixed(1) + " " + c2y.toFixed(1) + " " + p2.x.toFixed(1) + " " + p2.y.toFixed(1);
+      });
+      return d + "Z";
+    }
+    var rings = [25, 50, 75, 100].map(function(mark){
+      var r = radius * mark / 100;
+      return '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none" stroke="rgba(60,50,40,.28)"></circle>';
+    }).join("");
+    var axes = spokes.map(function(_label, i){
+      var end = at(i, 100);
+      return '<line x1="' + cx + '" y1="' + cy + '" x2="' + end.x.toFixed(1) + '" y2="' + end.y.toFixed(1) + '" stroke="rgba(60,50,40,.28)"></line>';
+    }).join("");
+    var blobs = series.map(function(row){
+      var points = (row.values || []).map(function(value, i){ return at(i, value); });
+      var dots = points.map(function(point, i){
+        var score = Math.round(Number((row.values || [])[i]) || 0);
+        return '<circle cx="' + point.x.toFixed(1) + '" cy="' + point.y.toFixed(1) + '" r="9" fill="#fff" stroke="' + row.color + '" stroke-width="1.4"></circle>' +
+          '<text x="' + point.x.toFixed(1) + '" y="' + (point.y + 3).toFixed(1) + '" text-anchor="middle" font-size="8" fill="#202124">' + score + '</text>';
+      }).join("");
+      return '<path d="' + smooth(points) + '" fill="' + row.color + '" fill-opacity="0.38" stroke="' + row.color + '" stroke-width="1.6"></path>' + dots;
+    }).join("");
+    var labels = spokes.map(function(label, i){
+      var end = at(i, 100);
+      var lx = cx + Math.cos(end.angle) * (radius + 36);
+      var ly = cy + Math.sin(end.angle) * (radius + 36);
+      var anchor = Math.cos(end.angle) > 0.35 ? "start" : (Math.cos(end.angle) < -0.35 ? "end" : "middle");
+      return '<text x="' + lx.toFixed(1) + '" y="' + ly.toFixed(1) + '" text-anchor="' + anchor + '" font-size="11" fill="#3c3228">' + esc(label) + '</text>';
+    }).join("");
+    var legend = series.map(function(row, i){
+      var y = 118 + i * 18;
+      return '<circle cx="500" cy="' + y + '" r="5" fill="' + row.color + '"></circle><text x="512" y="' + (y + 4) + '" font-size="11" fill="#3c3228">' + esc(row.label) + '</text>';
+    }).join("");
+    return '<svg class="studio-radar" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="Housing class radar">' +
+      '<text x="320" y="42" text-anchor="middle" font-size="22" font-weight="700" fill="#1c1915">WHERE THE LOSS SITS</text>' +
+      '<text x="320" y="66" text-anchor="middle" font-size="11" fill="#5c5348">The same eight questions, scored for each housing class on this book.</text>' +
+      rings + axes + blobs + labels + legend +
+      '<text x="28" y="758" font-size="10" fill="#6b6258">Uploaded book. Flood spokes use the proxy depth-damage curves.</text>' +
+      '</svg>';
+  }
   function openStudioPreview(kind){
     var drawer = document.getElementById("studioDrawer");
     var body = document.getElementById("studioDrawerBody");
@@ -3043,6 +3131,7 @@
       reports: ["Google Docs", "Reports"],
       slides: ["Google Slides", "Slide deck"],
       graphs: ["Infographics", "Graphs"],
+      maps: ["Maps", "Maps"],
       sheets: ["Google Sheets", "Data table"],
       tasks: ["Google Tasks", "Tasks"],
       gmail: ["Google Gmail", "Email"]
@@ -3050,11 +3139,18 @@
     var pair = names[kind] || ["Studio", "Preview"];
     kicker.textContent = pair[0];
     title.textContent = pair[1];
-    body.innerHTML = "<p>Opening the Apps Script preview…</p>";
     drawer.setAttribute("aria-hidden", "false");
     drawer.classList.remove("is-open");
     void drawer.offsetWidth;
     drawer.classList.add("is-open");
+    if(kind === "maps"){
+      body.innerHTML = '<div class="map-list">' +
+        '<button type="button" data-open-map="2d"><b>2D Maps</b><small>Full-screen plots of the uploaded book</small></button>' +
+        '<button type="button" data-open-map="3d"><b>3D Maps</b><small>AR city model</small></button>' +
+        '</div>';
+      return;
+    }
+    body.innerHTML = "<p>Opening the Apps Script preview…</p>";
     getJSON("/api/v1/studio/preview").then(function(pack){
       if(!pack || !pack.ready){
         body.innerHTML = "<p>No modeled book is on the desk yet. Upload a bordereau and the Apps Script preview will fill from that job.</p>";
@@ -3090,7 +3186,7 @@
         var charts = pack.charts || {};
         var ep = charts.ep || {};
         var occ = charts.occupancy || {};
-        body.innerHTML = studioChart("Exceedance curve", ep.labels, ep.points, "#1a73e8", "Loss (" + bookCurrency + ")") + studioChart("Occupancy mix", occ.labels, occ.points, "#e8453c", "Locations");
+        body.innerHTML = studioRadar(charts.radar) + studioChart("Exceedance curve", ep.labels, ep.points, "#1a73e8", "Loss (" + bookCurrency + ")") + studioChart("Occupancy mix", occ.labels, occ.points, "#e8453c", "Locations");
       }
     }).catch(function(err){
       body.innerHTML = "<p>" + esc((err && err.message) || "The preview did not load.") + "</p>";
@@ -3123,6 +3219,12 @@
       var btn = e.target.closest("[data-out]");
       if(!btn) return;
       openStudioPreview(btn.getAttribute("data-out"));
+    });
+    document.getElementById("studioDrawerBody").addEventListener("click", function(e){
+      var choice = e.target.closest("[data-open-map]");
+      if(!choice) return;
+      if(choice.getAttribute("data-open-map") === "3d") openDioramaMap();
+      else openNairobiMap();
     });
     document.getElementById("studioDrawerClose").addEventListener("click", function(){
       var drawer = document.getElementById("studioDrawer");
@@ -3612,7 +3714,7 @@
     runSearch(item.getAttribute("data-query"), false);
   });
   document.getElementById("mapDiorama").addEventListener("click", function(){
-    window.open("/map/diorama.html", "nairobi-diorama");
+    openDioramaMap();
   });
   document.getElementById("mapHome").addEventListener("click", function(){
     document.getElementById("homeLink").click();

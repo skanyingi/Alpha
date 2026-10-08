@@ -62,6 +62,7 @@ from catmod.schemas import (
 )
 from catmod.spatial.blender import build_blender_manifest
 from catmod.spatial.flooddepth import flood_depth_grid
+from catmod.spatial.osm import osm_buildings, osm_roads
 from catmod.spatial.elevation import build_elevation_payload
 from catmod.spatial.presets import list_presets, resolve_preset
 from catmod.spatial.tiles3d import create_3d_tiles_session
@@ -597,6 +598,26 @@ def flood_terrain_imagery(
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Terrain imagery fetch failed: {exc}") from exc
     return Response(content=payload, media_type=mime)
+
+
+@app.get("/api/spatial/osm-buildings")
+def spatial_osm_buildings(
+    west: float = Query(...),
+    south: float = Query(...),
+    east: float = Query(...),
+    north: float = Query(...),
+) -> JSONResponse:
+    return JSONResponse(osm_buildings(west, south, east, north))
+
+
+@app.get("/api/spatial/osm-roads")
+def spatial_osm_roads(
+    west: float = Query(...),
+    south: float = Query(...),
+    east: float = Query(...),
+    north: float = Query(...),
+) -> JSONResponse:
+    return JSONResponse(osm_roads(west, south, east, north))
 
 
 @app.post("/api/spatial/3d-tiles-session")

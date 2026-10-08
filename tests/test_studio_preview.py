@@ -35,7 +35,13 @@ def test_studio_preview_matches_apps_script_shapes():
             "SYNTHETIC_VULNERABILITY": "true",
             "SYNTHETIC_EXPOSURE": "false",
         },
-        "claims": [{"occupancy": "RES_SF"}, {"occupancy": "RES_SF"}, {"occupancy": "COM_WHSE"}],
+        "claims": [
+            {"occupancy": "RES_SF"},
+            {"occupancy": "RES_SF"},
+            {"occupancy": "COM_WHSE"},
+            {"occupancy": "informal_iron_sheet", "tiv": 100, "modeled_ground_up_loss": 40, "flood_depth_m": 1.2},
+            {"occupancy": "concrete_rcc", "tiv": 300, "modeled_ground_up_loss": 20, "flood_depth_m": 0.4},
+        ],
         "audit": {"started_at": "2026-10-08T08:10:00+00:00"},
     }
     pack = build_studio_preview(job)
@@ -46,6 +52,15 @@ def test_studio_preview_matches_apps_script_shapes():
     assert pack["email"]["subject"].startswith("Catastrophe analysis complete")
     assert any(task["title"].startswith("[AUDIT REQUIRED]") for task in pack["tasks"])
     assert pack["charts"]["ep"]["labels"] == ["RP 100", "RP 250"]
-    assert pack["charts"]["occupancy"]["points"] == [2, 1]
+    assert pack["charts"]["occupancy"]["points"] == [2, 1, 1, 1]
+    radar = pack["charts"]["radar"]
+    assert radar["spokes"][0] == "Buildings"
+    assert len(radar["spokes"]) == 8
+    informal = radar["series"][0]
+    concrete = radar["series"][3]
+    assert informal["label"] == "Informal iron sheet"
+    assert informal["values"][0] == 50
+    assert informal["values"][1] == 25
+    assert concrete["values"][6] == 45
     assert pack["sheet"]["headers"][5] == "EventId"
     assert build_studio_preview(None) == {"ready": False}
