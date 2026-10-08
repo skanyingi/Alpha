@@ -78,6 +78,9 @@
   <script>
     const params = new URLSearchParams(window.location.search);
     const eventId = params.get("event_id");
+    const focusIds = new Set(
+      (params.get("assets") || "").split(",").map((item) => item.trim()).filter(Boolean)
+    );
     const claimsUrl = eventId
       ? `/api/v1/leaflet-export?event_id=${encodeURIComponent(eventId)}`
       : "/api/v1/leaflet-export";
@@ -244,12 +247,17 @@
 
     fetch(claimsUrl).then((r) => r.ok ? r.json() : null).then((geojson) => {
       if (!geojson) return;
+      const matchedLatLngs = [];
       const layer = L.geoJSON(geojson, {
         pointToLayer: (feature, latlng) => {
-          const color = feature.properties["marker-color"] || "#3388ff";
+          const props = feature.properties || {};
+          const id = String(props.asset_id || props.id || "");
+          const hit = !focusIds.size || focusIds.has(id);
+          if (hit && focusIds.size) matchedLatLngs.push(latlng);
+          const color = hit ? (props["marker-color"] || "#1a73e8") : "#9aa0a6";
           return L.circleMarker(latlng, {
-            radius: (feature.properties.style && feature.properties.style.radius) || 8,
-            color, fillColor: color, fillOpacity: 0.85, weight: 1
+            radius: hit && focusIds.size ? 12 : ((props.style && props.style.radius) || 7),
+            color, fillColor: color, fillOpacity: hit ? 0.95 : 0.18, weight: hit && focusIds.size ? 3 : 1
           });
         },
         style: (feature) => feature.properties.style || {},
@@ -267,7 +275,9 @@
           );
         }
       }).addTo(claimsLayer);
-      if (layer.getBounds && layer.getBounds().isValid()) {
+      if (matchedLatLngs.length) {
+        map.fitBounds(L.latLngBounds(matchedLatLngs).pad(0.4));
+      } else if (layer.getBounds && layer.getBounds().isValid()) {
         map.fitBounds(layer.getBounds().pad(0.2));
       }
       setTimeout(() => map.invalidateSize(), 150);

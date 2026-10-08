@@ -89,6 +89,17 @@ class TilesSessionIn(BaseModel):
     renderer: str = "cesium"
 
 
+class RAGQueryIn(BaseModel):
+    query: str = Field(..., min_length=1, max_length=4000)
+    event_id: str | None = None
+    dataset_name: str | None = None
+    csv_text: str | None = Field(
+        default=None,
+        max_length=400_000,
+        description="Optional CSV text from folders held in the browser",
+    )
+
+
 class BlenderManifestIn(BaseModel):
     event_id: str | None = None
     shader_preset: str = "PHOTOREAL_DEFAULT"

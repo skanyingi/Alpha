@@ -10,8 +10,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from catmod.audit import AuditLog
 from catmod.config import get_settings
 from catmod.jobs import JobStore
+from catmod.nlp.gemini_rag import (
+    build_dataset_context,
+    load_named_dataset,
+    parse_csv_text,
+    query_dataset_rag,
+    rows_from_claims,
+)
 from catmod.flood.gemini import gemini_configured
 from catmod.flood.maps import MapsError, fetch_aerial, fetch_street_view, geocode_address, maps_configured
 from catmod.spatial.elevation import lookup_elevation_m
@@ -27,6 +35,7 @@ from catmod.schemas import (
     BordereauWebhook,
     ElevationIn,
     FloodEvaluateIn,
+    RAGQueryIn,
     TilesSessionIn,
 )
 from catmod.spatial.blender import build_blender_manifest
@@ -119,6 +128,81 @@ def events() -> dict[str, Any]:
             for j in job_store().values()
         ]
     }
+
+
+def _rag_context(payload: RAGQueryIn) -> dict[str, Any]:
+    store = job_store()
+    if payload.event_id:
+        job = store.get(payload.event_id)
+        if job is not None:
+            claims = rows_from_claims(list(job.get("claims") or []))
+            return build_dataset_context(
+                claims,
+                name=str(job.get("filename") or payload.event_id),
+                event_id=str(job.get("event_id") or payload.event_id),
+            )
+    if payload.csv_text and payload.csv_text.strip():
+        return build_dataset_context(parse_csv_text(payload.csv_text), name="uploaded-session.csv", event_id=payload.event_id)
+    if payload.dataset_name:
+        filename, rows = load_named_dataset(payload.dataset_name)
+        return build_dataset_context(rows, name=filename, event_id=payload.event_id)
+    latest = store.latest()
+    if latest is not None:
+        claims = rows_from_claims(list(latest.get("claims") or []))
+        return build_dataset_context(
+            claims,
+            name=str(latest.get("filename") or latest.get("event_id")),
+            event_id=str(latest.get("event_id")),
+        )
+    query = payload.query.lower()
+    if "nzoia" in query:
+        filename, rows = load_named_dataset("sample_nzoia_bordereau")
+    else:
+        filename, rows = load_named_dataset("sample_nairobi_bordereau")
+    return build_dataset_context(rows, name=filename, event_id=None)
+
+
+def _record_rag(event_id: str, detail: dict[str, Any]) -> None:
+    settings = get_settings()
+    log = AuditLog(event_id or "NLP-SESSION", audit_dir=settings.audit_dir)
+    log.record(layer=1, name="gemini_nlp_rag_queried", status="ok", detail=detail)
+
+
+@app.post("/api/v1/nlp/query")
+def nlp_query(payload: RAGQueryIn) -> JSONResponse:
+    try:
+        context = _rag_context(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    result = query_dataset_rag(payload.query, context, get_settings())
+    event_id = str(context.get("event_id") or "NLP-SESSION")
+    try:
+        _record_rag(
+            event_id,
+            {
+                "query": payload.query[:500],
+                "dataset": context.get("name"),
+                "matched_count": len(result.get("matched_asset_ids") or []),
+                "matched_asset_ids": (result.get("matched_asset_ids") or [])[:40],
+                "source": result.get("source"),
+                "confidence": result.get("confidence"),
+            },
+        )
+    except Exception:
+        pass
+    matched = result.get("matched_asset_ids") or []
+    return JSONResponse(
+        {
+            "answer": result.get("answer") or "",
+            "matched_asset_ids": matched,
+            "summary_stats": result.get("summary_stats") or {},
+            "confidence": result.get("confidence"),
+            "source": result.get("source"),
+            "event_id": context.get("event_id"),
+            "dataset_name": context.get("name"),
+            "tab": "map" if matched and context.get("event_id") else "answer",
+        }
+    )
 
 
 @app.get("/api/v1/flood/status")
