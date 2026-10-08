@@ -21,7 +21,9 @@ from catmod.nlp.gemini_rag import (
     parse_csv_text,
     query_dataset_rag,
     rows_from_claims,
+    summarize_dataset,
 )
+from catmod.studio import build_studio_preview
 from catmod.flood.gemini import gemini_configured
 from catmod.flood.maps import MapsError, fetch_aerial, fetch_street_view, geocode_address, maps_configured
 from catmod.spatial.elevation import lookup_elevation_m
@@ -38,6 +40,7 @@ from catmod.schemas import (
     ElevationIn,
     FloodEvaluateIn,
     RAGQueryIn,
+    SummaryIn,
     TilesSessionIn,
 )
 from catmod.spatial.blender import build_blender_manifest
@@ -237,9 +240,50 @@ def nlp_query(payload: RAGQueryIn) -> JSONResponse:
             "source": result.get("source"),
             "event_id": context.get("event_id"),
             "dataset_name": context.get("name"),
-            "tab": "map" if matched and context.get("event_id") else "answer",
+            "tab": "answer",
         }
     )
+
+
+@app.post("/api/v1/nlp/summary")
+def nlp_summary(payload: SummaryIn) -> JSONResponse:
+    """Gemini writes the studio summary. This route does not call Jev."""
+    try:
+        context = _rag_context(
+            RAGQueryIn(query="summarize the portfolio", event_id=payload.event_id, csv_text=payload.csv_text)
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    result = summarize_dataset(context, get_settings())
+    event_id = str(context.get("event_id") or "NLP-SESSION")
+    try:
+        _record_rag(
+            event_id,
+            {
+                "query": "studio summary",
+                "dataset": context.get("name"),
+                "source": result.get("source"),
+                "confidence": result.get("confidence"),
+                "path": "gemini_nlp",
+            },
+        )
+    except Exception:
+        pass
+    return JSONResponse(
+        {
+            "answer": result.get("answer") or "",
+            "summary_stats": result.get("summary_stats") or {},
+            "confidence": result.get("confidence"),
+            "source": result.get("source"),
+            "event_id": context.get("event_id"),
+            "dataset_name": context.get("name"),
+        }
+    )
+
+
+@app.get("/api/v1/studio/preview")
+def studio_preview() -> JSONResponse:
+    return JSONResponse(build_studio_preview(job_store().latest()))
 
 
 @app.get("/api/v1/flood/status")

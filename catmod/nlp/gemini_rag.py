@@ -112,6 +112,21 @@ def query_dataset_rag(
     return _from_model(parsed, dataset_context, model)
 
 
+SUMMARY_QUESTION = (
+    "Summarize this portfolio in plain language. "
+    "Name the dataset, the row count, the occupancy mix, and where the assets sit when coordinates are present. "
+    "Do not calculate treaty payouts, cedant retention, or reinstatement premium."
+)
+
+
+def summarize_dataset(
+    dataset_context: dict[str, Any],
+    settings: Settings | None = None,
+) -> dict[str, Any]:
+    """Portfolio summary through Gemini. Jev is not on this path."""
+    return query_dataset_rag(SUMMARY_QUESTION, dataset_context, settings)
+
+
 def _ask_gemini(query: str, context: dict[str, Any], key: str, model: str) -> dict[str, Any]:
     packed = {
         "name": context.get("name"),
@@ -324,11 +339,13 @@ def _is_summary(query: str) -> bool:
 
 def _summary_sentence(name: str, stats: dict[str, Any], ids: list[str]) -> str:
     label = name or "the dataset"
+    count = int(stats.get("row_count") or 0)
+    noun = "row" if count == 1 else "rows"
     occ = ", ".join(
         f"{key} {value}" for key, value in (stats.get("occupancy_counts") or {}).items()
     )
     return (
-        f"{label} has {stats.get('row_count', 0)} rows. "
+        f"{label} has {count} {noun}. "
         f"Total TIV is {stats.get('total_tiv', 0):,.2f}. "
         f"Occupancy mix: {occ or 'not recorded'}. "
         f"Assets: {', '.join(ids[:12]) or 'none'}."

@@ -20,7 +20,7 @@ uvicorn main:app --port 8000
 
 Live service: [https://alpha.onrender.com](https://alpha.onrender.com) (`GET /health`, desk at `/map/`).
 
-The desk search bar fills the screen with a small margin. **Modeled events** lists jobs held in server memory. **Upload** reads a folder into the browser for this tab only; a bordereau CSV in that folder is modeled and joins the queue. New Apps Script jobs show as colored cards from the top center (green when clean, amber when flagged, blue when the reinsurer payout is positive). Asking the bar a free-form question is not a language-model query: known phrases run the desk, uploaded file text is a literal match, and other long strings are geocoded. Jev standardizes occupancy. Gemini is optional and only scores flood imagery.
+The homepage is eight cards. **Upload** opens the source notebook and Gemini writes the summary immediately. Questions in that ask bar also go to Gemini (`POST /api/v1/nlp/summary`, `POST /api/v1/nlp/query`); Jev is not on that path. Studio slides in a preview for Google Docs, Google Slides, graphs, Google Sheets, Google Tasks, and Gmail from the latest job. The desk does not use browser storage. The Nairobi shortcut opens the fullscreen Leaflet map. The answer card Map tab is the other map. **Modeled events** lists jobs held on the server. A bordereau CSV in an upload is modeled and joins the queue. New Apps Script jobs show as colored cards from the top center. Known phrases on the main bar run the desk. Jev standardizes occupancy. Gemini also scores flood imagery when a key is set.
 
 - Webhook: `POST /v1/process-bordereau`
 - Map payload: `GET /api/v1/leaflet-export`

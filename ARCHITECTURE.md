@@ -330,6 +330,9 @@ flowchart TB
 | GET | `/api/v1/leaflet-export?event_id=` | GeoJSON for the map |
 | GET | `/api/v1/audit/{event_id}` | Layer verification |
 | GET | `/api/v1/events` | In-memory job index (last 32) |
+| POST | `/api/v1/nlp/query` | Gemini natural-language question over an upload or the latest job |
+| POST | `/api/v1/nlp/summary` | Gemini portfolio summary for the studio page. Does not call Jev |
+| GET | `/api/v1/studio/preview` | Apps Script Docs, Slides, Sheets, Tasks, and Gmail preview for the latest job |
 | GET | `/api/v1/flood/status` | Maps, Gemini, and fallback names |
 | GET | `/api/v1/flood/geocode?q=` | Address to coordinates |
 | POST | `/api/v1/flood/evaluate` | Geocode, footprint, imagery, flood score |
@@ -355,7 +358,7 @@ Report placeholders filled by Apps Script:
 
 ### Desk
 
-`static/index.html` is the CatMod search desk. The bar and answer card fill the viewport with a small edge inset. The apps menu runs the Nairobi modeled portfolio, the Nzoia depth portfolio, the hazard catalogue, desk status, the event queue, or a folder upload. A free-text string of eight or more characters that is not one of those commands is geocoded. Jev classifies occupancy on each bordereau line; it does not answer open questions about the job list. Gemini is used only for flood-imagery occupancy, and a missing key falls back to the local heuristic. Google geocoding, elevation, imagery, and 3D Tiles fall through `catmod/geo/fallback.py` to Nominatim, Open-Meteo, Esri imagery, a heuristic inundation card, and a procedural OSM scene.
+`static/index.html` is the CatMod search desk. The homepage is eight cards. Upload opens the source notebook. That page writes a Gemini summary as soon as it opens; the ask bar is the only place that waits for a natural-language question, and that question also goes to Gemini, not Jev. A missing Gemini key falls back to the local dataset summary. Studio opens a card from the right for Reports (Google Docs), Slide Deck (Google Slides), Infographics (graphs of the same book), Data Table (Google Sheets), Google Tasks, and Gmail. Those previews use the Apps Script report, cover note, registry row, task list, and four-slide deck filled from the latest job. The desk does not keep files, shortcuts, or the AI-mode flag in browser storage. The Nairobi shortcut is the fullscreen Leaflet map. The answer card Map tab is the other map. The apps menu has no map link. Jev classifies occupancy on each bordereau line. Google geocoding, elevation, imagery, and 3D Tiles fall through `catmod/geo/fallback.py` to Nominatim, Open-Meteo, Esri imagery, a heuristic inundation card, and a procedural OSM scene.
 
 **Modeled events**, **Events**, and **Upload** open the event dashboard (the queue layout: rail, search, tabs, rows). Upload reads a real folder in the browser. File text stays in that tab until refresh. A bordereau CSV in the folder is posted to `/v1/process-bordereau` and joins the in-memory event list. The dashboard search, and the main bar, match names and text in that session library.
 

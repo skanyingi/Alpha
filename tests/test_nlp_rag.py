@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
 from catmod.config import Settings
-from catmod.nlp.gemini_rag import build_dataset_context, parse_csv_text, query_dataset_rag
+from catmod.nlp.gemini_rag import build_dataset_context, parse_csv_text, query_dataset_rag, summarize_dataset
 
 
 NAIROBI = """asset_id,policy_id,latitude,longitude,elevation,occupancy,tiv,ground_up_loss,deductible,policy_limit,coinsurance,loss_date
@@ -117,3 +117,35 @@ def test_nlp_endpoint_refuses_without_an_upload(tmp_path, monkeypatch):
     )
     assert response.status_code == 400
     assert "Upload" in response.json()["detail"]
+
+
+def test_summary_uses_gemini_nlp_not_jev(monkeypatch):
+    def explode(*_args, **_kwargs):
+        raise AssertionError("Gemini should not be called without a key")
+
+    monkeypatch.setattr("catmod.nlp.gemini_rag.httpx.Client", explode)
+    result = summarize_dataset(_context(), _settings())
+    assert result["source"] == "local-keyword"
+    assert "rows" in result["answer"].lower()
+    assert "jev" not in result["source"]
+
+
+def test_summary_endpoint_reads_uploaded_csv(tmp_path, monkeypatch):
+    import catmod.api as api
+
+    settings = Settings.model_construct(
+        gemini_api_key="",
+        gemini_model="gemini-2.0-flash",
+        jobs_dir=str(tmp_path / "jobs"),
+        jobs_keep=4,
+        audit_dir=str(tmp_path / "audit"),
+    )
+    monkeypatch.setattr(api, "get_settings", lambda: settings)
+    api._STORE = None
+    client = TestClient(api.app)
+    response = client.post("/api/v1/nlp/summary", json={"csv_text": NAIROBI})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["source"] == "local-keyword"
+    assert "rows" in body["answer"].lower()
+    assert body["dataset_name"] == "uploaded-session.csv"

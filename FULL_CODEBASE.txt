@@ -2,7 +2,7 @@
 HYPERVECTOR RAG — FULL CODEBASE DUMP
 Generated for architecture review. Canonical tree is the repo itself.
 See ARCHITECTURE.md for diagrams. See README.md for run instructions.
-File count: 103
+File count: 105
 ========================================================================================
 
 TABLE OF CONTENTS
@@ -74,42 +74,44 @@ TABLE OF CONTENTS
   065. catmod/spatial/elevation.py
   066. catmod/spatial/presets.py
   067. catmod/spatial/tiles3d.py
-  068. catmod/vulnerability/__init__.py
-  069. catmod/vulnerability/curves.py
-  070. catmod/vulnerability/engine.py
-  071. catmod/vulnerability/stochastic_engine.py
-  072. jobs/EVT-DESK-A74ADD93.json
-  073. main.py
-  074. pytest.ini
-  075. README.md
-  076. requirements.txt
-  077. save-the-earth.html
-  078. scripts/dump_codebase.py
-  079. scripts/run_sample_job.py
-  080. setup.js
-  081. static/index.html
-  082. static/landing.html
-  083. static/map.html
-  084. static/modes.js
-  085. static/renderPresets.js
-  086. templates/reinsurance_audit_report.txt
-  087. tests/__init__.py
-  088. tests/test_agent_framework.py
-  089. tests/test_ep_curve.py
-  090. tests/test_fallback.py
-  091. tests/test_finance.py
-  092. tests/test_flood.py
-  093. tests/test_hazard.py
-  094. tests/test_hdc.py
-  095. tests/test_ingestion.py
-  096. tests/test_jev.py
-  097. tests/test_jobs.py
-  098. tests/test_nlp_rag.py
-  099. tests/test_pipeline.py
-  100. tests/test_spatial.py
-  101. tests/test_stochastic_hazard.py
-  102. tests/test_stochastic_vulnerability.py
-  103. tests/test_vulnerability.py
+  068. catmod/studio.py
+  069. catmod/vulnerability/__init__.py
+  070. catmod/vulnerability/curves.py
+  071. catmod/vulnerability/engine.py
+  072. catmod/vulnerability/stochastic_engine.py
+  073. jobs/EVT-DESK-A74ADD93.json
+  074. main.py
+  075. pytest.ini
+  076. README.md
+  077. requirements.txt
+  078. save-the-earth.html
+  079. scripts/dump_codebase.py
+  080. scripts/run_sample_job.py
+  081. setup.js
+  082. static/index.html
+  083. static/landing.html
+  084. static/map.html
+  085. static/modes.js
+  086. static/renderPresets.js
+  087. templates/reinsurance_audit_report.txt
+  088. tests/__init__.py
+  089. tests/test_agent_framework.py
+  090. tests/test_ep_curve.py
+  091. tests/test_fallback.py
+  092. tests/test_finance.py
+  093. tests/test_flood.py
+  094. tests/test_hazard.py
+  095. tests/test_hdc.py
+  096. tests/test_ingestion.py
+  097. tests/test_jev.py
+  098. tests/test_jobs.py
+  099. tests/test_nlp_rag.py
+  100. tests/test_pipeline.py
+  101. tests/test_spatial.py
+  102. tests/test_stochastic_hazard.py
+  103. tests/test_stochastic_vulnerability.py
+  104. tests/test_studio_preview.py
+  105. tests/test_vulnerability.py
 
 ========================================================================================
 FILE: .env.example
@@ -1651,6 +1653,9 @@ flowchart TB
 | GET | `/api/v1/leaflet-export?event_id=` | GeoJSON for the map |
 | GET | `/api/v1/audit/{event_id}` | Layer verification |
 | GET | `/api/v1/events` | In-memory job index (last 32) |
+| POST | `/api/v1/nlp/query` | Gemini natural-language question over an upload or the latest job |
+| POST | `/api/v1/nlp/summary` | Gemini portfolio summary for the studio page. Does not call Jev |
+| GET | `/api/v1/studio/preview` | Apps Script Docs, Slides, Sheets, Tasks, and Gmail preview for the latest job |
 | GET | `/api/v1/flood/status` | Maps, Gemini, and fallback names |
 | GET | `/api/v1/flood/geocode?q=` | Address to coordinates |
 | POST | `/api/v1/flood/evaluate` | Geocode, footprint, imagery, flood score |
@@ -1676,7 +1681,7 @@ Report placeholders filled by Apps Script:
 
 ### Desk
 
-`static/index.html` is the CatMod search desk. The bar and answer card fill the viewport with a small edge inset. The apps menu runs the Nairobi modeled portfolio, the Nzoia depth portfolio, the hazard catalogue, desk status, the event queue, or a folder upload. A free-text string of eight or more characters that is not one of those commands is geocoded. Jev classifies occupancy on each bordereau line; it does not answer open questions about the job list. Gemini is used only for flood-imagery occupancy, and a missing key falls back to the local heuristic. Google geocoding, elevation, imagery, and 3D Tiles fall through `catmod/geo/fallback.py` to Nominatim, Open-Meteo, Esri imagery, a heuristic inundation card, and a procedural OSM scene.
+`static/index.html` is the CatMod search desk. The homepage is eight cards. Upload opens the source notebook. That page writes a Gemini summary as soon as it opens; the ask bar is the only place that waits for a natural-language question, and that question also goes to Gemini, not Jev. A missing Gemini key falls back to the local dataset summary. Studio opens a card from the right for Reports (Google Docs), Slide Deck (Google Slides), Infographics (graphs of the same book), Data Table (Google Sheets), Google Tasks, and Gmail. Those previews use the Apps Script report, cover note, registry row, task list, and four-slide deck filled from the latest job. The desk does not keep files, shortcuts, or the AI-mode flag in browser storage. The Nairobi shortcut is the fullscreen Leaflet map. The answer card Map tab is the other map. The apps menu has no map link. Jev classifies occupancy on each bordereau line. Google geocoding, elevation, imagery, and 3D Tiles fall through `catmod/geo/fallback.py` to Nominatim, Open-Meteo, Esri imagery, a heuristic inundation card, and a procedural OSM scene.
 
 **Modeled events**, **Events**, and **Upload** open the event dashboard (the queue layout: rail, search, tabs, rows). Upload reads a real folder in the browser. File text stays in that tab until refresh. A bordereau CSV in the folder is posted to `/v1/process-bordereau` and joins the in-memory event list. The dashboard search, and the main bar, match names and text in that session library.
 
@@ -2860,7 +2865,9 @@ from catmod.nlp.gemini_rag import (
     parse_csv_text,
     query_dataset_rag,
     rows_from_claims,
+    summarize_dataset,
 )
+from catmod.studio import build_studio_preview
 from catmod.flood.gemini import gemini_configured
 from catmod.flood.maps import MapsError, fetch_aerial, fetch_street_view, geocode_address, maps_configured
 from catmod.spatial.elevation import lookup_elevation_m
@@ -2877,6 +2884,7 @@ from catmod.schemas import (
     ElevationIn,
     FloodEvaluateIn,
     RAGQueryIn,
+    SummaryIn,
     TilesSessionIn,
 )
 from catmod.spatial.blender import build_blender_manifest
@@ -3076,9 +3084,50 @@ def nlp_query(payload: RAGQueryIn) -> JSONResponse:
             "source": result.get("source"),
             "event_id": context.get("event_id"),
             "dataset_name": context.get("name"),
-            "tab": "map" if matched and context.get("event_id") else "answer",
+            "tab": "answer",
         }
     )
+
+
+@app.post("/api/v1/nlp/summary")
+def nlp_summary(payload: SummaryIn) -> JSONResponse:
+    """Gemini writes the studio summary. This route does not call Jev."""
+    try:
+        context = _rag_context(
+            RAGQueryIn(query="summarize the portfolio", event_id=payload.event_id, csv_text=payload.csv_text)
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    result = summarize_dataset(context, get_settings())
+    event_id = str(context.get("event_id") or "NLP-SESSION")
+    try:
+        _record_rag(
+            event_id,
+            {
+                "query": "studio summary",
+                "dataset": context.get("name"),
+                "source": result.get("source"),
+                "confidence": result.get("confidence"),
+                "path": "gemini_nlp",
+            },
+        )
+    except Exception:
+        pass
+    return JSONResponse(
+        {
+            "answer": result.get("answer") or "",
+            "summary_stats": result.get("summary_stats") or {},
+            "confidence": result.get("confidence"),
+            "source": result.get("source"),
+            "event_id": context.get("event_id"),
+            "dataset_name": context.get("name"),
+        }
+    )
+
+
+@app.get("/api/v1/studio/preview")
+def studio_preview() -> JSONResponse:
+    return JSONResponse(build_studio_preview(job_store().latest()))
 
 
 @app.get("/api/v1/flood/status")
@@ -8086,6 +8135,21 @@ def query_dataset_rag(
     return _from_model(parsed, dataset_context, model)
 
 
+SUMMARY_QUESTION = (
+    "Summarize this portfolio in plain language. "
+    "Name the dataset, the row count, the occupancy mix, and where the assets sit when coordinates are present. "
+    "Do not calculate treaty payouts, cedant retention, or reinstatement premium."
+)
+
+
+def summarize_dataset(
+    dataset_context: dict[str, Any],
+    settings: Settings | None = None,
+) -> dict[str, Any]:
+    """Portfolio summary through Gemini. Jev is not on this path."""
+    return query_dataset_rag(SUMMARY_QUESTION, dataset_context, settings)
+
+
 def _ask_gemini(query: str, context: dict[str, Any], key: str, model: str) -> dict[str, Any]:
     packed = {
         "name": context.get("name"),
@@ -8298,11 +8362,13 @@ def _is_summary(query: str) -> bool:
 
 def _summary_sentence(name: str, stats: dict[str, Any], ids: list[str]) -> str:
     label = name or "the dataset"
+    count = int(stats.get("row_count") or 0)
+    noun = "row" if count == 1 else "rows"
     occ = ", ".join(
         f"{key} {value}" for key, value in (stats.get("occupancy_counts") or {}).items()
     )
     return (
-        f"{label} has {stats.get('row_count', 0)} rows. "
+        f"{label} has {count} {noun}. "
         f"Total TIV is {stats.get('total_tiv', 0):,.2f}. "
         f"Occupancy mix: {occ or 'not recorded'}. "
         f"Assets: {', '.join(ids[:12]) or 'none'}."
@@ -9203,6 +9269,15 @@ class RAGQueryIn(BaseModel):
         default=None,
         max_length=400_000,
         description="Optional CSV text from folders held in the browser",
+    )
+
+
+class SummaryIn(BaseModel):
+    event_id: str | None = None
+    csv_text: str | None = Field(
+        default=None,
+        max_length=400_000,
+        description="Optional CSV text from the open studio tab",
     )
 
 
@@ -10178,6 +10253,175 @@ def create_3d_tiles_session(
     )
 
 ========================================================================================
+FILE: catmod/studio.py
+========================================================================================
+"""Studio previews filled the same way Apps Script fills Docs, Slides, Sheets, Tasks, and Gmail."""
+
+from __future__ import annotations
+
+from collections import Counter
+from typing import Any
+
+HIGH_LAYER_PAYOUT = 10_000_000
+
+SHEET_HEADERS = [
+    "Timestamp",
+    "ClientIndexId",
+    "Sender",
+    "Subject",
+    "Filename",
+    "EventId",
+    "Status",
+    "GrossClaim",
+    "ReinsurerPayout",
+    "CedantRetention",
+    "FraudFlags",
+    "ExpectedAnnualLoss",
+    "DriveFolderUrl",
+    "DocReportUrl",
+    "SlidesDeckUrl",
+]
+
+
+def _money(value: Any) -> str:
+    try:
+        return f"${float(value):,.2f}"
+    except (TypeError, ValueError):
+        return "n/a"
+
+
+def _number(value: Any) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def build_studio_preview(job: dict[str, Any] | None) -> dict[str, Any]:
+    if not job:
+        return {"ready": False}
+    placeholders = job.get("placeholders") or {}
+    ep = job.get("ep_curve") or {}
+    treaty = job.get("treaty") or {}
+    synthetic = job.get("synthetic") or {}
+    client_name = str(placeholders.get("CLIENT_NAME") or job.get("client_name") or job.get("client_email") or "Client")
+    client_email = str(job.get("client_email") or "")
+    event_id = str(placeholders.get("EVENT_ID") or job.get("event_id") or "")
+    gross = _money(placeholders.get("GROUND_UP_LOSS", job.get("total_gross_claim")))
+    payout = _money(placeholders.get("REINSURER_PAYOUT", job.get("reinsurer_payout")))
+    retention = _money(placeholders.get("CEDANT_RETENTION", job.get("cedant_retained_loss")))
+    modeled = _money(placeholders.get("MODELED_GROUND_UP_LOSS", job.get("modeled_ground_up_loss")))
+    eal = _money(placeholders.get("EXPECTED_ANNUAL_LOSS", ep.get("eal")))
+    flags = int(_number(placeholders.get("FRAUD_FLAG_COUNT", job.get("flagged_count"))))
+    region = str(placeholders.get("HAZARD_REGION") or job.get("hazard_region") or "")
+    treaty_label = str(treaty.get("label") or job.get("treaty_label") or "")
+    report_lines = [
+        ["Client", client_name],
+        ["Event ID", event_id],
+        ["Ground-Up / Gross Claim", gross],
+        ["Reinsurer Payout", payout],
+        ["Cedant Retention", retention],
+        ["Flagged Fraud / Discrepancy Count", str(flags)],
+        ["Modeled ground-up loss", modeled],
+        ["Expected annual loss", eal],
+        ["Hazard region", region],
+        ["Synthetic hazard", str(placeholders.get("SYNTHETIC_HAZARD") or synthetic.get("hazard") or "")],
+        ["Synthetic vulnerability curves", str(placeholders.get("SYNTHETIC_VULNERABILITY") or synthetic.get("vulnerability_curves") or "")],
+        ["Synthetic exposure portfolio", str(placeholders.get("SYNTHETIC_EXPOSURE") or synthetic.get("exposure_portfolio") or "")],
+    ]
+    email_rows = [
+        f"Client: {client_name}",
+        f"Event: {event_id}",
+        f"Gross claim: {gross}",
+        f"Reinsurer payout: {payout}",
+        f"Cedant retention: {retention}",
+        f"Fraud / discrepancy flags: {flags}",
+        f"Expected annual loss: {eal}",
+    ]
+    closing = (
+        "The PDF audit report is attached. Treaty amounts are produced by the deterministic financial engine. "
+        "Spatial interpolation is not used to alter contractual amounts."
+    )
+    body = "\n".join(
+        [f"Catastrophe analysis is complete for event {event_id}.", ""]
+        + email_rows
+        + ["", "Drive archive: unavailable", "Executive presentation: unavailable", "Audit document: unavailable", "", closing, "", "Regards,", "Catastrophe Analytics Desk"]
+    )
+    curve = list(ep.get("curve") or [])
+    ep_labels = [f"RP {point.get('return_period')}" for point in curve]
+    ep_points = [
+        _number(point.get("loss_float") if point.get("loss_float") is not None else point.get("loss"))
+        for point in curve
+    ]
+    occupancy: Counter[str] = Counter()
+    for claim in job.get("claims") or []:
+        if isinstance(claim, dict):
+            occupancy[str(claim.get("occupancy") or "Unknown")] += 1
+    tasks = []
+    if flags > 0:
+        tasks.append({
+            "title": f"[AUDIT REQUIRED] Review {flags} fraud/spatial flags for Event {event_id}",
+            "notes": "Due in 24 hours. Review the audit report before the client reply.",
+        })
+    if _number(job.get("reinsurer_payout")) > HIGH_LAYER_PAYOUT:
+        tasks.append({
+            "title": f"[HIGH LAYER EXPOSURE] Review {payout} Reinsurer Payout for Event {event_id}",
+            "notes": "Check Excess-of-Loss attachment points and reinstatement terms."
+            + (f" Treaty: {treaty_label}" if treaty_label else ""),
+        })
+    tasks.append({
+        "title": f"[CLIENT FOLLOW-UP] Send formal catastrophe audit response to {client_name}"
+        + (f" ({client_email})" if client_email else ""),
+        "notes": "Attach the Apps Script PDF and the executive deck.",
+    })
+    started = str((job.get("audit") or {}).get("started_at") or "")
+    return {
+        "ready": True,
+        "event_id": event_id,
+        "report_title": f"Reinsurance Audit Report - {event_id}",
+        "report_lines": report_lines,
+        "email": {
+            "to": client_email,
+            "subject": f"Catastrophe analysis complete — {event_id}",
+            "body": body,
+        },
+        "slides": [
+            {"title": "Catastrophe analytics", "lines": [client_name, f"Event {event_id}", treaty_label or "Excess-of-Loss executive briefing"]},
+            {"title": "Financial waterfall", "lines": [f"Gross claim {gross}", f"Reinsurer payout {payout}", f"Cedant retention {retention}"]},
+            {"title": "Risk analytics and EP curve", "lines": [f"Expected annual loss {eal}", f"Modeled ground-up loss {modeled}"]},
+            {
+                "title": "Triage and anomaly summary",
+                "lines": [f"Flagged fraud / spatial count: {flags}"] + ([f"Hazard region {region}"] if region else []),
+            },
+        ],
+        "sheet": {
+            "headers": SHEET_HEADERS,
+            "row": [
+                started,
+                str(job.get("client_index_id") or ""),
+                client_email,
+                f"Bordereau {job.get('filename') or ''}",
+                str(job.get("filename") or ""),
+                event_id,
+                "processed",
+                gross,
+                payout,
+                retention,
+                str(flags),
+                eal,
+                "",
+                "",
+                "",
+            ],
+        },
+        "tasks": tasks,
+        "charts": {
+            "ep": {"labels": ep_labels, "points": ep_points},
+            "occupancy": {"labels": list(occupancy.keys()), "points": list(occupancy.values())},
+        },
+    }
+
+========================================================================================
 FILE: catmod/vulnerability/__init__.py
 ========================================================================================
 """Vulnerability: occupancy-keyed depth-damage curves and Decimal ground-up loss."""
@@ -10741,7 +10985,7 @@ uvicorn main:app --port 8000
 
 Live service: [https://alpha.onrender.com](https://alpha.onrender.com) (`GET /health`, desk at `/map/`).
 
-The desk search bar fills the screen with a small margin. **Modeled events** lists jobs held in server memory. **Upload** reads a folder into the browser for this tab only; a bordereau CSV in that folder is modeled and joins the queue. New Apps Script jobs show as colored cards from the top center (green when clean, amber when flagged, blue when the reinsurer payout is positive). Asking the bar a free-form question is not a language-model query: known phrases run the desk, uploaded file text is a literal match, and other long strings are geocoded. Jev standardizes occupancy. Gemini is optional and only scores flood imagery.
+The homepage is eight cards. **Upload** opens the source notebook and Gemini writes the summary immediately. Questions in that ask bar also go to Gemini (`POST /api/v1/nlp/summary`, `POST /api/v1/nlp/query`); Jev is not on that path. Studio slides in a preview for Google Docs, Google Slides, graphs, Google Sheets, Google Tasks, and Gmail from the latest job. The desk does not use browser storage. The Nairobi shortcut opens the fullscreen Leaflet map. The answer card Map tab is the other map. **Modeled events** lists jobs held on the server. A bordereau CSV in an upload is modeled and joins the queue. New Apps Script jobs show as colored cards from the top center. Known phrases on the main bar run the desk. Jev standardizes occupancy. Gemini also scores flood imagery when a key is set.
 
 - Webhook: `POST /v1/process-bordereau`
 - Map payload: `GET /api/v1/leaflet-export`
@@ -12706,7 +12950,7 @@ FILE: static/index.html
   }
 
   .top{
-    position:fixed;top:0;right:0;z-index:20;
+    position:fixed;top:0;right:0;z-index:26;
     display:flex;align-items:center;gap:18px;
     padding:14px 18px 0 0;
     font-size:13px;font-weight:500;
@@ -13540,6 +13784,52 @@ FILE: static/index.html
     font:500 13px Inter,sans-serif;
   }
   .studio-saved article small{display:block;color:#80868b;font-weight:400;margin-top:2px;}
+  .studio-drawer{
+    position:fixed;top:0;right:0;z-index:24;
+    width:min(560px,100%);height:100%;
+    background:#fff;color:#202124;
+    box-shadow:-16px 0 40px rgba(0,0,0,.18);
+    transform:translateX(104%);
+    transition:transform .48s cubic-bezier(.22,.8,.24,1);
+    overflow:auto;padding:28px 22px 32px;box-sizing:border-box;
+  }
+  .studio-drawer.is-open{transform:translateX(0);}
+  .studio-drawer-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;}
+  .studio-drawer-bar button{
+    border:0;background:#f1f3f4;border-radius:999px;padding:8px 14px;
+    font:600 13px Inter,sans-serif;cursor:pointer;color:#202124;
+  }
+  .studio-kicker{margin:0;color:#1a73e8;font:600 12px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;}
+  .studio-drawer h2{margin:6px 0 16px;font:600 28px/1.15 Outfit,sans-serif;}
+  .doc-sheet,.mail-sheet,.slide-card,.task-card{
+    background:#f7f8fa;border-radius:16px;padding:16px 18px;margin:0 0 12px;
+  }
+  .doc-sheet p,.mail-sheet p{margin:0 0 8px;font:400 14px/1.45 Inter,sans-serif;}
+  .doc-sheet b{font-weight:600;}
+  .mail-sheet pre{
+    margin:0;white-space:pre-wrap;font:400 13px/1.5 Inter,sans-serif;color:#202124;
+  }
+  .slide-card b,.task-card b{display:block;margin-bottom:6px;font:600 15px Inter,sans-serif;}
+  .slide-card span,.task-card span{display:block;color:#5f6368;font:400 13px/1.4 Inter,sans-serif;}
+  .sheet-wrap{overflow:auto;border-radius:12px;border:1px solid #e6e8eb;}
+  .sheet-wrap table{border-collapse:collapse;min-width:720px;width:100%;font:400 12px Inter,sans-serif;}
+  .sheet-wrap th,.sheet-wrap td{border-bottom:1px solid #e6e8eb;padding:8px 10px;text-align:left;white-space:nowrap;}
+  .sheet-wrap th{background:#e6f4ea;color:#137333;font-weight:600;}
+  .studio-chart{width:100%;height:180px;display:block;margin:8px 0 18px;background:#f7f8fa;border-radius:16px;}
+  .studio-chart-label{margin:0 0 4px;font:600 13px Inter,sans-serif;}
+  #mapPage{
+    position:fixed;inset:0;z-index:30;display:none;background:#0b1c2c;
+  }
+  body.has-map #mapPage{display:block;}
+  #mapPage[hidden]{display:none !important;}
+  body.has-map .cluster{visibility:hidden;pointer-events:none;}
+  #deskMap{width:100%;height:100%;border:0;display:block;}
+  .map-home{
+    position:absolute;top:14px;right:16px;z-index:2;
+    border:0;background:#fff;color:#202124;border-radius:999px;
+    padding:8px 16px;font:600 14px Inter,sans-serif;cursor:pointer;
+    box-shadow:0 1px 4px rgba(0,0,0,.28);
+  }
   @media (max-width:980px){
     #studioPage{grid-template-columns:1fr;overflow:auto;}
     .studio-card{overflow:visible;}
@@ -13739,7 +14029,6 @@ FILE: static/index.html
   <a href="#ask" data-query="Desk status"><span class="bubble c-climate"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"/></svg></span>Status</a>
   <a href="#ask" data-query="List modeled events"><span class="bubble c-custom"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></span>Events</a>
   <a href="#ask" data-upload><span class="bubble c-upload"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V6M8 9.5 12 5.5 16 9.5"/><path d="M5 19h14"/></svg></span>Upload</a>
-  <a href="map.html"><span class="bubble c-maps"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linejoin="round"><path d="M9 4.5 3.5 6.5v13L9 17.5l6 2 5.5-2v-13L15 6.5 9 4.5z"/><path d="M9 4.5v13M15 6.5v13"/></svg></span>Map</a>
 </nav>
 
 <main class="cluster">
@@ -13777,10 +14066,6 @@ FILE: static/index.html
       <button type="button" data-upload>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V6M8 9.5 12 5.5 16 9.5"/><path d="M5 19h14"/></svg>
         Upload a folder
-      </button>
-      <button type="button" data-query="Open the Nairobi loss map">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M9 4.5 3.5 6.5v13L9 17.5l6 2 5.5-2v-13L15 6.5 9 4.5z"/><path d="M9 4.5v13M15 6.5v13"/></svg>
-        Open loss map
       </button>
     </div>
 
@@ -14018,21 +14303,27 @@ FILE: static/index.html
   <aside class="studio-card studio-side">
     <div class="studio-head"><span>Studio</span></div>
     <div class="studio-grid" id="studioGrid">
-      <button type="button" class="studio-out" data-out="Audio Overview"><svg viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="1.7"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/></svg><b>Audio Overview</b></button>
-      <button type="button" class="studio-out" data-out="Slide Deck"><svg viewBox="0 0 24 24" fill="none" stroke="#e8a317" stroke-width="1.7"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/></svg><span><b>Slide Deck</b><small>Google Slides</small></span></button>
-      <button type="button" class="studio-out" data-out="Video Overview"><svg viewBox="0 0 24 24" fill="none" stroke="#e8453c" stroke-width="1.7"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M10 9.5v5l5-2.5-5-2.5z" fill="#e8453c" stroke="none"/></svg><b>Video Overview</b></button>
-      <button type="button" class="studio-out" data-out="Mind Map"><svg viewBox="0 0 24 24" fill="none" stroke="#9334e6" stroke-width="1.7"><circle cx="12" cy="12" r="2.2"/><circle cx="5" cy="7" r="1.6"/><circle cx="19" cy="7" r="1.6"/><circle cx="6" cy="18" r="1.6"/><circle cx="18" cy="18" r="1.6"/><path d="M7 8.2 10.2 11M17 8.2 13.8 11M7.4 16.8 10.4 13.4M16.6 16.8 13.6 13.4"/></svg><b>Mind Map</b></button>
-      <button type="button" class="studio-out" data-out="Reports"><svg viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="1.7"><path d="M7 3.5h7l5 5V20a1.5 1.5 0 0 1-1.5 1.5h-10.5A1.5 1.5 0 0 1 5.5 20V5A1.5 1.5 0 0 1 7 3.5z"/><path d="M14 3.5V9h5M8 13h8M8 17h5"/></svg><span><b>Reports</b><small>Google Docs</small></span><span class="studio-new">New</span></button>
-      <button type="button" class="studio-out" data-out="Flashcards"><svg viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="1.7"><rect x="5" y="6" width="12" height="12" rx="2"/><path d="M8 4h11a1 1 0 0 1 1 1v11"/></svg><b>Flashcards</b></button>
-      <button type="button" class="studio-out" data-out="Quiz"><svg viewBox="0 0 24 24" fill="none" stroke="#e8a317" stroke-width="1.7"><circle cx="12" cy="12" r="8"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.2 2.4c-.7.3-1.2.9-1.2 1.6V14"/><path d="M12 17h.01"/></svg><b>Quiz</b></button>
-      <button type="button" class="studio-out" data-out="Infographic"><svg viewBox="0 0 24 24" fill="none" stroke="#e8453c" stroke-width="1.7"><path d="M4 19h16M7 16V10M12 16V6M17 16v-4"/></svg><b>Infographic</b></button>
-      <button type="button" class="studio-out" data-out="Data Table"><svg viewBox="0 0 24 24" fill="none" stroke="#34a853" stroke-width="1.7"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M4 15h16M10 5v14"/></svg><span><b>Data Table</b><small>Google Sheets</small></span></button>
-    </div>
-    <div class="studio-saved" id="studioSaved">
-      <p>Studio output will be saved here.</p>
-      <p>After adding sources, click to add Audio Overview, Slide Deck, and more.</p>
+      <button type="button" class="studio-out" data-out="reports"><svg viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="1.7"><path d="M7 3.5h7l5 5V20a1.5 1.5 0 0 1-1.5 1.5h-10.5A1.5 1.5 0 0 1 5.5 20V5A1.5 1.5 0 0 1 7 3.5z"/><path d="M14 3.5V9h5M8 13h8M8 17h5"/></svg><span><b>Reports</b><small>Google Docs</small></span></button>
+      <button type="button" class="studio-out" data-out="slides"><svg viewBox="0 0 24 24" fill="none" stroke="#f9ab00" stroke-width="1.7"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/></svg><span><b>Slide Deck</b><small>Google Slides</small></span></button>
+      <button type="button" class="studio-out" data-out="graphs"><svg viewBox="0 0 24 24" fill="none" stroke="#e8453c" stroke-width="1.7"><path d="M4 19h16M7 16V10M12 16V6M17 16v-4"/></svg><span><b>Infographics</b><small>Graphs</small></span></button>
+      <button type="button" class="studio-out" data-out="sheets"><svg viewBox="0 0 24 24" fill="none" stroke="#34a853" stroke-width="1.7"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M4 15h16M10 5v14"/></svg><span><b>Data Table</b><small>Google Sheets</small></span></button>
+      <button type="button" class="studio-out" data-out="tasks"><svg viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="1.7"><path d="M8 6h11M8 12h11M8 18h11"/><path d="M4.5 6.2 5.4 7.2 7.2 5M4.5 12.2 5.4 13.2 7.2 11M4.5 18.2 5.4 19.2 7.2 17"/></svg><span><b>Tasks</b><small>Google Tasks</small></span></button>
+      <button type="button" class="studio-out" data-out="gmail"><svg viewBox="0 0 24 24" fill="none" stroke="#ea4335" stroke-width="1.7"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></svg><span><b>Gmail</b><small>Ready to send</small></span></button>
     </div>
   </aside>
+</div>
+<aside class="studio-drawer" id="studioDrawer" aria-hidden="true">
+  <div class="studio-drawer-bar">
+    <p class="studio-kicker" id="studioDrawerKicker">Studio</p>
+    <button type="button" id="studioDrawerClose">Close</button>
+  </div>
+  <h2 id="studioDrawerTitle"></h2>
+  <div id="studioDrawerBody"></div>
+</aside>
+
+<div id="mapPage" hidden>
+  <button class="map-home" id="mapHome" type="button">Home</button>
+  <iframe id="deskMap" title="Nairobi portfolio map" src="about:blank"></iframe>
 </div>
 
 <div id="agentsPage" hidden>
@@ -14083,7 +14374,7 @@ FILE: static/index.html
 <script>
 (function(){
   var defaults = [
-    {name:"Nairobi", query:"Run the Nairobi modeled portfolio", kind:"c-ask", icon:"drop"},
+    {name:"Nairobi", map:"nairobi", kind:"c-ask", icon:"drop"},
     {name:"Nzoia", query:"Run the Nzoia depth portfolio", kind:"c-maps", icon:"map"},
     {name:"Hazard", query:"Show the flood hazard catalogue", kind:"c-health", icon:"health"},
     {name:"Status", query:"Desk status", kind:"c-climate", icon:"climate"},
@@ -14125,12 +14416,23 @@ FILE: static/index.html
     custom:'<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/></svg>'
   };
 
+  var customShortcuts = [];
+  try{
+    localStorage.clear();
+    sessionStorage.clear();
+    if(window.indexedDB && indexedDB.databases){
+      indexedDB.databases().then(function(list){
+        (list || []).forEach(function(db){ if(db && db.name) indexedDB.deleteDatabase(db.name); });
+      });
+    }else if(window.indexedDB){
+      indexedDB.deleteDatabase("catmod-desk");
+    }
+  }catch(err){}
   function loadCustom(){
-    try{ return JSON.parse(localStorage.getItem("il-shortcuts") || "[]"); }
-    catch(e){ return []; }
+    return customShortcuts.slice();
   }
   function saveCustom(list){
-    localStorage.setItem("il-shortcuts", JSON.stringify(list));
+    customShortcuts = (list || []).slice();
   }
 
   var shortcuts = document.getElementById("shortcuts");
@@ -14140,6 +14442,7 @@ FILE: static/index.html
       var a = document.createElement("a");
       a.className = "shortcut";
       a.href = item.href || "#ask";
+      if(item.map) a.setAttribute("data-map", item.map);
       if(item.query) a.setAttribute("data-query", item.query);
       a.innerHTML = '<span class="bubble '+(item.kind||"c-custom")+'">'+(icons[item.icon]||icons.custom)+'</span><span></span>';
       a.querySelector("span:last-child").textContent = item.name;
@@ -14171,63 +14474,6 @@ FILE: static/index.html
   var resultAnswer = document.getElementById("resultAnswer");
   var searching = false;
   var sessionFiles = [];
-  var FILE_DB = "catmod-desk";
-  var FILE_STORE = "files";
-  function openFileDb(){
-    return new Promise(function(resolve, reject){
-      if(!window.indexedDB){ reject(new Error("no indexedDB")); return; }
-      var req = indexedDB.open(FILE_DB, 1);
-      req.onupgradeneeded = function(){
-        var db = req.result;
-        if(!db.objectStoreNames.contains(FILE_STORE)) db.createObjectStore(FILE_STORE, {keyPath:"id"});
-      };
-      req.onsuccess = function(){ resolve(req.result); };
-      req.onerror = function(){ reject(req.error); };
-    });
-  }
-  function fileStore(mode, run){
-    return openFileDb().then(function(db){
-      return new Promise(function(resolve, reject){
-        var tx = db.transaction(FILE_STORE, mode);
-        var req;
-        try{ req = run(tx.objectStore(FILE_STORE)); }
-        catch(err){ reject(err); return; }
-        tx.oncomplete = function(){ resolve(req && req.result); };
-        tx.onerror = function(){ reject(tx.error); };
-        tx.onabort = function(){ reject(tx.error || new Error("aborted")); };
-      });
-    });
-  }
-  var retiredFileIds = {};
-  var filesCleared = false;
-  function loadStoredFiles(){
-    return fileStore("readonly", function(store){ return store.getAll(); }).then(function(rows){
-      if(filesCleared) return;
-      var byId = {};
-      sessionFiles.forEach(function(row){ if(row && row.id) byId[row.id] = row; });
-      (rows || []).forEach(function(row){
-        if(row && row.id && !retiredFileIds[row.id] && !byId[row.id]) byId[row.id] = row;
-      });
-      sessionFiles = Object.keys(byId).map(function(id){ return byId[id]; }).sort(function(a, b){
-        return String(a.ingested || "").localeCompare(String(b.ingested || ""));
-      });
-      if(document.body.classList.contains("has-desk")) renderDesk();
-      if(document.body.classList.contains("has-studio")) renderStudio();
-      if(document.body.classList.contains("has-workspace")) openWorkspace();
-    }).catch(function(){});
-  }
-  function saveSessionFile(row){
-    if(row && row.id) delete retiredFileIds[row.id];
-    return fileStore("readwrite", function(store){ return store.put(row); }).catch(function(){});
-  }
-  function forgetSessionFile(id){
-    retiredFileIds[id] = true;
-    return fileStore("readwrite", function(store){ return store.delete(id); }).catch(function(){});
-  }
-  function forgetAllSessionFiles(){
-    filesCleared = true;
-    return fileStore("readwrite", function(store){ return store.clear(); }).catch(function(){});
-  }
   var deskEvents = [];
   var deskTab = "queue";
   var deskQuery = "";
@@ -14390,13 +14636,22 @@ FILE: static/index.html
     stopBombard();
     window.clearInterval(statusTimer);
     window.clearTimeout(revealTimer);
-    document.body.classList.remove("is-thinking","is-leaving","has-result","has-desk","has-studio","has-agents","has-workspace");
+    document.body.classList.remove("is-thinking","is-leaving","has-result","has-desk","has-studio","has-agents","has-workspace","has-map");
     var studio = document.getElementById("studioPage");
     if(studio) studio.hidden = true;
     var agentsPage = document.getElementById("agentsPage");
     if(agentsPage) agentsPage.hidden = true;
     var workspacePage = document.getElementById("workspacePage");
     if(workspacePage) workspacePage.hidden = true;
+    var mapPage = document.getElementById("mapPage");
+    if(mapPage) mapPage.hidden = true;
+    var deskMap = document.getElementById("deskMap");
+    if(deskMap) deskMap.src = "about:blank";
+    var drawer = document.getElementById("studioDrawer");
+    if(drawer){
+      drawer.classList.remove("is-open");
+      drawer.setAttribute("aria-hidden","true");
+    }
     askForm.classList.remove("is-querying");
     queryRail.innerHTML = "";
     queryRail.setAttribute("aria-hidden","true");
@@ -14473,6 +14728,29 @@ FILE: static/index.html
     if(ragAssetIds.length) src += "&assets=" + encodeURIComponent(ragAssetIds.join(","));
     frame.src = src;
   }
+  function openNairobiMap(){
+    document.body.classList.remove("has-desk","has-result","is-thinking","has-studio","has-agents","has-workspace");
+    var studio = document.getElementById("studioPage");
+    if(studio) studio.hidden = true;
+    var agentsPage = document.getElementById("agentsPage");
+    if(agentsPage) agentsPage.hidden = true;
+    var workspacePage = document.getElementById("workspacePage");
+    if(workspacePage) workspacePage.hidden = true;
+    document.body.classList.add("has-map");
+    document.getElementById("mapPage").hidden = false;
+    function load(id){
+      var src = "map.html?region=nairobi&t=" + Date.now();
+      if(id) src += "&event_id=" + encodeURIComponent(id);
+      document.getElementById("deskMap").src = src;
+    }
+    if(lastEventId){ load(lastEventId); return; }
+    getJSON("/api/v1/events").then(function(data){
+      var rows = (data && data.events) || [];
+      var id = rows.length ? rows[rows.length - 1].event_id : "";
+      if(id) lastEventId = id;
+      load(id);
+    }).catch(function(){ load(""); });
+  }
   window.showCatmodMap = showCatmodMap;
   function categoryIcon(label, used){
     var key = String(label || "").toLowerCase();
@@ -14538,7 +14816,7 @@ FILE: static/index.html
     if(view.eventId) lastEventId = view.eventId;
     applyModes(view.modes || {});
   }
-  function jobView(data, openMap){
+  function jobView(data){
     var syn = data.synthetic || {};
     var ep = data.ep_curve || {};
     var curve = ep.curve || [];
@@ -14571,7 +14849,7 @@ FILE: static/index.html
         {publication_title:"Exceedance curve", source_origin:"https://ep-curve"}
       ],
       modes: {
-        default_tab: openMap ? "map" : "categories",
+        default_tab: "categories",
         note: "Occurrence EP curve from the return-period catalogue. Vulnerability curves are proxy functions. Hazard synthetic is " + yn(syn.hazard) + ".",
         graph: {
           labels: labels,
@@ -14661,7 +14939,6 @@ FILE: static/index.html
         "",
         "Run the Nairobi modeled portfolio",
         "Run the Nzoia depth portfolio",
-        "Open the Nairobi loss map",
         "List modeled events",
         "Show the flood hazard catalogue",
         "Or paste latitude, longitude, an address, or audit EVENT_ID."
@@ -14696,7 +14973,7 @@ FILE: static/index.html
       return file.text && isBordereau(file.text, file.name) && regionOfFile(file) === region;
     });
   }
-  function runBook(book, basis, openMap){
+  function runBook(book, basis){
     var files = uploadedBook(book.region);
     if(!files.length){
       return Promise.resolve({
@@ -14715,7 +14992,7 @@ FILE: static/index.html
       loss_basis: basis,
       hazard_region: book.region,
       return_period: 100
-    }).then(function(data){ return jobView(data, openMap); });
+    }).then(function(data){ return jobView(data); });
   }
   function esc(s){
     return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
@@ -14938,7 +15215,6 @@ FILE: static/index.html
     }).then(function(data){
       row.eventId = data.event_id || "";
       row.kind = "Bordereau";
-      saveSessionFile(row);
       if(data.event_id) lastEventId = data.event_id;
       return refreshDeskEvents();
     }).catch(function(){
@@ -14988,12 +15264,6 @@ FILE: static/index.html
     var el = document.getElementById("uploadAnim");
     if(el) el.hidden = !on;
   }
-  var studioSaved = [];
-  var STUDIO_WHERE = {
-    "Slide Deck": "Google Slides",
-    "Reports": "Google Docs",
-    "Data Table": "Google Sheets"
-  };
   var AGENT_CARDS = [
     {role:"INGESTION", title:"Ingestion", layer:1, summary:"Parses the uploaded CSV and assigns the client and event ids."},
     {role:"JEV_ROUTER", title:"Jev router", layer:2, summary:"Master orchestrator. Choice, Score, and Noul under 500 ms decide finance or HDC."},
@@ -15038,7 +15308,9 @@ FILE: static/index.html
     }).join("");
   }
   function openWorkspace(){
-    document.body.classList.remove("has-desk","has-result","is-thinking","has-studio","has-agents");
+    document.body.classList.remove("has-desk","has-result","is-thinking","has-studio","has-agents","has-map");
+    var mapPage = document.getElementById("mapPage");
+    if(mapPage) mapPage.hidden = true;
     var studio = document.getElementById("studioPage");
     if(studio) studio.hidden = true;
     var agentsPage = document.getElementById("agentsPage");
@@ -15063,7 +15335,9 @@ FILE: static/index.html
     }).catch(function(){});
   }
   function openAgents(){
-    document.body.classList.remove("has-desk","has-result","is-thinking","has-studio","has-workspace");
+    document.body.classList.remove("has-desk","has-result","is-thinking","has-studio","has-workspace","has-map");
+    var mapPage = document.getElementById("mapPage");
+    if(mapPage) mapPage.hidden = true;
     var studio = document.getElementById("studioPage");
     if(studio) studio.hidden = true;
     var workspacePage = document.getElementById("workspacePage");
@@ -15080,7 +15354,9 @@ FILE: static/index.html
     }).catch(function(){});
   }
   function openStudio(){
-    document.body.classList.remove("has-desk","has-result","is-thinking","has-agents","has-workspace");
+    document.body.classList.remove("has-desk","has-result","is-thinking","has-agents","has-workspace","has-map");
+    var mapPage = document.getElementById("mapPage");
+    if(mapPage) mapPage.hidden = true;
     var agentsPage = document.getElementById("agentsPage");
     if(agentsPage) agentsPage.hidden = true;
     var workspacePage = document.getElementById("workspacePage");
@@ -15118,20 +15394,23 @@ FILE: static/index.html
       box.innerHTML = '<label class="studio-all"><input type="checkbox" id="studioAll" checked> Select all</label>' + sources.map(function(src){
         return '<label class="studio-src"><input type="checkbox" checked data-src="' + esc(src.id) + '"><span>' + esc(src.name) + '</span><small>' + esc(src.kind) + '</small></label>';
       }).join("") || '<p class="studio-note">Add a source to start.</p>';
-      var latest = events[0];
-      var summary;
-      if(latest){
-        summary = "The uploaded sources are already analyzed. " + sources.length + " source" + (sources.length === 1 ? " is" : "s are") + " checked for this notebook. The latest modeled book " + latest.event_id + " shows a gross claim of " + money(latest.total_gross_claim) + " and a reinsurer payout of " + money(latest.reinsurer_payout) + ", with " + latest.flagged_count + " flag" + (Number(latest.flagged_count) === 1 ? "" : "s") + ". Hazard, exposure, and vulnerability feed the decimal excess-of-loss waterfall, and the money stays in decimal cents.";
-      }else if(sources.length){
-        summary = "The notebook is holding " + sources.map(function(src){ return src.name; }).slice(0, 6).join(", ") + ". These sources are ready to summarize. Run the Nairobi book to turn an uploaded bordereau into hazard, vulnerability, and a decimal waterfall.";
-      }else{
-        summary = "No portfolio is in this notebook yet. Add sources on the left. CatMod summarizes the upload here, then Studio can turn it into a report, a sheet, a slide deck, or an audio overview.";
-      }
-      document.getElementById("studioSummary").textContent = summary;
       paintStudioCount();
+      writeStudioSummary();
     }).catch(function(){
       document.getElementById("studioSummary").textContent = "The source list could not be read. Add a file and try again.";
       paintStudioCount();
+    });
+  }
+  function writeStudioSummary(){
+    var summary = document.getElementById("studioSummary");
+    if(!summary) return;
+    summary.textContent = "Writing the portfolio summary…";
+    var csv = sessionCsvText();
+    if(csv.length > 120000) csv = csv.slice(0, 120000);
+    postJSON("/api/v1/nlp/summary", {csv_text: csv || null, event_id: csv ? null : (lastEventId || null)}).then(function(data){
+      summary.textContent = data.answer || "Gemini returned an empty summary.";
+    }).catch(function(err){
+      summary.textContent = (err && err.message) || "Add a portfolio CSV. Gemini writes this summary from the book.";
     });
   }
   function studioAnswer(text){
@@ -15140,13 +15419,94 @@ FILE: static/index.html
     if(!text) return;
     reply.textContent = "Reading the checked sources…";
     var csv = sessionCsvText();
-    var job = csv
-      ? postJSON("/api/v1/nlp/query", {query: text, event_id: null, csv_text: csv.length > 120000 ? csv.slice(0, 120000) : csv}).then(function(data){
-          return data.answer || "No answer came back.";
-        })
-      : dispatch(text, false).then(function(view){ return (view && view.answer) || "No answer came back."; });
-    job.then(function(answer){ reply.textContent = answer; }).catch(function(err){
+    if(csv.length > 120000) csv = csv.slice(0, 120000);
+    postJSON("/api/v1/nlp/query", {
+      query: text,
+      event_id: csv ? null : (lastEventId || null),
+      csv_text: csv || null
+    }).then(function(data){
+      reply.textContent = data.answer || "No answer came back.";
+    }).catch(function(err){
       reply.textContent = (err && err.message) || "The sources did not answer.";
+    });
+  }
+  function studioChart(title, labels, points, color){
+    labels = labels || [];
+    points = points || [];
+    if(!labels.length) return "";
+    var max = Math.max.apply(null, points.concat([1]));
+    var w = 520;
+    var h = 160;
+    var gap = 8;
+    var barW = Math.max(8, (w - 24 - gap * labels.length) / labels.length);
+    var bars = points.map(function(value, i){
+      var bh = Math.max(2, (Number(value) / max) * (h - 36));
+      var x = 12 + i * (barW + gap);
+      var y = h - 22 - bh;
+      return '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + bh + '" rx="3" fill="' + color + '"></rect>';
+    }).join("");
+    return '<p class="studio-chart-label">' + esc(title) + '</p><svg class="studio-chart" viewBox="0 0 ' + w + ' ' + h + '" role="img">' + bars + '</svg>';
+  }
+  function openStudioPreview(kind){
+    var drawer = document.getElementById("studioDrawer");
+    var body = document.getElementById("studioDrawerBody");
+    var title = document.getElementById("studioDrawerTitle");
+    var kicker = document.getElementById("studioDrawerKicker");
+    var names = {
+      reports: ["Google Docs", "Reports"],
+      slides: ["Google Slides", "Slide deck"],
+      graphs: ["Infographics", "Graphs"],
+      sheets: ["Google Sheets", "Data table"],
+      tasks: ["Google Tasks", "Tasks"],
+      gmail: ["Google Gmail", "Email"]
+    };
+    var pair = names[kind] || ["Studio", "Preview"];
+    kicker.textContent = pair[0];
+    title.textContent = pair[1];
+    body.innerHTML = "<p>Opening the Apps Script preview…</p>";
+    drawer.setAttribute("aria-hidden", "false");
+    drawer.classList.remove("is-open");
+    void drawer.offsetWidth;
+    drawer.classList.add("is-open");
+    getJSON("/api/v1/studio/preview").then(function(pack){
+      if(!pack || !pack.ready){
+        body.innerHTML = "<p>No modeled book is on the desk yet. Upload a bordereau and the Apps Script preview will fill from that job.</p>";
+        return;
+      }
+      if(kind === "reports"){
+        body.innerHTML = '<article class="doc-sheet"><p><b>' + esc(pack.report_title) + '</b></p>' + (pack.report_lines || []).map(function(row){
+          return "<p><b>" + esc(row[0]) + "</b> " + esc(row[1]) + "</p>";
+        }).join("") + "</article>";
+      }else if(kind === "gmail"){
+        var mail = pack.email || {};
+        body.innerHTML = '<article class="mail-sheet"><p><b>To</b> ' + esc(mail.to || "client") + '</p><p><b>Subject</b> ' + esc(mail.subject) + '</p><pre>' + esc(mail.body) + '</pre><p>Ready to send from Apps Script.</p></article>';
+      }else if(kind === "slides"){
+        body.innerHTML = (pack.slides || []).map(function(slide, index){
+          return '<article class="slide-card"><b>' + (index + 1) + ". " + esc(slide.title) + "</b>" + (slide.lines || []).map(function(line){
+            return "<span>" + esc(line) + "</span>";
+          }).join("") + "</article>";
+        }).join("");
+      }else if(kind === "sheets"){
+        var sheet = pack.sheet || {};
+        var headers = sheet.headers || [];
+        var row = sheet.row || [];
+        body.innerHTML = '<div class="sheet-wrap"><table><thead><tr>' + headers.map(function(cell){
+          return "<th>" + esc(cell) + "</th>";
+        }).join("") + "</tr></thead><tbody><tr>" + row.map(function(cell){
+          return "<td>" + esc(cell) + "</td>";
+        }).join("") + "</tr></tbody></table></div>";
+      }else if(kind === "tasks"){
+        body.innerHTML = (pack.tasks || []).map(function(task){
+          return '<article class="task-card"><b>' + esc(task.title) + "</b><span>" + esc(task.notes) + "</span></article>";
+        }).join("") || "<p>No tasks for this book.</p>";
+      }else{
+        var charts = pack.charts || {};
+        var ep = charts.ep || {};
+        var occ = charts.occupancy || {};
+        body.innerHTML = studioChart("Exceedance curve", ep.labels, ep.points, "#1a73e8") + studioChart("Occupancy mix", occ.labels, occ.points, "#e8453c");
+      }
+    }).catch(function(err){
+      body.innerHTML = "<p>" + esc((err && err.message) || "The preview did not load.") + "</p>";
     });
   }
   function bindStudio(){
@@ -15175,13 +15535,12 @@ FILE: static/index.html
     document.getElementById("studioGrid").addEventListener("click", function(e){
       var btn = e.target.closest("[data-out]");
       if(!btn) return;
-      var name = btn.getAttribute("data-out");
-      var where = STUDIO_WHERE[name] || "this notebook";
-      studioSaved.unshift({name: name, where: where});
-      var host = document.getElementById("studioSaved");
-      host.innerHTML = studioSaved.map(function(item){
-        return '<article><b>' + esc(item.name) + '</b><small>Saved for ' + esc(item.where) + ' from the analyzed sources.</small></article>';
-      }).join("");
+      openStudioPreview(btn.getAttribute("data-out"));
+    });
+    document.getElementById("studioDrawerClose").addEventListener("click", function(){
+      var drawer = document.getElementById("studioDrawer");
+      drawer.classList.remove("is-open");
+      drawer.setAttribute("aria-hidden","true");
     });
     var refresh = document.querySelector("#studioWeb .studio-chip[aria-label='Refresh sources']");
     if(refresh) refresh.addEventListener("click", function(){ renderStudio(); });
@@ -15213,7 +15572,6 @@ FILE: static/index.html
       });
     })).then(function(rows){
       sessionFiles = sessionFiles.concat(rows);
-      rows.forEach(saveSessionFile);
       renderDesk();
       if(document.body.classList.contains("has-studio")) renderStudio();
       var books = rows.filter(function(row){ return row.kind === "Bordereau" && row.text; });
@@ -15272,7 +15630,6 @@ FILE: static/index.html
         if(action === "drop"){
           var id = act.getAttribute("data-file");
           sessionFiles = sessionFiles.filter(function(file){ return file.id !== id; });
-          forgetSessionFile(id);
           deskKebab = "";
           renderDesk();
           return;
@@ -15308,7 +15665,6 @@ FILE: static/index.html
     document.getElementById("deskClear").addEventListener("click", function(e){
       e.stopPropagation();
       sessionFiles = [];
-      forgetAllSessionFiles();
       deskKebab = "";
       deskMenuOpen = false;
       document.getElementById("deskUserMenu").hidden = true;
@@ -15347,7 +15703,6 @@ FILE: static/index.html
   function dispatch(text, modeled){
     var lower = text.toLowerCase();
     var basis = modeled || /\bmodeled\b/.test(lower) ? "modeled" : (/\breported\b/.test(lower) ? "reported" : "auto");
-    var openMap = /\bmap\b/.test(lower);
     var coord = text.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
     if(coord){
       return postJSON("/api/v1/flood/evaluate", {latitude: Number(coord[1]), longitude: Number(coord[2])}).then(floodView);
@@ -15355,7 +15710,7 @@ FILE: static/index.html
     var audit = text.match(/^audit\s+(\S+)/i);
     if(audit) return getJSON("/api/v1/audit/" + encodeURIComponent(audit[1])).then(auditView);
     var book = bookFor(lower);
-    if(book) return runBook(book, basis, openMap);
+    if(book) return runBook(book, basis);
     if(lower === "list modeled events"){
       return openEventsDesk({tab:"queue", query:""});
     }
@@ -15482,7 +15837,6 @@ FILE: static/index.html
     searching = false;
   }
   var aiMode = false;
-  try{ aiMode = sessionStorage.getItem("catmod-ai-mode") === "1"; }catch(err){}
   function paintAiToggle(){
     var btn = document.getElementById("aiModeToggle");
     if(!btn) return;
@@ -15542,7 +15896,6 @@ FILE: static/index.html
           note: "Natural language over the portfolio. Treaty payouts stay on the decimal waterfall."
         }
       });
-      if(ids.length) showCatmodMap();
     }).catch(function(err){
       window.clearInterval(statusTimer);
       settlePips([]);
@@ -15576,7 +15929,6 @@ FILE: static/index.html
   });
   document.getElementById("aiModeToggle").addEventListener("click", function(){
     aiMode = !aiMode;
-    try{ sessionStorage.setItem("catmod-ai-mode", aiMode ? "1" : "0"); }catch(err){}
     paintAiToggle();
   });
   paintAiToggle();
@@ -15601,7 +15953,7 @@ FILE: static/index.html
         loss_basis: "modeled",
         hazard_region: region,
         return_period: 100
-      }).then(function(data){ present(jobView(data, false)); }).catch(function(err){
+      }).then(function(data){ present(jobView(data)); }).catch(function(err){
         window.clearInterval(statusTimer);
         settlePips([]);
         resultStatus.textContent = "The bordereau was rejected.";
@@ -15664,10 +16016,19 @@ FILE: static/index.html
     runSearch(card.getAttribute("data-query") || "", false);
   });
   shortcuts.addEventListener("click", function(e){
+    var mapBtn = e.target.closest("[data-map]");
+    if(mapBtn){
+      e.preventDefault();
+      openNairobiMap();
+      return;
+    }
     var item = e.target.closest("[data-query]");
     if(!item) return;
     e.preventDefault();
     runSearch(item.getAttribute("data-query"), false);
+  });
+  document.getElementById("mapHome").addEventListener("click", function(){
+    document.getElementById("homeLink").click();
   });
   document.getElementById("apps").addEventListener("click", function(e){
     var upload = e.target.closest("[data-upload]");
@@ -15728,7 +16089,6 @@ FILE: static/index.html
   }
   renderShortcuts();
   bindDesk();
-  loadStoredFiles();
   plusBtn.addEventListener("click", function(e){
     e.stopPropagation();
     var open = plusMenu.classList.toggle("open");
@@ -17382,7 +17742,7 @@ FILE: tests/test_nlp_rag.py
 from fastapi.testclient import TestClient
 
 from catmod.config import Settings
-from catmod.nlp.gemini_rag import build_dataset_context, parse_csv_text, query_dataset_rag
+from catmod.nlp.gemini_rag import build_dataset_context, parse_csv_text, query_dataset_rag, summarize_dataset
 
 
 NAIROBI = """asset_id,policy_id,latitude,longitude,elevation,occupancy,tiv,ground_up_loss,deductible,policy_limit,coinsurance,loss_date
@@ -17498,6 +17858,38 @@ def test_nlp_endpoint_refuses_without_an_upload(tmp_path, monkeypatch):
     )
     assert response.status_code == 400
     assert "Upload" in response.json()["detail"]
+
+
+def test_summary_uses_gemini_nlp_not_jev(monkeypatch):
+    def explode(*_args, **_kwargs):
+        raise AssertionError("Gemini should not be called without a key")
+
+    monkeypatch.setattr("catmod.nlp.gemini_rag.httpx.Client", explode)
+    result = summarize_dataset(_context(), _settings())
+    assert result["source"] == "local-keyword"
+    assert "rows" in result["answer"].lower()
+    assert "jev" not in result["source"]
+
+
+def test_summary_endpoint_reads_uploaded_csv(tmp_path, monkeypatch):
+    import catmod.api as api
+
+    settings = Settings.model_construct(
+        gemini_api_key="",
+        gemini_model="gemini-2.0-flash",
+        jobs_dir=str(tmp_path / "jobs"),
+        jobs_keep=4,
+        audit_dir=str(tmp_path / "audit"),
+    )
+    monkeypatch.setattr(api, "get_settings", lambda: settings)
+    api._STORE = None
+    client = TestClient(api.app)
+    response = client.post("/api/v1/nlp/summary", json={"csv_text": NAIROBI})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["source"] == "local-keyword"
+    assert "rows" in body["answer"].lower()
+    assert body["dataset_name"] == "uploaded-session.csv"
 
 ========================================================================================
 FILE: tests/test_pipeline.py
@@ -17985,6 +18377,61 @@ def test_ground_up_samples_are_half_even_cents():
 def test_vulnerability_module_does_not_import_finance():
     source = Path("catmod/vulnerability/stochastic_engine.py").read_text(encoding="utf-8")
     assert "catmod.finance" not in source
+
+========================================================================================
+FILE: tests/test_studio_preview.py
+========================================================================================
+from catmod.studio import build_studio_preview
+
+
+def test_studio_preview_matches_apps_script_shapes():
+    job = {
+        "event_id": "EVT-1",
+        "client_email": "desk@catmod.local",
+        "client_name": "Catastrophe desk",
+        "filename": "nairobi-book.csv",
+        "client_index_id": "CID-1",
+        "total_gross_claim": 1000.0,
+        "reinsurer_payout": 0.0,
+        "cedant_retained_loss": 1000.0,
+        "modeled_ground_up_loss": "1200.00",
+        "flagged_count": 2,
+        "hazard_region": "nairobi",
+        "treaty_label": "$100M xs $40M",
+        "treaty": {"label": "$100M xs $40M"},
+        "ep_curve": {
+            "eal": 250.0,
+            "curve": [{"return_period": 100, "loss": 400.0}, {"return_period": 250, "loss": 900.0}],
+        },
+        "synthetic": {"hazard": False, "vulnerability_curves": True, "exposure_portfolio": False},
+        "placeholders": {
+            "CLIENT_NAME": "Catastrophe desk",
+            "EVENT_ID": "EVT-1",
+            "GROUND_UP_LOSS": 1000.0,
+            "REINSURER_PAYOUT": 0.0,
+            "CEDANT_RETENTION": 1000.0,
+            "FRAUD_FLAG_COUNT": 2,
+            "MODELED_GROUND_UP_LOSS": "1200.00",
+            "EXPECTED_ANNUAL_LOSS": 250.0,
+            "HAZARD_REGION": "nairobi",
+            "SYNTHETIC_HAZARD": "false",
+            "SYNTHETIC_VULNERABILITY": "true",
+            "SYNTHETIC_EXPOSURE": "false",
+        },
+        "claims": [{"occupancy": "RES_SF"}, {"occupancy": "RES_SF"}, {"occupancy": "COM_WHSE"}],
+        "audit": {"started_at": "2026-10-08T08:10:00+00:00"},
+    }
+    pack = build_studio_preview(job)
+    assert pack["ready"] is True
+    assert pack["report_title"] == "Reinsurance Audit Report - EVT-1"
+    assert pack["email"]["to"] == "desk@catmod.local"
+    assert "Catastrophe analysis is complete for event EVT-1." in pack["email"]["body"]
+    assert pack["email"]["subject"].startswith("Catastrophe analysis complete")
+    assert any(task["title"].startswith("[AUDIT REQUIRED]") for task in pack["tasks"])
+    assert pack["charts"]["ep"]["labels"] == ["RP 100", "RP 250"]
+    assert pack["charts"]["occupancy"]["points"] == [2, 1]
+    assert pack["sheet"]["headers"][5] == "EventId"
+    assert build_studio_preview(None) == {"ready": False}
 
 ========================================================================================
 FILE: tests/test_vulnerability.py
