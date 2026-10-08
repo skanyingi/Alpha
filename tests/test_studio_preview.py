@@ -18,9 +18,16 @@ def test_studio_preview_matches_apps_script_shapes():
         "treaty": {"label": "$100M xs $40M"},
         "ep_curve": {
             "eal": 250.0,
-            "curve": [{"return_period": 100, "loss": 400.0}, {"return_period": 250, "loss": 900.0}],
+            "curve": [
+                {"return_period": 100, "loss": 400.0},
+                {"return_period": 250, "loss": 900.0},
+            ],
         },
-        "synthetic": {"hazard": False, "vulnerability_curves": True, "exposure_portfolio": False},
+        "synthetic": {
+            "hazard": False,
+            "vulnerability_curves": True,
+            "exposure_portfolio": False,
+        },
         "placeholders": {
             "CLIENT_NAME": "Catastrophe desk",
             "EVENT_ID": "EVT-1",
@@ -35,7 +42,11 @@ def test_studio_preview_matches_apps_script_shapes():
             "SYNTHETIC_VULNERABILITY": "true",
             "SYNTHETIC_EXPOSURE": "false",
         },
-        "claims": [{"occupancy": "RES_SF"}, {"occupancy": "RES_SF"}, {"occupancy": "COM_WHSE"}],
+        "claims": [
+            {"occupancy": "RES_SF"},
+            {"occupancy": "RES_SF"},
+            {"occupancy": "COM_WHSE"},
+        ],
         "audit": {"started_at": "2026-10-08T08:10:00+00:00"},
     }
     pack = build_studio_preview(job)
@@ -45,7 +56,7 @@ def test_studio_preview_matches_apps_script_shapes():
     assert "Catastrophe analysis is complete for event EVT-1." in pack["email"]["body"]
     assert pack["email"]["subject"].startswith("Catastrophe analysis complete")
     assert any(task["title"].startswith("[AUDIT REQUIRED]") for task in pack["tasks"])
-    assert pack["charts"]["ep"]["labels"] == ["RP 100", "RP 250"]
+    assert pack["charts"]["ep"]["labels"] == ["100y", "250y"]
     assert pack["charts"]["occupancy"]["points"] == [2, 1]
     assert pack["sheet"]["headers"][5] == "EventId"
     assert build_studio_preview(None) == {"ready": False}

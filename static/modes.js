@@ -73,9 +73,9 @@
     yTitle.textContent = spec.y_label || "Loss";
     svg.appendChild(yTitle);
     var xTitle = el("text", {
-      x: pad.l + (w - pad.l - pad.r) / 2, y: h - 4, fill: "#5f6368", "font-size": "11", "text-anchor": "middle"
+      x: pad.l + (w - pad.l - pad.r) / 2, y: h - 6, fill: "#5f6368", "font-size": "11", "text-anchor": "middle"
     });
-    xTitle.textContent = spec.x_label || "Return period";
+    xTitle.textContent = spec.x_label || "Return Period";
     svg.appendChild(xTitle);
     series.forEach(function (s, si) {
       var pts = s.points || [];

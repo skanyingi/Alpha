@@ -2091,18 +2091,18 @@
   }
   function paintCurve(svg, tip, points){
     if(!svg) return;
-    var labels = points.map(function(p){ return "RP " + p.return_period; });
+    var labels = points.map(function(p){ return p.return_period + "y"; });
     var gul = points.map(function(p){ return Number(p.gul); });
     var net = points.map(function(p){ return Number(p.net); });
     var tips = points.map(function(p){
       var audit = (p.audit || []).map(function(row){
         return "L" + row.layer + " " + (row.name || row.step || "") + " " + (row.status || "");
       }).join(" · ");
-      return "RP " + p.return_period + " ground-up " + money(p.gul) + " · net " + money(p.net) + (audit ? " · " + audit : "");
+      return p.return_period + "y · ground-up " + money(p.gul) + " · net " + money(p.net) + (audit ? " · " + audit : "");
     });
     var spec = {
       labels: labels,
-      x_label: "Return period",
+      x_label: "Return Period",
       y_label: "Loss (" + bookCurrency + ")",
       series: [
         {name:"Ground-up loss", color:"#1a73e8", points: gul},
@@ -2420,7 +2420,7 @@
     var syn = data.synthetic || {};
     var ep = data.ep_curve || {};
     var curve = ep.curve || [];
-    var labels = curve.map(function(p){ return "RP " + p.return_period; });
+    var labels = curve.map(function(p){ return p.return_period + "y"; });
     var points = curve.map(function(p){ return Number(p.loss_float != null ? p.loss_float : p.loss); });
     var lines = [
       "Event " + data.event_id,
@@ -2454,6 +2454,7 @@
         note: "Occurrence EP curve from the return-period catalogue. Vulnerability curves are proxy functions. Hazard synthetic is " + yn(syn.hazard) + ".",
         graph: {
           labels: labels,
+          x_label: "Return Period",
           series: [{name:"OEP loss", color:"#1a73e8", points: points}],
           highlight_value: compact(ep.eal),
           highlight_label: labels[Math.min(labels.length - 1, 3)] || "",
@@ -3057,7 +3058,7 @@
       setStudioBusy(false);
     });
   }
-  function studioChart(title, labels, points, color, yLabel){
+  function studioChart(title, labels, points, color, yLabel, xLabel){
     labels = labels || [];
     points = points || [];
     if(!labels.length) return "";
@@ -3088,7 +3089,7 @@
     var mid = padT + plotH / 2;
     var axes = ticks + bars +
       '<text x="14" y="' + mid + '" fill="#5f6368" font-size="11" text-anchor="middle" transform="rotate(-90 14 ' + mid + ')">' + esc(yLabel || "Value") + '</text>' +
-      '<text x="' + (padL + plotW / 2) + '" y="' + (h - 3) + '" fill="#5f6368" font-size="11" text-anchor="middle">' + esc(title) + '</text>';
+      '<text x="' + (padL + plotW / 2) + '" y="' + (h - 3) + '" fill="#5f6368" font-size="11" text-anchor="middle">' + esc(xLabel || title) + '</text>';
     return '<p class="studio-chart-label">' + esc(title) + '</p><svg class="studio-chart" viewBox="0 0 ' + w + ' ' + h + '" role="img">' + axes + '</svg>';
   }
   function openStudioPreview(kind){
@@ -3147,7 +3148,7 @@
         var charts = pack.charts || {};
         var ep = charts.ep || {};
         var occ = charts.occupancy || {};
-        body.innerHTML = studioChart("Exceedance curve", ep.labels, ep.points, "#1a73e8", "Loss (" + bookCurrency + ")") + studioChart("Occupancy mix", occ.labels, occ.points, "#e8453c", "Locations");
+        body.innerHTML = studioChart("Exceedance curve", ep.labels, ep.points, "#1a73e8", "Loss (" + bookCurrency + ")", "Return Period") + studioChart("Occupancy mix", occ.labels, occ.points, "#e8453c", "Locations", "Occupancy");
       }
     }).catch(function(err){
       body.innerHTML = "<p>" + esc((err && err.message) || "The preview did not load.") + "</p>";

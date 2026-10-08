@@ -47,13 +47,22 @@ def build_studio_preview(job: dict[str, Any] | None) -> dict[str, Any]:
     ep = job.get("ep_curve") or {}
     treaty = job.get("treaty") or {}
     synthetic = job.get("synthetic") or {}
-    client_name = str(placeholders.get("CLIENT_NAME") or job.get("client_name") or job.get("client_email") or "Client")
+    client_name = str(
+        placeholders.get("CLIENT_NAME")
+        or job.get("client_name")
+        or job.get("client_email")
+        or "Client"
+    )
     client_email = str(job.get("client_email") or "")
     event_id = str(placeholders.get("EVENT_ID") or job.get("event_id") or "")
     gross = _money(placeholders.get("GROUND_UP_LOSS", job.get("total_gross_claim")))
     payout = _money(placeholders.get("REINSURER_PAYOUT", job.get("reinsurer_payout")))
-    retention = _money(placeholders.get("CEDANT_RETENTION", job.get("cedant_retained_loss")))
-    modeled = _money(placeholders.get("MODELED_GROUND_UP_LOSS", job.get("modeled_ground_up_loss")))
+    retention = _money(
+        placeholders.get("CEDANT_RETENTION", job.get("cedant_retained_loss"))
+    )
+    modeled = _money(
+        placeholders.get("MODELED_GROUND_UP_LOSS", job.get("modeled_ground_up_loss"))
+    )
     eal = _money(placeholders.get("EXPECTED_ANNUAL_LOSS", ep.get("eal")))
     flags = int(_number(placeholders.get("FRAUD_FLAG_COUNT", job.get("flagged_count"))))
     region = str(placeholders.get("HAZARD_REGION") or job.get("hazard_region") or "")
@@ -68,9 +77,26 @@ def build_studio_preview(job: dict[str, Any] | None) -> dict[str, Any]:
         ["Modeled ground-up loss", modeled],
         ["Expected annual loss", eal],
         ["Hazard region", region],
-        ["Synthetic hazard", str(placeholders.get("SYNTHETIC_HAZARD") or synthetic.get("hazard") or "")],
-        ["Synthetic vulnerability curves", str(placeholders.get("SYNTHETIC_VULNERABILITY") or synthetic.get("vulnerability_curves") or "")],
-        ["Synthetic exposure portfolio", str(placeholders.get("SYNTHETIC_EXPOSURE") or synthetic.get("exposure_portfolio") or "")],
+        [
+            "Synthetic hazard",
+            str(placeholders.get("SYNTHETIC_HAZARD") or synthetic.get("hazard") or ""),
+        ],
+        [
+            "Synthetic vulnerability curves",
+            str(
+                placeholders.get("SYNTHETIC_VULNERABILITY")
+                or synthetic.get("vulnerability_curves")
+                or ""
+            ),
+        ],
+        [
+            "Synthetic exposure portfolio",
+            str(
+                placeholders.get("SYNTHETIC_EXPOSURE")
+                or synthetic.get("exposure_portfolio")
+                or ""
+            ),
+        ],
     ]
     email_rows = [
         f"Client: {client_name}",
@@ -88,12 +114,26 @@ def build_studio_preview(job: dict[str, Any] | None) -> dict[str, Any]:
     body = "\n".join(
         [f"Catastrophe analysis is complete for event {event_id}.", ""]
         + email_rows
-        + ["", "Drive archive: unavailable", "Executive presentation: unavailable", "Audit document: unavailable", "", closing, "", "Regards,", "Catastrophe Analytics Desk"]
+        + [
+            "",
+            "Drive archive: unavailable",
+            "Executive presentation: unavailable",
+            "Audit document: unavailable",
+            "",
+            closing,
+            "",
+            "Regards,",
+            "Catastrophe Analytics Desk",
+        ]
     )
     curve = list(ep.get("curve") or [])
-    ep_labels = [f"RP {point.get('return_period')}" for point in curve]
+    ep_labels = [f"{point.get('return_period')}y" for point in curve]
     ep_points = [
-        _number(point.get("loss_float") if point.get("loss_float") is not None else point.get("loss"))
+        _number(
+            point.get("loss_float")
+            if point.get("loss_float") is not None
+            else point.get("loss")
+        )
         for point in curve
     ]
     occupancy: Counter[str] = Counter()
@@ -102,21 +142,27 @@ def build_studio_preview(job: dict[str, Any] | None) -> dict[str, Any]:
             occupancy[str(claim.get("occupancy") or "Unknown")] += 1
     tasks = []
     if flags > 0:
-        tasks.append({
-            "title": f"[AUDIT REQUIRED] Review {flags} fraud/spatial flags for Event {event_id}",
-            "notes": "Due in 24 hours. Review the audit report before the client reply.",
-        })
+        tasks.append(
+            {
+                "title": f"[AUDIT REQUIRED] Review {flags} fraud/spatial flags for Event {event_id}",
+                "notes": "Due in 24 hours. Review the audit report before the client reply.",
+            }
+        )
     if _number(job.get("reinsurer_payout")) > HIGH_LAYER_PAYOUT:
-        tasks.append({
-            "title": f"[HIGH LAYER EXPOSURE] Review {payout} Reinsurer Payout for Event {event_id}",
-            "notes": "Check Excess-of-Loss attachment points and reinstatement terms."
-            + (f" Treaty: {treaty_label}" if treaty_label else ""),
-        })
-    tasks.append({
-        "title": f"[CLIENT FOLLOW-UP] Send formal catastrophe audit response to {client_name}"
-        + (f" ({client_email})" if client_email else ""),
-        "notes": "Attach the Apps Script PDF and the executive deck.",
-    })
+        tasks.append(
+            {
+                "title": f"[HIGH LAYER EXPOSURE] Review {payout} Reinsurer Payout for Event {event_id}",
+                "notes": "Check Excess-of-Loss attachment points and reinstatement terms."
+                + (f" Treaty: {treaty_label}" if treaty_label else ""),
+            }
+        )
+    tasks.append(
+        {
+            "title": f"[CLIENT FOLLOW-UP] Send formal catastrophe audit response to {client_name}"
+            + (f" ({client_email})" if client_email else ""),
+            "notes": "Attach the Apps Script PDF and the executive deck.",
+        }
+    )
     started = str((job.get("audit") or {}).get("started_at") or "")
     return {
         "ready": True,
@@ -129,12 +175,33 @@ def build_studio_preview(job: dict[str, Any] | None) -> dict[str, Any]:
             "body": body,
         },
         "slides": [
-            {"title": "Catastrophe analytics", "lines": [client_name, f"Event {event_id}", treaty_label or "Excess-of-Loss executive briefing"]},
-            {"title": "Financial waterfall", "lines": [f"Gross claim {gross}", f"Reinsurer payout {payout}", f"Cedant retention {retention}"]},
-            {"title": "Risk analytics and EP curve", "lines": [f"Expected annual loss {eal}", f"Modeled ground-up loss {modeled}"]},
+            {
+                "title": "Catastrophe analytics",
+                "lines": [
+                    client_name,
+                    f"Event {event_id}",
+                    treaty_label or "Excess-of-Loss executive briefing",
+                ],
+            },
+            {
+                "title": "Financial waterfall",
+                "lines": [
+                    f"Gross claim {gross}",
+                    f"Reinsurer payout {payout}",
+                    f"Cedant retention {retention}",
+                ],
+            },
+            {
+                "title": "Risk analytics and EP curve",
+                "lines": [
+                    f"Expected annual loss {eal}",
+                    f"Modeled ground-up loss {modeled}",
+                ],
+            },
             {
                 "title": "Triage and anomaly summary",
-                "lines": [f"Flagged fraud / spatial count: {flags}"] + ([f"Hazard region {region}"] if region else []),
+                "lines": [f"Flagged fraud / spatial count: {flags}"]
+                + ([f"Hazard region {region}"] if region else []),
             },
         ],
         "sheet": {
@@ -160,6 +227,9 @@ def build_studio_preview(job: dict[str, Any] | None) -> dict[str, Any]:
         "tasks": tasks,
         "charts": {
             "ep": {"labels": ep_labels, "points": ep_points},
-            "occupancy": {"labels": list(occupancy.keys()), "points": list(occupancy.values())},
+            "occupancy": {
+                "labels": list(occupancy.keys()),
+                "points": list(occupancy.values()),
+            },
         },
     }
