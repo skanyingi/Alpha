@@ -12848,7 +12848,7 @@ FILE: static/index.html
 <div class="toast-stack" id="toastStack" aria-live="polite" aria-label="Apps Script events"></div>
 
 <header class="top">
-  <a href="/map/" id="homeLink" class="gem-glow">Home</a>
+  <a href="/" id="homeLink" class="gem-glow">Home</a>
   <a href="#ask" id="askLink" class="gem-glow">Ask</a>
   <button class="icon-btn apps-btn gem-glow" id="appsBtn" type="button" aria-label="Open apps" aria-expanded="false">
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -14314,9 +14314,8 @@ FILE: static/index.html
     reader.readAsText(file);
   });
   document.getElementById("homeLink").addEventListener("click", function(e){
-    if(document.body.classList.contains("has-result") || document.body.classList.contains("is-thinking") || document.body.classList.contains("is-leaving")){
-      resetHome(e);
-    }
+    e.preventDefault();
+    location.assign("/");
   });
   document.getElementById("askLink").addEventListener("click", function(e){
     e.preventDefault();
