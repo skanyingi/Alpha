@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from catmod.api import app
 from catmod.flood.maps import esri_terrain_url
 from catmod.spatial.flooddepth import flood_depth_grid
+from catmod.spatial.osm import ways_to_features
 
 
 def test_flood_depth_grid_stays_on_the_local_atlas():
@@ -56,8 +57,81 @@ def test_diorama_http_and_page_do_not_call_photoreal_tiles(monkeypatch):
     assert page.status_code == 200
     assert "tile.googleapis.com" not in page.text
     assert "Not surveyed LiDAR" in page.text
+    assert "Enter streets" in page.text
+    assert "SURVEY" in page.text
+    assert 'id="tog-scan" aria-pressed="false"' in page.text
     script = client.get("/map/diorama.js")
     assert script.status_code == 200
     assert "tile.googleapis.com" not in script.text
     assert "dem_footprint_densify" in script.text
+    assert "osm-buildings" in script.text
+    assert "No building geometries in this cell." in script.text
+    assert "gross_volume_m3" in script.text
     assert client.get("/map/vendor/three/three.module.js").status_code == 200
+
+
+def test_osm_buildings_parse_and_empty_on_overpass_failure(monkeypatch):
+    elements = [{
+        "type": "way",
+        "id": 42,
+        "tags": {
+            "building": "yes",
+            "name": "KICC",
+            "height": "20",
+            "building:levels": "5",
+            "building:material": "concrete",
+        },
+        "geometry": [
+            {"lon": 36.82, "lat": -1.28},
+            {"lon": 36.821, "lat": -1.28},
+            {"lon": 36.821, "lat": -1.279},
+            {"lon": 36.82, "lat": -1.28},
+        ],
+    }]
+    features = ways_to_features(elements, kind="building", cap=10)
+    assert features[0]["geometry"]["type"] == "Polygon"
+    assert features[0]["properties"]["name"] == "KICC"
+    assert features[0]["properties"]["height"] == "20"
+    assert features[0]["geometry"]["coordinates"][0][0] == features[0]["geometry"]["coordinates"][0][-1]
+
+    def boom(_query):
+        raise RuntimeError("down")
+
+    monkeypatch.setattr("catmod.spatial.osm.fetch_overpass", boom)
+    client = TestClient(app)
+    empty = client.get(
+        "/api/spatial/osm-buildings",
+        params={"west": 36.812, "south": -1.286, "east": 36.828, "north": -1.274},
+    )
+    assert empty.status_code == 200
+    body = empty.json()
+    assert body["features"] == []
+    assert "Overpass" in body["metadata"]["note"]
+
+    wide = client.get(
+        "/api/spatial/osm-roads",
+        params={"west": 36.7, "south": -1.4, "east": 36.9, "north": -1.1},
+    )
+    assert wide.status_code == 200
+    assert wide.json()["features"] == []
+
+    def roads(_query):
+        return [{
+            "type": "way",
+            "id": 9,
+            "tags": {"highway": "primary", "name": "Kenyatta"},
+            "geometry": [
+                {"lon": 36.82, "lat": -1.28},
+                {"lon": 36.822, "lat": -1.279},
+            ],
+        }]
+
+    monkeypatch.setattr("catmod.spatial.osm.fetch_overpass", roads)
+    road = client.get(
+        "/api/spatial/osm-roads",
+        params={"west": 36.812, "south": -1.286, "east": 36.828, "north": -1.274},
+    )
+    assert road.status_code == 200
+    feature = road.json()["features"][0]
+    assert feature["geometry"]["type"] == "LineString"
+    assert feature["properties"]["name"] == "Kenyatta"

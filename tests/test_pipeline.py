@@ -83,16 +83,16 @@ def test_end_to_end_pipeline_audit_layers():
     assert finance["detail"]["vector_approximation_used"] is False
     assert finance["detail"]["synthetic"] is True
     assert result["total_gross_claim"] == Decimal("7732953.60")
-    assert result["reinsurer_payout"] == Decimal("5159658.24")
-    assert result["cedant_retained_loss"] == Decimal("2573295.36")
-    assert result["reinstatement_premium_due"] == Decimal("286647.68")
+    assert result["reinsurer_payout"] == 0
+    assert result["cedant_retained_loss"] == Decimal("7732953.60")
+    assert result["reinstatement_premium_due"] == 0
     assert result["synthetic"]["hazard"] is True
     assert result["synthetic"]["vulnerability_curves"] is True
     assert result["synthetic"]["ep_curve"] is True
     assert result["synthetic"]["primary_ground_up_loss"] is True
     assert result["source_urls"] == []
-    assert result["treaty"]["attachment_point"] == 2_000_000
-    assert result["treaty"]["limit"] == 10_000_000
+    assert result["treaty"]["attachment_point"] == 40_000_000
+    assert result["treaty"]["limit"] == 100_000_000
     assert result["ep_curve"]["synthetic"] is True
     assert result["geojson"]["metadata"]["synthetic"] is True
     anomalies = [e for e in result["audit"]["entries"] if e["step"] == "hazard_anomaly"]

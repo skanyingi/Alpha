@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from collections import Counter
+from decimal import Decimal
 from typing import Any
+
+from catmod.vulnerability.curves import CURVES
 
 HIGH_LAYER_PAYOUT = 10_000_000
 
@@ -31,6 +34,113 @@ def _money(value: Any) -> str:
         return f"${float(value):,.2f}"
     except (TypeError, ValueError):
         return "n/a"
+
+
+_RADAR_CLASSES = (
+    ("informal_iron_sheet", "Informal iron sheet", "#e8952c"),
+    ("semi_permanent", "Semi-permanent", "#3d8bfd"),
+    ("permanent_masonry", "Permanent masonry", "#8d3d6b"),
+    ("concrete_rcc", "Concrete RCC", "#d4533c"),
+)
+_RADAR_SPOKES = (
+    "Buildings",
+    "Insured value",
+    "Modeled loss",
+    "0.5 m flood",
+    "1 m flood",
+    "2 m flood",
+    "3 m flood",
+    "Depth on book",
+)
+
+
+def _ratio_at(code: str, depth: float) -> float:
+    knots = CURVES.get(code)
+    if not knots:
+        return 0.0
+    target = Decimal(str(depth))
+    if target <= knots[0][0]:
+        return float(knots[0][1])
+    if target >= knots[-1][0]:
+        return float(knots[-1][1])
+    for (left_depth, left_ratio), (right_depth, right_ratio) in zip(knots, knots[1:]):
+        if left_depth <= target <= right_depth:
+            span = right_depth - left_depth
+            if span == 0:
+                return float(right_ratio)
+            weight = (target - left_depth) / span
+            return float(left_ratio + (right_ratio - left_ratio) * weight)
+    return float(knots[-1][1])
+
+
+def _score(part: float, whole: float) -> int:
+    if whole <= 0:
+        return 0
+    return max(0, min(100, round(100 * part / whole)))
+
+
+def portfolio_radar(claims: list[dict[str, Any]]) -> dict[str, Any]:
+    """Eight-spoke comparison of the housing classes on one book."""
+    grouped: dict[str, list[dict[str, Any]]] = {
+        code: [] for code, _label, _color in _RADAR_CLASSES
+    }
+    for claim in claims:
+        if not isinstance(claim, dict):
+            continue
+        code = str(claim.get("occupancy") or "")
+        if code in grouped:
+            grouped[code].append(claim)
+    totals = {
+        "count": sum(len(rows) for rows in grouped.values()) or 0,
+        "tiv": sum(
+            _number(row.get("tiv")) for rows in grouped.values() for row in rows
+        ),
+        "loss": sum(
+            _number(
+                row.get("modeled_ground_up_loss")
+                if row.get("modeled_ground_up_loss") is not None
+                else row.get("ground_up_loss")
+            )
+            for rows in grouped.values()
+            for row in rows
+        ),
+    }
+    series = []
+    for code, label, color in _RADAR_CLASSES:
+        rows = grouped[code]
+        tiv = sum(_number(row.get("tiv")) for row in rows)
+        loss = sum(
+            _number(
+                row.get("modeled_ground_up_loss")
+                if row.get("modeled_ground_up_loss") is not None
+                else row.get("ground_up_loss")
+            )
+            for row in rows
+        )
+        depths = [
+            _number(row.get("flood_depth_m"))
+            for row in rows
+            if row.get("flood_depth_m") not in (None, "")
+        ]
+        mean_depth = sum(depths) / len(depths) if depths else 0.0
+        series.append(
+            {
+                "id": code,
+                "label": label,
+                "color": color,
+                "values": [
+                    _score(len(rows), totals["count"]),
+                    _score(tiv, totals["tiv"]),
+                    _score(loss, totals["loss"]),
+                    round(_ratio_at(code, 0.5) * 100),
+                    round(_ratio_at(code, 1) * 100),
+                    round(_ratio_at(code, 2) * 100),
+                    round(_ratio_at(code, 3) * 100),
+                    _score(mean_depth, 4.0),
+                ],
+            }
+        )
+    return {"spokes": list(_RADAR_SPOKES), "series": series, "scale": 100}
 
 
 def _number(value: Any) -> float:
@@ -231,5 +341,8 @@ def build_studio_preview(job: dict[str, Any] | None) -> dict[str, Any]:
                 "labels": list(occupancy.keys()),
                 "points": list(occupancy.values()),
             },
+            "radar": portfolio_radar(
+                [row for row in (job.get("claims") or []) if isinstance(row, dict)]
+            ),
         },
     }
