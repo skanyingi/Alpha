@@ -11,6 +11,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from catmod.analytics.desk import (
+    audit_trace,
+    housing_breakdown,
+    scenario_net_curve,
+    treaty_for_what_if,
+    vulnerability_curve_payload,
+    waterfall_for_claims,
+)
 from catmod.agents.orchestrator import execute_workflow
 from catmod.agents.status import agent_status
 from catmod.audit import AuditLog
@@ -40,8 +48,10 @@ from catmod.schemas import (
     ElevationIn,
     FloodEvaluateIn,
     RAGQueryIn,
+    SimulateEpIn,
     SummaryIn,
     TilesSessionIn,
+    WaterfallWhatIfIn,
 )
 from catmod.spatial.blender import build_blender_manifest
 from catmod.spatial.elevation import build_elevation_payload
@@ -95,6 +105,79 @@ def process_bordereau(payload: BordereauWebhook) -> JSONResponse:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return JSONResponse(result)
+
+
+def _job_or_404(event_id: str | None) -> dict[str, Any]:
+    store = job_store()
+    if event_id:
+        job = store.get(event_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail=f"Unknown event_id {event_id}")
+        return job
+    job = store.latest()
+    if job is None:
+        raise HTTPException(status_code=404, detail="No modeled events saved yet. POST /v1/process-bordereau first.")
+    return job
+
+
+@app.post("/v1/simulate-ep")
+def simulate_ep(payload: SimulateEpIn) -> JSONResponse:
+    """Return-period ground-up and net losses for the modeled book."""
+    job = _job_or_404(payload.event_id)
+    settings = get_settings()
+    stored = job.get("treaty") or {}
+    treaty = treaty_for_what_if(
+        job,
+        attachment_point=float(stored.get("attachment_point") or settings.default_attachment),
+        limit=float(stored.get("limit") or settings.default_limit),
+        co_participation=float(stored.get("co_participation") or settings.default_copart),
+        reinstatement_cost=settings.default_reinstatement_rate,
+    )
+    ep = job.get("ep_curve") or {}
+    if payload.execution_mode == "stochastic":
+        catalog = (job.get("stochastic_catalog") or {}).get("ep_curve")
+        if isinstance(catalog, dict) and catalog.get("curve"):
+            ep = catalog
+    claims = list(job.get("claims") or [])
+    points = scenario_net_curve(ep if isinstance(ep, dict) else {}, treaty)
+    trace = audit_trace(job)
+    for point in points:
+        point["audit"] = trace
+    return JSONResponse(
+        {
+            "event_id": job.get("event_id"),
+            "eal": (ep or {}).get("eal") if isinstance(ep, dict) else None,
+            "points": points,
+            "housing": housing_breakdown(claims),
+            "synthetic": True,
+        }
+    )
+
+
+@app.get("/v1/vulnerability-curves")
+def vulnerability_curves() -> JSONResponse:
+    return JSONResponse(vulnerability_curve_payload())
+
+
+@app.post("/v1/reinsurance-waterfall")
+def reinsurance_waterfall(payload: WaterfallWhatIfIn) -> JSONResponse:
+    """Recompute the occurrence XL from stored ground-up losses. Does not re-upload the book."""
+    job = _job_or_404(payload.event_id)
+    settings = get_settings()
+    treaty = treaty_for_what_if(
+        job,
+        attachment_point=payload.attachment_point,
+        limit=payload.limit,
+        co_participation=payload.co_participation,
+        reinstatement_cost=settings.default_reinstatement_rate,
+    )
+    claims = list(job.get("claims") or [])
+    body = waterfall_for_claims(claims, treaty)
+    ep = job.get("ep_curve") if isinstance(job.get("ep_curve"), dict) else {}
+    body["event_id"] = job.get("event_id")
+    body["curve"] = scenario_net_curve(ep, treaty)
+    body["eal"] = ep.get("eal")
+    return JSONResponse(body)
 
 
 @app.get("/api/v1/leaflet-export")
@@ -180,7 +263,8 @@ def _rag_context(payload: RAGQueryIn) -> dict[str, Any]:
         rows = parse_csv_text(payload.csv_text)
         if not rows:
             raise ValueError("The uploaded CSV has no data rows.")
-        return build_dataset_context(rows, name="uploaded-session.csv", event_id=payload.event_id)
+        name = (payload.dataset_name or "").strip() or "uploaded-session.csv"
+        return build_dataset_context(rows, name=name, event_id=payload.event_id)
     store = job_store()
     if payload.event_id:
         job = store.get(payload.event_id)
@@ -250,7 +334,12 @@ def nlp_summary(payload: SummaryIn) -> JSONResponse:
     """Gemini writes the studio summary. This route does not call Jev."""
     try:
         context = _rag_context(
-            RAGQueryIn(query="summarize the portfolio", event_id=payload.event_id, csv_text=payload.csv_text)
+            RAGQueryIn(
+                query="summarize the portfolio",
+                event_id=payload.event_id,
+                dataset_name=payload.dataset_name,
+                csv_text=payload.csv_text,
+            )
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

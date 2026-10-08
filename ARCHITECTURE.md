@@ -327,6 +327,9 @@ flowchart TB
 | GET | `/health` | Liveness |
 | GET | `/` | Redirect to `/map/` |
 | POST | `/v1/process-bordereau` | Apps Script / CLI webhook |
+| POST | `/v1/simulate-ep` | Return-period ground-up and net losses for a saved book |
+| GET | `/v1/vulnerability-curves` | Housing-class depth-damage knots |
+| POST | `/v1/reinsurance-waterfall` | What-if occurrence XL on the saved ground-up losses |
 | GET | `/api/v1/leaflet-export?event_id=` | GeoJSON for the map |
 | GET | `/api/v1/audit/{event_id}` | Layer verification |
 | GET | `/api/v1/events` | In-memory job index (last 32) |

@@ -88,16 +88,24 @@
       var t = (ev.clientX - box.left) / box.width;
       var idx = Math.round(t * (labels.length - 1));
       idx = Math.max(0, Math.min(labels.length - 1, idx));
-      if (!graphTip) return;
-      graphTip.textContent = labels[idx] + " · " + series.map(function (s) { return s.name + " " + s.points[idx]; }).join("  ·  ");
+      var host = svg._aquaTip || graphTip;
+      if (!host) return;
+      var tip = (spec.tips && spec.tips[idx]) || "";
+      host.textContent = tip || (labels[idx] + " · " + series.map(function (s) { return s.name + " " + s.points[idx]; }).join("  ·  "));
     };
   }
+
+  window.drawAquaGraph = function (svg, spec, tipEl) {
+    if (!svg) return;
+    if (tipEl) svg._aquaTip = tipEl;
+    drawGraph(svg, spec || {});
+  };
 
   window.renderAquaModes = function (root, modes) {
     if (!root) return;
     modes = modes || {};
     var startTab = modes.default_tab || "answer";
-    if(["answer","categories","graphs","map"].indexOf(startTab) < 0) startTab = "answer";
+    if(["answer","categories","graphs","housing","treaty","vulnerability","map"].indexOf(startTab) < 0) startTab = "answer";
     setTab(root, startTab);
     graphTip = root.querySelector("#graphTip");
     var graphSvg = root.querySelector("#graphSvg");

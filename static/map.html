@@ -108,12 +108,20 @@
       }
     });
     const claimsLayer = L.layerGroup().addTo(map);
+    const heatLayer = L.layerGroup();
     const floodLayer = L.layerGroup().addTo(map);
     const hazardLayer = L.layerGroup().addTo(map);
+    const zoneLayer = L.layerGroup().addTo(map);
 
     L.control.layers(
       { "Streets": osm, "Aerial": satellite },
-      { "Portfolio claims": claimsLayer, "Building flood exposure": floodLayer, "Flood hazard extent": hazardLayer }
+      {
+        "Portfolio claims": claimsLayer,
+        "TIV accumulation": heatLayer,
+        "Building flood exposure": floodLayer,
+        "Flood hazard extent": hazardLayer,
+        "Susceptibility zones": zoneLayer
+      }
     ).addTo(map);
 
     const toolbar = L.control({ position: "topleft" });
@@ -122,12 +130,74 @@
       div.innerHTML = `
         <input id="flood-address" type="text" placeholder="Address or click the map" />
         <button id="flood-go" type="button">Evaluate flood</button>
+        <button id="heat-toggle" type="button">TIV heatmap</button>
         <button id="blender-export" type="button">Export to 3D / Blender Manifest</button>
       `;
       L.DomEvent.disableClickPropagation(div);
       return div;
     };
     toolbar.addTo(map);
+
+    function claimPopup(p) {
+      const ratio = p.damage_ratio == null || p.damage_ratio === ""
+        ? "—"
+        : (Number(p.damage_ratio) * 100).toFixed(1) + "%";
+      const depth = p.flood_depth_m == null || p.flood_depth_m === ""
+        ? "—"
+        : Number(p.flood_depth_m).toFixed(2) + " m";
+      const gul = p.ground_up_loss == null ? "—" : Number(p.ground_up_loss).toLocaleString("en-US", { style: "currency", currency: "USD" });
+      return `
+        <div class="popup-card">
+          <div class="meta"><b>${esc(p.asset_id || "Asset")}</b></div>
+          <div class="meta">Housing class: ${esc(p.occupancy || "—")}</div>
+          <div class="meta">Flood depth: ${esc(depth)}</div>
+          <div class="meta">Damage ratio: ${esc(ratio)}</div>
+          <div class="meta">Ground-up loss: ${esc(gul)}</div>
+          <div class="meta">Insured value: ${esc(p.tiv == null ? "—" : p.tiv)}</div>
+          ${p.fraud_flag ? "<div class='meta'>Fraud flag is set on this asset.</div>" : ""}
+          ${p.badge === "synthetic" || p.synthetic ? "<div class='hint'>This location uses a synthetic or proxy layer.</div>" : ""}
+        </div>`;
+    }
+
+    function zoneCollection() {
+      const nairobi = region !== "nzoia";
+      const boxes = nairobi
+        ? [
+            ["high", 36.66, -1.45, 36.90, -1.30, "#C1121F"],
+            ["medium", 36.84, -1.38, 37.02, -1.22, "#E0B825"],
+            ["low", 36.96, -1.28, 37.10, -1.15, "#2A9D4A"]
+          ]
+        : [
+            ["high", 34.05, 0.10, 34.35, 0.40, "#C1121F"],
+            ["medium", 34.20, 0.28, 34.55, 0.58, "#E0B825"],
+            ["low", 34.45, 0.50, 34.85, 0.85, "#2A9D4A"]
+          ];
+      return {
+        type: "FeatureCollection",
+        features: boxes.map(function (box) {
+          const west = box[1], south = box[2], east = box[3], north = box[4];
+          return {
+            type: "Feature",
+            properties: {
+              zone: box[0],
+              style: { color: box[5], fillColor: box[5], fillOpacity: 0.22, weight: 1.5 }
+            },
+            geometry: {
+              type: "Polygon",
+              coordinates: [[[west, south], [east, south], [east, north], [west, north], [west, south]]]
+            }
+          };
+        })
+      };
+    }
+
+    L.geoJSON(zoneCollection(), {
+      style: (feature) => (feature.properties && feature.properties.style) || {},
+      onEachFeature: (feature, lyr) => {
+        const zone = (feature.properties && feature.properties.zone) || "zone";
+        lyr.bindPopup("<b>" + esc(zone) + " flood susceptibility</b><br/>Susceptibility proxy. Depth is score times 4.0 m in Nairobi.");
+      }
+    }).addTo(zoneLayer);
 
     function esc(value) {
       return String(value == null ? "" : value)
@@ -228,6 +298,19 @@
       }
     }
 
+    document.getElementById("heat-toggle").addEventListener("click", () => {
+      const button = document.getElementById("heat-toggle");
+      if (map.hasLayer(heatLayer)) {
+        map.removeLayer(heatLayer);
+        if (!map.hasLayer(claimsLayer)) claimsLayer.addTo(map);
+        button.textContent = "TIV heatmap";
+      } else {
+        heatLayer.addTo(map);
+        if (map.hasLayer(claimsLayer)) map.removeLayer(claimsLayer);
+        button.textContent = "Asset markers";
+      }
+    });
+
     document.getElementById("flood-go").addEventListener("click", () => {
       const q = document.getElementById("flood-address").value.trim();
       if (!q) return;
@@ -264,15 +347,18 @@
         onEachFeature: (feature, lyr) => {
           const p = feature.properties;
           if (p.overlay) return;
-          lyr.bindPopup(
-            `<b>${esc(p.asset_id || "")}</b><br/>
-             Occupancy: ${esc(p.occupancy || "—")}<br/>
-             GUL / covered: ${esc(p.ground_up_loss)}<br/>
-             Reinsured: ${esc(p.reinsured_payout)}<br/>
-             HDC interpolation: ${esc(p.hdc_interpolation_score)}<br/>
-             Fraud flag: ${esc(p.fraud_flag)}<br/>
-             ${p.badge === "synthetic" || p.synthetic ? "<b>synthetic</b>" : ""}`
-          );
+          lyr.bindPopup(claimPopup(p));
+          if (lyr.getLatLng) {
+            const tiv = Number(p.tiv || p.ground_up_loss || 0);
+            const radius = Math.max(220, Math.min(2800, Math.sqrt(Math.max(tiv, 1)) * 3.2));
+            L.circle(lyr.getLatLng(), {
+              radius: radius,
+              color: "#1a73e8",
+              fillColor: tiv > 1000000 ? "#C1121F" : "#1a73e8",
+              fillOpacity: 0.22,
+              weight: 0
+            }).addTo(heatLayer);
+          }
         }
       }).addTo(claimsLayer);
       if (matchedLatLngs.length) {

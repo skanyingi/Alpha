@@ -158,7 +158,7 @@ def extract_vulnerability(
     if not aerial_bytes and not street_bytes:
         parts.append({"text": "No photographs were available. Infer only from the text context."})
 
-    model = (settings.gemini_model or "gemini-2.0-flash").strip()
+    model = (settings.gemini_model or "gemini-3.8-flash").strip()
     url = GEMINI_ENDPOINT.format(model=model)
     payload = {
         "contents": [{"role": "user", "parts": parts}],

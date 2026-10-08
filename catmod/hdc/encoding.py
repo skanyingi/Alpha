@@ -59,12 +59,14 @@ class ItemMemory:
     keys: dict[str, Array] = field(default_factory=dict)
     occupancy: dict[str, Array] = field(default_factory=dict)
     bases: dict[str, Array] = field(default_factory=dict)
+    phases: dict[str, Array] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self.rng = np.random.default_rng(self.seed)
         for name in ("lat", "lon", "elev", "time", "cost", "occ", "id", "lat_fine", "lon_fine", "damage"):
             self.keys[name] = fhrr.random_hypervector(self.dim, self.rng)
             self.bases[name] = fhrr.random_hypervector(self.dim, self.rng)
+            self.phases[name] = np.angle(self.bases[name])
 
     def occupancy_vector(self, code: str) -> Array:
         if code not in self.occupancy:
@@ -72,7 +74,9 @@ class ItemMemory:
         return self.occupancy[code]
 
     def encode_scalar(self, name: str, value: float, normalizer) -> Array:
-        return fhrr.exponentiate(self.bases[name], normalizer(value))
+        """B^x from a phase cached on the basis. Matches complex64 exponentiation."""
+        scaled = self.phases[name] * float(normalizer(value))
+        return (np.cos(scaled) + 1j * np.sin(scaled)).astype(np.complex64)
 
     def encode_lat(self, latitude: float) -> Array:
         coarse = self.encode_scalar("lat", latitude, _norm_lat)

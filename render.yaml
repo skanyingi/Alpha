@@ -74,7 +74,7 @@ services:
       - key: JEV_TIMEOUT_MS
         value: "400"
       - key: GEMINI_MODEL
-        value: gemini-2.0-flash
+        value: gemini-3.8-flash
       - key: JEV_API_KEY
         sync: false
       - key: GOOGLE_MAPS_API_KEY

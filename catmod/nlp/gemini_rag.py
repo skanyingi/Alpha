@@ -18,15 +18,19 @@ import httpx
 from catmod.config import Settings, get_settings
 
 GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-MODEL_NAME = "gemini-2.0-flash"
+MODEL_NAME = "gemini-3.8-flash"
+MODEL_FALLBACKS = ("gemini-3.8-flash", "gemini-2.5-flash")
 
 SYSTEM_PROMPT = (
     "You are an expert catastrophe reinsurance analyst assistant for CatMod. "
     "You are provided with structured context from uploaded portfolio datasets. "
     "Answer the user's natural language question accurately based ONLY on the provided dataset context. "
+    "Write complete sentences, the way you would speak the answer aloud. "
+    "Do not answer with telegraphic labels, colon lists, or shortened cues. "
     "If filtering rows, return structured matching asset IDs alongside a clear text answer. "
     "Do not calculate treaty payouts, cedant retention, or reinstatement premium. "
-    "Those contractual amounts belong to the deterministic waterfall and are outside this answer."
+    "Those contractual amounts belong to the deterministic waterfall and are outside this answer. "
+    "When the question already states those contractual figures, quote them in sentences and do not recompute them."
 )
 
 _PAYOUT_KEYS = {
@@ -92,6 +96,15 @@ def build_dataset_context(
     }
 
 
+def _model_chain(settings: Settings) -> list[str]:
+    primary = (getattr(settings, "gemini_model", None) or MODEL_NAME).strip() or MODEL_NAME
+    chain: list[str] = []
+    for name in (primary, *MODEL_FALLBACKS):
+        if name and name not in chain:
+            chain.append(name)
+    return chain
+
+
 def query_dataset_rag(
     query: str,
     dataset_context: dict[str, Any],
@@ -102,19 +115,31 @@ def query_dataset_rag(
     if not question:
         return _pack("Ask a question about the portfolio.", [], _summary([]), 0.0, "local-keyword")
     key = (getattr(settings, "gemini_api_key", None) or "").strip()
-    model = (getattr(settings, "gemini_model", None) or MODEL_NAME).strip() or MODEL_NAME
     if not key:
         return _local_fallback(question, dataset_context)
-    try:
-        parsed = _ask_gemini(question, dataset_context, key, model)
-    except Exception:
+    last_error: Exception | None = None
+    for model in _model_chain(settings):
+        try:
+            parsed = _ask_gemini(question, dataset_context, key, model)
+        except httpx.HTTPStatusError as exc:
+            last_error = exc
+            continue
+        except Exception as exc:
+            last_error = exc
+            return _local_fallback(question, dataset_context)
+        return _from_model(parsed, dataset_context, model)
+    if last_error is not None:
         return _local_fallback(question, dataset_context)
-    return _from_model(parsed, dataset_context, model)
+    return _local_fallback(question, dataset_context)
 
 
 SUMMARY_QUESTION = (
-    "Summarize this portfolio in plain language. "
-    "Name the dataset, the row count, the occupancy mix, and where the assets sit when coordinates are present. "
+    "Write the opening summary of this uploaded dataset in complete natural-language sentences. "
+    "Use at least two sentences, spoken as an analyst would say them aloud. "
+    "Do not use telegraphic labels, colon lists, or shortened cues such as 'Total TIV is' or 'Occupancy mix:'. "
+    "Name the dataset, say how many rows it contains, describe the fields that are actually present, "
+    "and describe where the assets sit when coordinates are present. "
+    "If insured value or occupancy is missing from the columns, say that in a sentence instead of reporting zero. "
     "Do not calculate treaty payouts, cedant retention, or reinstatement premium."
 )
 
@@ -201,7 +226,7 @@ def _local_fallback(query: str, context: dict[str, Any]) -> dict[str, Any]:
     elif _is_summary(query) and not phrase and depth is None:
         ids = [str(row.get("asset_id")) for row in rows if row.get("asset_id")]
         stats = _summary(rows)
-        answer = _summary_sentence(name, stats, ids)
+        answer = _summary_sentence(name, stats, ids, context.get("columns"))
     elif matched:
         answer = _match_sentence(name, phrase, depth, stats, ids)
     else:
@@ -337,32 +362,55 @@ def _is_summary(query: str) -> bool:
     return any(word in text for word in ("summar", "total tiv", "how many", "count"))
 
 
-def _summary_sentence(name: str, stats: dict[str, Any], ids: list[str]) -> str:
-    label = name or "the dataset"
+def _summary_sentence(
+    name: str,
+    stats: dict[str, Any],
+    ids: list[str],
+    columns: list[dict[str, str]] | None = None,
+) -> str:
+    label = name or "This portfolio"
     count = int(stats.get("row_count") or 0)
     noun = "row" if count == 1 else "rows"
-    occ = ", ".join(
-        f"{key} {value}" for key, value in (stats.get("occupancy_counts") or {}).items()
-    )
-    return (
-        f"{label} has {count} {noun}. "
-        f"Total TIV is {stats.get('total_tiv', 0):,.2f}. "
-        f"Occupancy mix: {occ or 'not recorded'}. "
-        f"Assets: {', '.join(ids[:12]) or 'none'}."
-    )
+    fields = [str(column.get("name")) for column in (columns or []) if column.get("name")]
+    field_text = ", ".join(fields[:12]) or "no named columns"
+    occ_counts = stats.get("occupancy_counts") or {}
+    known_occ = {key: value for key, value in occ_counts.items() if key and key != "Unknown"}
+    occ = ", ".join(f"{value} {key}" for key, value in known_occ.items())
+    shown = ", ".join(ids[:12])
+    sentences = [f"{label} contains {count} {noun}."]
+    tiv = float(stats.get("total_tiv") or 0)
+    if tiv > 0:
+        sentences.append(f"The total insured value recorded on these rows is {tiv:,.2f}.")
+    else:
+        sentences.append(
+            f"Insured value is not recorded in a tiv column, so there is no insured-value total to report. "
+            f"The columns present are {field_text}."
+        )
+    if occ:
+        sentences.append(f"The occupancy mix is {occ}.")
+    else:
+        sentences.append("Occupancy is not recorded on these rows.")
+    if shown:
+        extra = "" if len(ids) <= 12 else f", and {len(ids) - 12} more"
+        sentences.append(f"The asset identifiers include {shown}{extra}.")
+    else:
+        sentences.append("The file does not include an asset_id column.")
+    return " ".join(sentences)
 
 
 def _match_sentence(name: str, phrase: str, depth: float | None, stats: dict[str, Any], ids: list[str]) -> str:
     label = name or "the dataset"
-    focus = phrase or (f"flood depth over {depth} m" if depth is not None else "the question")
+    focus = phrase or (f"flood depth over {depth} metres" if depth is not None else "that description")
     shown = ", ".join(ids[:12])
-    extra = "" if len(ids) <= 12 else f" and {len(ids) - 12} more"
+    extra = "" if len(ids) <= 12 else f", along with {len(ids) - 12} more"
     count = int(stats.get("row_count") or 0)
     noun = "property" if count == 1 else "properties"
     verb = "matches" if count == 1 else "match"
+    listed = shown or "no asset identifiers"
     return (
-        f"{count} {noun} in {label} {verb} {focus}: {shown}{extra}. "
-        f"Their total TIV is {stats.get('total_tiv', 0):,.2f}."
+        f"{count} {noun} in {label} {verb} {focus}. "
+        f"The matching assets are {listed}{extra}. "
+        f"Their combined insured value is {stats.get('total_tiv', 0):,.2f}."
     )
 
 
@@ -399,4 +447,11 @@ def _parse_json(text: str) -> Any:
     if cleaned.startswith("```"):
         cleaned = re.sub(r"^```(?:json)?", "", cleaned).strip()
         cleaned = re.sub(r"```$", "", cleaned).strip()
-    return json.loads(cleaned)
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        start = cleaned.find("{")
+        end = cleaned.rfind("}")
+        if start >= 0 and end > start:
+            return json.loads(cleaned[start : end + 1])
+        raise
