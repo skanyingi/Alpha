@@ -289,6 +289,45 @@ def static_map_url(
     return f"{STATIC_MAP_URL}?{urlencode(params)}"
 
 
+def esri_terrain_url(
+    west: float,
+    south: float,
+    east: float,
+    north: float,
+    *,
+    longest: int = 1024,
+) -> str:
+    """Esri World Imagery for a cell. Longest side stays at most 1024 px."""
+    longest = max(64, min(int(longest), 1024))
+    span_x = max(abs(float(east) - float(west)), 1e-6)
+    span_y = max(abs(float(north) - float(south)), 1e-6)
+    if span_x >= span_y:
+        width = longest
+        height = max(64, int(round(longest * span_y / span_x)))
+    else:
+        height = longest
+        width = max(64, int(round(longest * span_x / span_y)))
+    params = {
+        "bbox": f"{west},{south},{east},{north}",
+        "bboxSR": "4326",
+        "imageSR": "3857",
+        "size": f"{width},{height}",
+        "format": "jpg",
+        "f": "image",
+    }
+    return f"{ESRI_EXPORT_URL}?{urlencode(params)}"
+
+
+def fetch_terrain_image(
+    west: float,
+    south: float,
+    east: float,
+    north: float,
+) -> tuple[bytes, str]:
+    """Proxy Esri World Imagery so the diorama stays same-origin."""
+    return fetch_image_bytes(esri_terrain_url(west, south, east, north))
+
+
 def esri_aerial_url(
     latitude: float,
     longitude: float,

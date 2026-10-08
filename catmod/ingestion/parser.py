@@ -22,10 +22,24 @@ COLUMN_ALIASES: dict[str, tuple[str, ...]] = {
         "occ",
         "occupancy_type",
         "construction",
+        "housing_class",
+        "housing",
+        "construction_class",
+        "building_class",
         "use",
         "bldg_occ",
     ),
-    "tiv": ("tiv", "total_insured_value", "sum_insured", "si", "insured_value", "value"),
+    "tiv": (
+        "tiv",
+        "tiv_kes",
+        "tiv_usd",
+        "total_insured_value",
+        "sum_insured",
+        "sum_insured_kes",
+        "si",
+        "insured_value",
+        "value",
+    ),
     "ground_up_loss": (
         "ground_up_loss",
         "gul",
@@ -44,6 +58,31 @@ COLUMN_ALIASES: dict[str, tuple[str, ...]] = {
 
 def _norm_header(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", name.strip().lower()).strip("_")
+
+
+def canonicalize_record(row: dict[str, Any]) -> dict[str, Any]:
+    """Copy loc_id, housing_class, tiv_kes, and lat/lon onto the names the desk reads."""
+    folded = {_norm_header(str(key)): key for key in row if key}
+    out = dict(row)
+    canon = {
+        "asset_id": COLUMN_ALIASES["asset_id"],
+        "occupancy": COLUMN_ALIASES["occupancy_raw"],
+        "tiv": COLUMN_ALIASES["tiv"],
+        "latitude": COLUMN_ALIASES["latitude"],
+        "longitude": COLUMN_ALIASES["longitude"],
+    }
+    for name, aliases in canon.items():
+        if str(out.get(name) or "").strip():
+            continue
+        for alias in aliases:
+            src = folded.get(alias)
+            if src is None:
+                continue
+            value = row.get(src)
+            if value not in (None, ""):
+                out[name] = value
+                break
+    return out
 
 
 def _bind_headers(headers: list[str]) -> dict[str, str]:

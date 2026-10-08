@@ -25,24 +25,17 @@
     return out;
   }
 
-  function compact(n) {
-    var v = Number(n);
-    if (!isFinite(v)) return "";
-    var sign = v < 0 ? "-" : "";
-    v = Math.abs(v);
-    if (v >= 1e9) return sign + "KSh " + (v / 1e9).toFixed(2) + "B";
-    if (v >= 1e6) return sign + "KSh " + (v / 1e6).toFixed(2) + "M";
-    if (v >= 1e3) return sign + "KSh " + (v / 1e3).toFixed(1) + "k";
-    return sign + "KSh " + v.toFixed(0);
-  }
-
-  function tickLabel(spec, v) {
-    if (typeof spec.y_format === "function") return spec.y_format(v);
-    return compact(v);
+  function axisTick(value) {
+    var x = Math.abs(Number(value) || 0);
+    if (x >= 1e9) return (value / 1e9).toFixed(1) + "B";
+    if (x >= 1e6) return (value / 1e6).toFixed(1) + "M";
+    if (x >= 1e3) return (value / 1e3).toFixed(0) + "k";
+    if (x >= 10) return String(Math.round(value));
+    return String(Math.round(x * 100) / 100);
   }
 
   function drawGraph(svg, spec) {
-    var w = 640, h = 280, pad = { l: 56, r: 18, t: 28, b: 52 };
+    var w = 640, h = 280, pad = { l: 64, r: 16, t: 36, b: 48 };
     svg.setAttribute("viewBox", "0 0 " + w + " " + h);
     svg.innerHTML = "";
     var labels = spec.labels || [];
@@ -68,17 +61,22 @@
     for (var g = 0; g < 4; g++) {
       var gy = pad.t + g * (h - pad.t - pad.b) / 3;
       svg.appendChild(el("line", { x1: pad.l, x2: w - pad.r, y1: gy, y2: gy, stroke: "rgba(95,99,104,.18)", "stroke-dasharray": "3 6" }));
-      var gv = min + span * (3 - g) / 3;
-      var gl = el("text", { x: pad.l - 8, y: gy + 4, fill: "#5f6368", "font-size": "11", "text-anchor": "end" });
-      gl.textContent = tickLabel(spec, gv);
-      svg.appendChild(gl);
+      var tick = el("text", { x: pad.l - 8, y: gy + 4, fill: "#5f6368", "font-size": "10", "text-anchor": "end" });
+      tick.textContent = axisTick(max - g * span / 3);
+      svg.appendChild(tick);
     }
-    var axisName = spec.y_label || "";
-    if (axisName) {
-      var an = el("text", { x: pad.l - 8, y: pad.t - 12, fill: "#202124", "font-size": "11", "font-weight": "600", "text-anchor": "end" });
-      an.textContent = axisName;
-      svg.appendChild(an);
-    }
+    var midY = pad.t + (h - pad.t - pad.b) / 2;
+    var yTitle = el("text", {
+      x: 16, y: midY, fill: "#5f6368", "font-size": "11", "text-anchor": "middle",
+      transform: "rotate(-90 16 " + midY + ")"
+    });
+    yTitle.textContent = spec.y_label || "Loss";
+    svg.appendChild(yTitle);
+    var xTitle = el("text", {
+      x: pad.l + (w - pad.l - pad.r) / 2, y: h - 4, fill: "#5f6368", "font-size": "11", "text-anchor": "middle"
+    });
+    xTitle.textContent = spec.x_label || "Return period";
+    svg.appendChild(xTitle);
     series.forEach(function (s, si) {
       var pts = s.points || [];
       var dense = catmull(pts, 48);
@@ -98,19 +96,10 @@
     defs.innerHTML = '<filter id="glow"><feGaussianBlur stdDeviation="2.4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>';
     svg.insertBefore(defs, svg.firstChild);
     labels.forEach(function (lab, i) {
-      var t = el("text", { x: x(i), y: h - pad.b + 16, fill: "#5f6368", "font-size": "11", "text-anchor": "middle" });
+      var t = el("text", { x: x(i), y: h - 22, fill: "#5f6368", "font-size": "11", "text-anchor": "middle" });
       t.textContent = lab;
       svg.appendChild(t);
     });
-    var xName = spec.x_label || "";
-    if (xName) {
-      var xn = el("text", {
-        x: (pad.l + (w - pad.r)) / 2, y: h - pad.b + 34,
-        fill: "#202124", "font-size": "11", "font-weight": "600", "text-anchor": "middle"
-      });
-      xn.textContent = xName;
-      svg.appendChild(xn);
-    }
     if (spec.highlight_value) {
       var hx = x(Math.max(0, labels.indexOf(spec.highlight_label)));
       var hv = spec.highlight_value + (spec.highlight_unit ? " " + spec.highlight_unit : "");
@@ -123,15 +112,10 @@
       var t = (ev.clientX - box.left) / box.width;
       var idx = Math.round(t * (labels.length - 1));
       idx = Math.max(0, Math.min(labels.length - 1, idx));
-
-      if (!graphTip) return;
-      graphTip.textContent = labels[idx] + " · " + series.map(function (s) { return s.name + " " + tickLabel(spec, s.points[idx]); }).join("  ·  ");
-
       var host = svg._aquaTip || graphTip;
       if (!host) return;
       var tip = (spec.tips && spec.tips[idx]) || "";
       host.textContent = tip || (labels[idx] + " · " + series.map(function (s) { return s.name + " " + s.points[idx]; }).join("  ·  "));
-
     };
   }
 

@@ -16,6 +16,7 @@ from typing import Any
 import httpx
 
 from catmod.config import Settings, get_settings
+from catmod.ingestion.parser import canonicalize_record
 
 GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 MODEL_NAME = "gemini-3.8-flash"
@@ -44,6 +45,8 @@ _PAYOUT_KEYS = {
     "exhaustion_ratio",
 }
 
+_GREET = {"hello", "hi", "hey", "thanks", "thank", "help", "ok", "okay"}
+
 _STOP = {
     "which", "what", "where", "who", "are", "the", "and", "for", "with", "have",
     "has", "from", "that", "this", "into", "over", "above", "under", "than",
@@ -64,7 +67,11 @@ def parse_csv_text(text: str) -> list[dict[str, Any]]:
     for raw in reader:
         if not raw or not any(str(value or "").strip() for value in raw.values()):
             continue
-        rows.append({str(key or "").strip(): _coerce_cell(value) for key, value in raw.items() if key})
+        rows.append(
+            canonicalize_record(
+                {str(key or "").strip(): _coerce_cell(value) for key, value in raw.items() if key}
+            )
+        )
     return rows
 
 
@@ -92,7 +99,7 @@ def build_dataset_context(
         "columns": _columns(clean),
         "summary_stats": _summary(clean),
         "sample_rows": clean[:5],
-        "rows": clean[:250],
+        "rows": clean,
     }
 
 
@@ -229,6 +236,13 @@ def _local_fallback(query: str, context: dict[str, Any]) -> dict[str, Any]:
         answer = _summary_sentence(name, stats, ids, context.get("columns"))
     elif matched:
         answer = _match_sentence(name, phrase, depth, stats, ids)
+    elif _is_greeting(query):
+        ids = [str(row.get("asset_id")) for row in rows if row.get("asset_id")]
+        stats = _summary(rows)
+        answer = (
+            _summary_sentence(name, stats, ids, context.get("columns"))
+            + " Ask about a housing class, the insured value, or where the assets sit."
+        )
     else:
         ids = []
         stats = _summary([])
@@ -286,9 +300,16 @@ def _summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
     losses = [_num(row.get("ground_up_loss")) for row in rows]
     losses = [value for value in losses if value is not None]
     occupancies = Counter(str(row.get("occupancy") or row.get("occupancy_raw") or "Unknown") for row in rows)
+    tiv_unit = ""
+    for row in rows:
+        keys = {str(key).strip().lower() for key in row}
+        if "tiv_kes" in keys:
+            tiv_unit = "KES"
+            break
     return {
         "row_count": len(rows),
         "total_tiv": round(sum(tivs), 2) if tivs else 0.0,
+        "tiv_unit": tiv_unit,
         "loss_sum": round(sum(losses), 2) if losses else 0.0,
         "loss_mean": round(sum(losses) / len(losses), 2) if losses else 0.0,
         "occupancy_counts": dict(occupancies),
@@ -357,6 +378,11 @@ def _depth_limit(query: str) -> float | None:
     return float(match.group(1))
 
 
+def _is_greeting(query: str) -> bool:
+    words = re.findall(r"[a-z0-9]+", (query or "").lower())
+    return bool(words) and all(word in _GREET for word in words)
+
+
 def _is_summary(query: str) -> bool:
     text = query.lower()
     return any(word in text for word in ("summar", "total tiv", "how many", "count"))
@@ -380,7 +406,8 @@ def _summary_sentence(
     sentences = [f"{label} contains {count} {noun}."]
     tiv = float(stats.get("total_tiv") or 0)
     if tiv > 0:
-        sentences.append(f"The total insured value recorded on these rows is {tiv:,.2f}.")
+        unit = " Kenyan shillings" if stats.get("tiv_unit") == "KES" else ""
+        sentences.append(f"The total insured value recorded on these rows is {tiv:,.2f}{unit}.")
     else:
         sentences.append(
             f"Insured value is not recorded in a tiv column, so there is no insured-value total to report. "

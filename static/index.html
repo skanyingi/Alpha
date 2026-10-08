@@ -845,6 +845,7 @@
   .studio-src small{color:#80868b;font-size:11px;flex:none;}
   .studio-main{
     display:flex;flex-direction:column;padding:28px 32px 18px;
+    min-height:0;overflow:auto;
   }
   .studio-mark{
     width:42px;height:42px;border-radius:12px;display:grid;place-items:center;
@@ -861,8 +862,12 @@
   .studio-reply{
     margin-top:16px;font:400 15px/1.5 Inter,sans-serif;color:#202124;white-space:pre-wrap;
   }
+  .studio-dock{
+    position:sticky;bottom:0;z-index:4;
+    margin-top:auto;padding-top:10px;
+    background:#fff;
+  }
   .studio-ask{
-    margin-top:auto;padding-top:18px;
     display:flex;align-items:center;gap:10px;
     background:#fff;border:1px solid #e6e8ee;border-radius:999px;
     box-shadow:0 8px 24px rgba(0,0,0,.08);
@@ -896,8 +901,9 @@
     font:500 13px Inter,sans-serif;
   }
   .studio-saved article small{display:block;color:#80868b;font-weight:400;margin-top:2px;}
+  body:has(.studio-drawer.is-open) .top{visibility:hidden;pointer-events:none;}
   .studio-drawer{
-    position:fixed;top:0;right:0;z-index:24;
+    position:fixed;top:0;right:0;z-index:40;
     width:min(560px,100%);height:100%;
     background:#fff;color:#202124;
     box-shadow:-16px 0 40px rgba(0,0,0,.18);
@@ -942,6 +948,7 @@
     padding:8px 16px;font:600 14px Inter,sans-serif;cursor:pointer;
     box-shadow:0 1px 4px rgba(0,0,0,.28);
   }
+  .map-diorama{right:108px;}
   @media (max-width:980px){
     #studioPage{grid-template-columns:1fr;overflow:auto;}
     .studio-card{overflow:visible;}
@@ -1463,14 +1470,16 @@
       </article>
     </div>
     <p class="studio-reply" id="studioReply"></p>
-    <form class="studio-ask" id="studioAsk">
-      <input id="studioAskQ" type="text" placeholder="Ask a question or create something" autocomplete="off">
-      <em id="studioAskCount"></em>
-      <button type="submit" class="studio-go" aria-label="Ask">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 19V6M6.5 11 12 5.5 17.5 11"/></svg>
-      </button>
-    </form>
-    <p class="studio-note">CatMod can make mistakes, so double-check it.</p>
+    <div class="studio-dock">
+      <form class="studio-ask" id="studioAsk">
+        <input id="studioAskQ" type="text" placeholder="Ask a question or create something" autocomplete="off">
+        <em id="studioAskCount"></em>
+        <button type="submit" class="studio-go" aria-label="Ask">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 19V6M6.5 11 12 5.5 17.5 11"/></svg>
+        </button>
+      </form>
+      <p class="studio-note">CatMod can make mistakes, so double-check it.</p>
+    </div>
   </section>
   <aside class="studio-card studio-side">
     <div class="studio-head"><span>Studio</span></div>
@@ -1494,6 +1503,7 @@
 </aside>
 
 <div id="mapPage" hidden>
+  <button class="map-home map-diorama" id="mapDiorama" type="button">3D diorama</button>
   <button class="map-home" id="mapHome" type="button">Home</button>
   <iframe id="deskMap" title="Nairobi portfolio map" src="about:blank"></iframe>
 </div>
@@ -1874,20 +1884,26 @@
       return res.json();
     });
   }
+  var bookCurrency = "USD";
+  function noteBookCurrency(text){
+    var head = String(text || "").split(/\r?\n/, 1)[0].toLowerCase();
+    bookCurrency = /\btiv_kes\b|\bsum_insured_kes\b/.test(head) ? "KES" : "USD";
+  }
   function money(n){
     var x = Number(n);
     if(!isFinite(x)) return String(n == null ? "" : n);
-    return "KSh " + x.toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2});
+    return x.toLocaleString("en-US", {style:"currency", currency:bookCurrency, maximumFractionDigits:2});
   }
   function compact(n){
     var x = Number(n);
     if(!isFinite(x)) return "";
     var sign = x < 0 ? "-" : "";
+    var mark = bookCurrency === "KES" ? "KES " : "$";
     x = Math.abs(x);
-    if(x >= 1e9) return sign + "KSh " + (x/1e9).toFixed(2) + "B";
-    if(x >= 1e6) return sign + "KSh " + (x/1e6).toFixed(2) + "M";
-    if(x >= 1e3) return sign + "KSh " + (x/1e3).toFixed(1) + "k";
-    return sign + "KSh " + x.toFixed(0);
+    if(x >= 1e9) return sign + mark + (x/1e9).toFixed(2) + "B";
+    if(x >= 1e6) return sign + mark + (x/1e6).toFixed(2) + "M";
+    if(x >= 1e3) return sign + mark + (x/1e3).toFixed(1) + "k";
+    return sign + mark + x.toFixed(0);
   }
   function yn(v){ return v ? "true" : "false"; }
   var lastEventId = "";
@@ -1980,7 +1996,22 @@
   }
   var lastBook = null;
   var whatIfTimer = 0;
+  function csvHeader(text){
+    var line = String(text || "").replace(/^\uFEFF/, "").split(/\r?\n/).find(function(row){ return row.trim(); });
+    return (line || "").trim().toLowerCase();
+  }
+  function isExposureCsv(text){
+    var head = csvHeader(text);
+    return head.indexOf("tiv") >= 0 || head.indexOf("housing_class") >= 0 || head.indexOf("asset_id") >= 0;
+  }
+  function exposureFiles(){
+    return sessionFiles.filter(function(file){
+      return file.text && /\.csv$/i.test(file.name || "") && isExposureCsv(file.text);
+    });
+  }
   function studioDatasetName(){
+    var books = exposureFiles();
+    if(books.length) return books[books.length - 1].name;
     var files = sessionFiles.filter(function(file){ return /\.csv$/i.test(file.name || "") && file.text; });
     return files.length ? files[files.length - 1].name : "";
   }
@@ -2023,6 +2054,8 @@
     });
     var spec = {
       labels: labels,
+      x_label: "Return period",
+      y_label: "Loss (" + bookCurrency + ")",
       series: [
         {name:"Ground-up loss", color:"#1a73e8", points: gul},
         {name:"Net loss", color:"#188038", points: net}
@@ -2032,38 +2065,85 @@
     if(window.drawAquaGraph) window.drawAquaGraph(svg, spec, tip);
     if(tip) tip.textContent = tips[0] || "";
   }
-  function drawBars(svg, labels, series){
+  function svgText(ns, attrs, value){
+    var text = document.createElementNS(ns, "text");
+    Object.keys(attrs).forEach(function(key){ text.setAttribute(key, attrs[key]); });
+    text.textContent = value;
+    return text;
+  }
+  function drawBars(svg, labels, series, axes){
     if(!svg) return;
-    var w = 640, h = 280, pad = 36;
+    axes = axes || {};
+    var w = 640, h = 280, padL = 64, padR = 16, padT = 28, padB = 52;
     var all = [];
     series.forEach(function(s){ (s.points || []).forEach(function(v){ all.push(Number(v) || 0); }); });
     var max = Math.max.apply(null, all.concat([1]));
-    var group = Math.max(1, (w - pad * 2) / Math.max(1, labels.length));
-    var bw = Math.max(6, (group - 8) / Math.max(1, series.length));
+    var plotW = w - padL - padR;
+    var plotH = h - padT - padB;
+    var group = Math.max(1, plotW / Math.max(1, labels.length));
+    var bw = Math.max(6, (group - 10) / Math.max(1, series.length));
     var ns = "http://www.w3.org/2000/svg";
     svg.innerHTML = "";
+    for(var g = 0; g < 4; g++){
+      var gy = padT + g * plotH / 3;
+      var line = document.createElementNS(ns, "line");
+      line.setAttribute("x1", padL);
+      line.setAttribute("x2", w - padR);
+      line.setAttribute("y1", gy);
+      line.setAttribute("y2", gy);
+      line.setAttribute("stroke", "rgba(95,99,104,.18)");
+      svg.appendChild(line);
+      svg.appendChild(svgText(ns, {x: padL - 8, y: gy + 4, fill:"#5f6368", "font-size":"10", "text-anchor":"end"}, axisTick(max * (1 - g / 3))));
+    }
     labels.forEach(function(label, i){
       series.forEach(function(s, si){
         var value = Number((s.points || [])[i] || 0);
-        var bh = Math.max(2, (value / max) * (h - 58));
+        var bh = (value / max) * plotH;
         var rect = document.createElementNS(ns, "rect");
-        rect.setAttribute("x", pad + i * group + si * bw);
-        rect.setAttribute("y", h - 28 - bh);
-        rect.setAttribute("width", bw - 2);
-        rect.setAttribute("height", bh);
+        rect.setAttribute("x", padL + i * group + 6 + si * bw);
+        rect.setAttribute("y", padT + plotH - bh);
+        rect.setAttribute("width", Math.max(2, bw - 2));
+        rect.setAttribute("height", Math.max(value > 0 ? 2 : 0, bh));
         rect.setAttribute("rx", "3");
         rect.setAttribute("fill", s.color);
         svg.appendChild(rect);
       });
-      var text = document.createElementNS(ns, "text");
-      text.setAttribute("x", pad + i * group + group / 2);
-      text.setAttribute("y", h - 10);
-      text.setAttribute("text-anchor", "middle");
-      text.setAttribute("font-size", "11");
-      text.setAttribute("fill", "#5f6368");
-      text.textContent = label;
-      svg.appendChild(text);
+      svg.appendChild(svgText(ns, {
+        x: padL + i * group + group / 2,
+        y: h - 28,
+        fill:"#5f6368",
+        "font-size":"11",
+        "text-anchor":"middle"
+      }, label));
     });
+    var midY = padT + plotH / 2;
+    svg.appendChild(svgText(ns, {
+      x: 16, y: midY, fill:"#5f6368", "font-size":"11", "text-anchor":"middle",
+      transform: "rotate(-90 16 " + midY + ")"
+    }, axes.y || ("Amount (" + bookCurrency + ")")));
+    svg.appendChild(svgText(ns, {
+      x: padL + plotW / 2, y: h - 8, fill:"#5f6368", "font-size":"11", "text-anchor":"middle"
+    }, axes.x || "Housing class"));
+    series.forEach(function(s, si){
+      var lx = padL + si * 120;
+      var swatch = document.createElementNS(ns, "rect");
+      swatch.setAttribute("x", lx);
+      swatch.setAttribute("y", 8);
+      swatch.setAttribute("width", 10);
+      swatch.setAttribute("height", 10);
+      swatch.setAttribute("rx", "2");
+      swatch.setAttribute("fill", s.color);
+      svg.appendChild(swatch);
+      svg.appendChild(svgText(ns, {x: lx + 14, y: 17, fill:"#5f6368", "font-size":"11"}, s.name || ""));
+    });
+  }
+  function axisTick(value){
+    var x = Math.abs(Number(value) || 0);
+    if(x >= 1e9) return (value / 1e9).toFixed(1) + "B";
+    if(x >= 1e6) return (value / 1e6).toFixed(1) + "M";
+    if(x >= 1e3) return (value / 1e3).toFixed(0) + "k";
+    if(x >= 10) return String(Math.round(value));
+    return String(Math.round(x * 100) / 100);
   }
   function paintHousing(housing){
     var classes = (housing && housing.classes) || [];
@@ -2072,9 +2152,9 @@
     var gul = classes.map(function(row){ return Number(row.ground_up_loss); });
     [document.getElementById("housingSvg"), document.getElementById("studioHousing")].forEach(function(svg){
       drawBars(svg, labels, [
-        {name:"TIV", color:"#1a73e8", points: tiv},
+        {name:"Insured value", color:"#1a73e8", points: tiv},
         {name:"Modeled loss", color:"#c5221f", points: gul}
-      ]);
+      ], {x:"Housing class", y:"Amount (" + bookCurrency + ")"});
     });
   }
   function paintVulnerability(payload){
@@ -2084,9 +2164,33 @@
       if(!svg) return;
       var ns = "http://www.w3.org/2000/svg";
       svg.innerHTML = "";
-      var w = 640, h = 280, pad = 36;
-      function x(depth){ return pad + (depth / 10) * (w - pad * 2); }
-      function y(ratio){ return h - 28 - ratio * (h - 64); }
+      var w = 640, h = 280, padL = 58, padR = 16, padT = 52, padB = 46;
+      var plotW = w - padL - padR;
+      var plotH = h - padT - padB;
+      function x(depth){ return padL + (depth / 10) * plotW; }
+      function y(ratio){ return padT + (1 - ratio) * plotH; }
+      [0, 0.25, 0.5, 0.75, 1].forEach(function(ratio){
+        var gy = y(ratio);
+        var line = document.createElementNS(ns, "line");
+        line.setAttribute("x1", padL);
+        line.setAttribute("x2", w - padR);
+        line.setAttribute("y1", gy);
+        line.setAttribute("y2", gy);
+        line.setAttribute("stroke", "rgba(95,99,104,.18)");
+        svg.appendChild(line);
+        svg.appendChild(svgText(ns, {x: padL - 8, y: gy + 4, fill:"#5f6368", "font-size":"10", "text-anchor":"end"}, String(ratio)));
+      });
+      [0, 2, 4, 6, 8, 10].forEach(function(depth){
+        svg.appendChild(svgText(ns, {x: x(depth), y: h - 24, fill:"#5f6368", "font-size":"11", "text-anchor":"middle"}, String(depth)));
+      });
+      var midY = padT + plotH / 2;
+      svg.appendChild(svgText(ns, {
+        x: 14, y: midY, fill:"#5f6368", "font-size":"11", "text-anchor":"middle",
+        transform: "rotate(-90 14 " + midY + ")"
+      }, "Damage ratio"));
+      svg.appendChild(svgText(ns, {
+        x: padL + plotW / 2, y: h - 6, fill:"#5f6368", "font-size":"11", "text-anchor":"middle"
+      }, "Flood depth (m)"));
       curves.forEach(function(curve, index){
         var d = "M" + x(0) + " " + y(0);
         (curve.knots || []).forEach(function(knot){
@@ -2100,6 +2204,18 @@
         path.setAttribute("stroke", colors[index % colors.length]);
         path.setAttribute("stroke-width", "2.4");
         svg.appendChild(path);
+        var name = String(curve.occupancy || "").replace(/_/g, " ");
+        var lx = padL + (index % 2) * 180;
+        var ly = 16 + Math.floor(index / 2) * 14;
+        var swatch = document.createElementNS(ns, "rect");
+        swatch.setAttribute("x", lx);
+        swatch.setAttribute("y", ly - 8);
+        swatch.setAttribute("width", 10);
+        swatch.setAttribute("height", 10);
+        swatch.setAttribute("rx", "2");
+        swatch.setAttribute("fill", colors[index % colors.length]);
+        svg.appendChild(swatch);
+        svg.appendChild(svgText(ns, {x: lx + 14, y: ly, fill:"#5f6368", "font-size":"11"}, name));
       });
     });
   }
@@ -2253,7 +2369,7 @@
     var syn = data.synthetic || {};
     var ep = data.ep_curve || {};
     var curve = ep.curve || [];
-    var labels = curve.map(function(p){ return p.return_period + "y"; });
+    var labels = curve.map(function(p){ return "RP " + p.return_period; });
     var points = curve.map(function(p){ return Number(p.loss_float != null ? p.loss_float : p.loss); });
     var lines = [
       "Event " + data.event_id,
@@ -2287,8 +2403,6 @@
         note: "Occurrence EP curve from the return-period catalogue. Vulnerability curves are proxy functions. Hazard synthetic is " + yn(syn.hazard) + ".",
         graph: {
           labels: labels,
-          y_label: "Damage",
-          x_label: "Return Period (RP)",
           series: [{name:"OEP loss", color:"#1a73e8", points: points}],
           highlight_value: compact(ep.eal),
           highlight_label: labels[Math.min(labels.length - 1, 3)] || "",
@@ -2397,6 +2511,7 @@
     if(lines.length < 2) return "";
     var heads = lines[0].toLowerCase().split(",");
     var latIdx = heads.indexOf("latitude");
+    if(latIdx < 0) latIdx = heads.indexOf("lat");
     if(latIdx < 0) latIdx = 2;
     var lat = parseFloat(lines[1].split(",")[latIdx]);
     if(!isFinite(lat)) return "";
@@ -2419,6 +2534,7 @@
       });
     }
     var file = files[0];
+    noteBookCurrency(file.text);
     return postJSON("/v1/process-bordereau", {
       client_email: "desk@catmod.local",
       client_name: "Catastrophe desk",
@@ -2638,6 +2754,7 @@
     });
   }
   function postBordereauFile(row){
+    noteBookCurrency(row.text);
     var basis = /reported/i.test(row.path) ? "reported" : "modeled";
     return postJSON("/v1/process-bordereau", {
       client_email: "desk@catmod.local",
@@ -2883,22 +3000,39 @@
       reply.textContent = (err && err.message) || "The sources did not answer.";
     });
   }
-  function studioChart(title, labels, points, color){
+  function studioChart(title, labels, points, color, yLabel){
     labels = labels || [];
     points = points || [];
     if(!labels.length) return "";
     var max = Math.max.apply(null, points.concat([1]));
     var w = 520;
-    var h = 160;
+    var h = 180;
+    var padL = 48;
+    var padR = 10;
+    var padT = 12;
+    var padB = 32;
+    var plotW = w - padL - padR;
+    var plotH = h - padT - padB;
     var gap = 8;
-    var barW = Math.max(8, (w - 24 - gap * labels.length) / labels.length);
+    var barW = Math.max(8, (plotW - gap * labels.length) / labels.length);
     var bars = points.map(function(value, i){
-      var bh = Math.max(2, (Number(value) / max) * (h - 36));
-      var x = 12 + i * (barW + gap);
-      var y = h - 22 - bh;
-      return '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + bh + '" rx="3" fill="' + color + '"></rect>';
+      var bh = (Number(value) / max) * plotH;
+      var x = padL + i * (barW + gap);
+      var y = padT + plotH - bh;
+      return '<rect x="' + x + '" y="' + y + '" width="' + barW + '" height="' + Math.max(value > 0 ? 2 : 0, bh) + '" rx="3" fill="' + color + '"></rect>' +
+        '<text x="' + (x + barW / 2) + '" y="' + (h - 16) + '" fill="#5f6368" font-size="10" text-anchor="middle">' + esc(String(labels[i]).replace(/_/g, " ")) + '</text>';
     }).join("");
-    return '<p class="studio-chart-label">' + esc(title) + '</p><svg class="studio-chart" viewBox="0 0 ' + w + ' ' + h + '" role="img">' + bars + '</svg>';
+    var ticks = [0, 1, 2, 3].map(function(g){
+      var gy = padT + g * plotH / 3;
+      var val = axisTick(max * (1 - g / 3));
+      return '<line x1="' + padL + '" x2="' + (w - padR) + '" y1="' + gy + '" y2="' + gy + '" stroke="rgba(95,99,104,.18)"></line>' +
+        '<text x="' + (padL - 6) + '" y="' + (gy + 3) + '" fill="#5f6368" font-size="10" text-anchor="end">' + esc(val) + '</text>';
+    }).join("");
+    var mid = padT + plotH / 2;
+    var axes = ticks + bars +
+      '<text x="14" y="' + mid + '" fill="#5f6368" font-size="11" text-anchor="middle" transform="rotate(-90 14 ' + mid + ')">' + esc(yLabel || "Value") + '</text>' +
+      '<text x="' + (padL + plotW / 2) + '" y="' + (h - 3) + '" fill="#5f6368" font-size="11" text-anchor="middle">' + esc(title) + '</text>';
+    return '<p class="studio-chart-label">' + esc(title) + '</p><svg class="studio-chart" viewBox="0 0 ' + w + ' ' + h + '" role="img">' + axes + '</svg>';
   }
   function openStudioPreview(kind){
     var drawer = document.getElementById("studioDrawer");
@@ -2956,7 +3090,7 @@
         var charts = pack.charts || {};
         var ep = charts.ep || {};
         var occ = charts.occupancy || {};
-        body.innerHTML = studioChart("Exceedance curve", ep.labels, ep.points, "#1a73e8") + studioChart("Occupancy mix", occ.labels, occ.points, "#e8453c");
+        body.innerHTML = studioChart("Exceedance curve", ep.labels, ep.points, "#1a73e8", "Loss (" + bookCurrency + ")") + studioChart("Occupancy mix", occ.labels, occ.points, "#e8453c", "Locations");
       }
     }).catch(function(err){
       body.innerHTML = "<p>" + esc((err && err.message) || "The preview did not load.") + "</p>";
@@ -3304,21 +3438,17 @@
       : "Nairobi, Nzoia, an address, or audit an event";
   }
   function sessionCsvText(){
-    var files = sessionFiles.filter(function(file){
-      return file.text && /\.csv$/i.test(file.name || "");
-    }).slice(0, 8);
-    var header = "";
-    var lines = [];
-    files.forEach(function(file){
-      var rows = String(file.text).replace(/^\uFEFF/, "").split(/\r?\n/).filter(function(line){ return line.trim(); });
-      if(!rows.length) return;
-      if(!header){
-        header = rows[0];
-        lines.push(header);
-      }
-      rows.slice(1).forEach(function(line){ lines.push(line); });
-    });
-    return lines.join("\n");
+    var books = exposureFiles();
+    var chosen = books.length ? books[books.length - 1] : null;
+    if(!chosen){
+      var files = sessionFiles.filter(function(file){
+        return file.text && /\.csv$/i.test(file.name || "");
+      });
+      chosen = files.length ? files[files.length - 1] : null;
+    }
+    if(!chosen) return "";
+    noteBookCurrency(chosen.text);
+    return String(chosen.text).replace(/^\uFEFF/, "").trim();
   }
   function runRag(text){
     text = String(text || "").trim();
@@ -3396,6 +3526,7 @@
     reader.onload = function(){
       var name = file.name || "bordereau.csv";
       var region = /nzoia/i.test(name) ? "nzoia" : "nairobi";
+      noteBookCurrency(reader.result);
       begin("Upload " + name);
       postJSON("/v1/process-bordereau", {
         client_email: "desk@catmod.local",
@@ -3479,6 +3610,9 @@
     if(!item) return;
     e.preventDefault();
     runSearch(item.getAttribute("data-query"), false);
+  });
+  document.getElementById("mapDiorama").addEventListener("click", function(){
+    window.open("/map/diorama.html", "nairobi-diorama");
   });
   document.getElementById("mapHome").addEventListener("click", function(){
     document.getElementById("homeLink").click();
