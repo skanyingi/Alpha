@@ -3065,8 +3065,8 @@
       var today = new Date().toLocaleDateString("en-US", {month:"short", day:"numeric", year:"numeric"});
       document.getElementById("studioTitle").textContent = sources.length === 1 ? sources[0].name : "Catastrophe desk";
       document.getElementById("studioMeta").textContent = sources.length + " source" + (sources.length === 1 ? "" : "s") + " · " + today;
-      box.innerHTML = '<label class="studio-all"><input type="checkbox" id="studioAll" checked> Select all</label>' + sources.map(function(src){
-        return '<label class="studio-src"><input type="checkbox" checked data-src="' + esc(src.id) + '"><span>' + esc(src.name) + '</span><small>' + esc(src.kind) + '</small></label>';
+      box.innerHTML = '<label class="studio-all"><input type="checkbox" id="studioAll"> Select all</label>' + sources.map(function(src){
+        return '<label class="studio-src"><input type="checkbox" data-src="' + esc(src.id) + '"><span>' + esc(src.name) + '</span><small>' + esc(src.kind) + '</small></label>';
       }).join("") || '<p class="studio-note">Add a source to start.</p>';
       paintStudioCount();
       writeStudioSummary();
