@@ -25,12 +25,12 @@ class Settings(BaseSettings):
     jev_model: str = "jev-1.13.0"
     jev_timeout_ms: int = 400
 
-    default_attachment: float = 40_000_000.0
-    default_limit: float = 100_000_000.0
+    default_attachment: float = 2_000_000.0
+    default_limit: float = 10_000_000.0
     default_copart: float = 0.90
     default_reinstatement_rate: float = 1.0
     default_reinstatements: int = 1
-    default_layer_premium: float = 5_000_000.0
+    default_layer_premium: float = 500_000.0
 
     audit_dir: str = "audit_logs"
     jobs_keep: int = 32
@@ -76,7 +76,10 @@ class Settings(BaseSettings):
             "CATMOD_SHADER_PRESET": ("default_shader_preset", str),
             "CATMOD_HAZARD_REGION": ("default_hazard_region", str),
             "CATMOD_STOCHASTIC_BATCH_SIZE": ("stochastic_batch_size", int),
-            "CATMOD_STOCHASTIC_FULL_CATALOG_SIZE": ("stochastic_full_catalog_size", int),
+            "CATMOD_STOCHASTIC_FULL_CATALOG_SIZE": (
+                "stochastic_full_catalog_size",
+                int,
+            ),
             "CATMOD_MAP_LATITUDE": ("default_map_latitude", float),
             "CATMOD_MAP_LONGITUDE": ("default_map_longitude", float),
             "CATMOD_MAP_ZOOM": ("default_map_zoom", int),

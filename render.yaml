@@ -44,9 +44,9 @@ services:
       - key: CATMOD_CLEAN_CONFIDENCE_THRESHOLD
         value: "0.95"
       - key: CATMOD_DEFAULT_ATTACHMENT
-        value: "40000000"
+        value: "2000000"
       - key: CATMOD_DEFAULT_LIMIT
-        value: "100000000"
+        value: "10000000"
       - key: CATMOD_DEFAULT_COPART
         value: "0.90"
       - key: CATMOD_DEFAULT_REINSTATEMENT_RATE
@@ -54,7 +54,7 @@ services:
       - key: CATMOD_DEFAULT_REINSTATEMENTS
         value: "1"
       - key: CATMOD_DEFAULT_LAYER_PREMIUM
-        value: "5000000"
+        value: "500000"
       - key: CATMOD_MAP_LATITUDE
         value: "-1.28"
       - key: CATMOD_MAP_LONGITUDE

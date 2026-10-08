@@ -31,4 +31,4 @@ class XLTreaty:
         xs = self.attachment_point
         lim = self.limit
         share = self.co_participation * 100.0
-        return f"${lim:,.0f} xs ${xs:,.0f} ({share:.0f}% share)"
+        return f"KSh {lim:,.0f} xs KSh {xs:,.0f} ({share:.0f}% share)"

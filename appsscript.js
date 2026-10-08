@@ -903,7 +903,7 @@ function epPml_(ep, returnPeriod) {
 }
 
 function parseTreatyLabel_(label) {
-  var match = /\$([\d,]+(?:\.\d+)?)\s+xs\s+\$([\d,]+(?:\.\d+)?)/i.exec(label || '');
+  var match = /KSh\s*([\d,]+(?:\.\d+)?)\s+xs\s+KSh\s*([\d,]+(?:\.\d+)?)/i.exec(label || '');
   if (!match) {
     return { limit: null, attachment: null };
   }
@@ -960,11 +960,11 @@ function sampleAnalytics_() {
     reinstatement_premium_due: 0,
     flagged_count: 0,
     hazard_region: 'nairobi',
-    treaty_label: '$100,000,000 xs $40,000,000 (90% share)',
+    treaty_label: 'KSh 10,000,000 xs KSh 2,000,000 (90% share)',
     treaty: {
-      attachment_point: 40000000,
-      limit: 100000000,
-      label: '$100,000,000 xs $40,000,000 (90% share)'
+      attachment_point: 2000000,
+      limit: 10000000,
+      label: 'KSh 10,000,000 xs KSh 2,000,000 (90% share)'
     },
     ep_curve: {
       eal: '2500000.00',
@@ -1097,7 +1097,7 @@ function numberOrZero_(value) {
 
 function formatMoney_(value) {
   var n = Number(value) || 0;
-  return '$' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return 'KSh ' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
 function moneyCell_(value) {

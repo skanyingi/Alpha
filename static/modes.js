@@ -25,8 +25,24 @@
     return out;
   }
 
+  function compact(n) {
+    var v = Number(n);
+    if (!isFinite(v)) return "";
+    var sign = v < 0 ? "-" : "";
+    v = Math.abs(v);
+    if (v >= 1e9) return sign + "KSh " + (v / 1e9).toFixed(2) + "B";
+    if (v >= 1e6) return sign + "KSh " + (v / 1e6).toFixed(2) + "M";
+    if (v >= 1e3) return sign + "KSh " + (v / 1e3).toFixed(1) + "k";
+    return sign + "KSh " + v.toFixed(0);
+  }
+
+  function tickLabel(spec, v) {
+    if (typeof spec.y_format === "function") return spec.y_format(v);
+    return compact(v);
+  }
+
   function drawGraph(svg, spec) {
-    var w = 640, h = 280, pad = { l: 36, r: 18, t: 28, b: 36 };
+    var w = 640, h = 280, pad = { l: 56, r: 18, t: 28, b: 52 };
     svg.setAttribute("viewBox", "0 0 " + w + " " + h);
     svg.innerHTML = "";
     var labels = spec.labels || [];
@@ -52,6 +68,16 @@
     for (var g = 0; g < 4; g++) {
       var gy = pad.t + g * (h - pad.t - pad.b) / 3;
       svg.appendChild(el("line", { x1: pad.l, x2: w - pad.r, y1: gy, y2: gy, stroke: "rgba(95,99,104,.18)", "stroke-dasharray": "3 6" }));
+      var gv = min + span * (3 - g) / 3;
+      var gl = el("text", { x: pad.l - 8, y: gy + 4, fill: "#5f6368", "font-size": "11", "text-anchor": "end" });
+      gl.textContent = tickLabel(spec, gv);
+      svg.appendChild(gl);
+    }
+    var axisName = spec.y_label || "";
+    if (axisName) {
+      var an = el("text", { x: pad.l - 8, y: pad.t - 12, fill: "#202124", "font-size": "11", "font-weight": "600", "text-anchor": "end" });
+      an.textContent = axisName;
+      svg.appendChild(an);
     }
     series.forEach(function (s, si) {
       var pts = s.points || [];
@@ -72,10 +98,19 @@
     defs.innerHTML = '<filter id="glow"><feGaussianBlur stdDeviation="2.4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>';
     svg.insertBefore(defs, svg.firstChild);
     labels.forEach(function (lab, i) {
-      var t = el("text", { x: x(i), y: h - 12, fill: "#5f6368", "font-size": "11", "text-anchor": "middle" });
+      var t = el("text", { x: x(i), y: h - pad.b + 16, fill: "#5f6368", "font-size": "11", "text-anchor": "middle" });
       t.textContent = lab;
       svg.appendChild(t);
     });
+    var xName = spec.x_label || "";
+    if (xName) {
+      var xn = el("text", {
+        x: (pad.l + (w - pad.r)) / 2, y: h - pad.b + 34,
+        fill: "#202124", "font-size": "11", "font-weight": "600", "text-anchor": "middle"
+      });
+      xn.textContent = xName;
+      svg.appendChild(xn);
+    }
     if (spec.highlight_value) {
       var hx = x(Math.max(0, labels.indexOf(spec.highlight_label)));
       var hv = spec.highlight_value + (spec.highlight_unit ? " " + spec.highlight_unit : "");
@@ -89,7 +124,7 @@
       var idx = Math.round(t * (labels.length - 1));
       idx = Math.max(0, Math.min(labels.length - 1, idx));
       if (!graphTip) return;
-      graphTip.textContent = labels[idx] + " · " + series.map(function (s) { return s.name + " " + s.points[idx]; }).join("  ·  ");
+      graphTip.textContent = labels[idx] + " · " + series.map(function (s) { return s.name + " " + tickLabel(spec, s.points[idx]); }).join("  ·  ");
     };
   }
 

@@ -1450,17 +1450,17 @@
   function money(n){
     var x = Number(n);
     if(!isFinite(x)) return String(n == null ? "" : n);
-    return x.toLocaleString("en-US", {style:"currency", currency:"USD", maximumFractionDigits:2});
+    return "KSh " + x.toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2});
   }
   function compact(n){
     var x = Number(n);
     if(!isFinite(x)) return "";
     var sign = x < 0 ? "-" : "";
     x = Math.abs(x);
-    if(x >= 1e9) return sign + "$" + (x/1e9).toFixed(2) + "B";
-    if(x >= 1e6) return sign + "$" + (x/1e6).toFixed(2) + "M";
-    if(x >= 1e3) return sign + "$" + (x/1e3).toFixed(1) + "k";
-    return sign + "$" + x.toFixed(0);
+    if(x >= 1e9) return sign + "KSh " + (x/1e9).toFixed(2) + "B";
+    if(x >= 1e6) return sign + "KSh " + (x/1e6).toFixed(2) + "M";
+    if(x >= 1e3) return sign + "KSh " + (x/1e3).toFixed(1) + "k";
+    return sign + "KSh " + x.toFixed(0);
   }
   function yn(v){ return v ? "true" : "false"; }
   var lastEventId = "";
@@ -1538,7 +1538,7 @@
     var syn = data.synthetic || {};
     var ep = data.ep_curve || {};
     var curve = ep.curve || [];
-    var labels = curve.map(function(p){ return "RP " + p.return_period; });
+    var labels = curve.map(function(p){ return p.return_period + "y"; });
     var points = curve.map(function(p){ return Number(p.loss_float != null ? p.loss_float : p.loss); });
     var lines = [
       "Event " + data.event_id,
@@ -1571,6 +1571,8 @@
         note: "Occurrence EP curve from the return-period catalogue. Vulnerability curves are proxy functions. Hazard synthetic is " + yn(syn.hazard) + ".",
         graph: {
           labels: labels,
+          y_label: "Damage",
+          x_label: "Return Period (RP)",
           series: [{name:"OEP loss", color:"#1a73e8", points: points}],
           highlight_value: compact(ep.eal),
           highlight_label: labels[Math.min(labels.length - 1, 3)] || "",
