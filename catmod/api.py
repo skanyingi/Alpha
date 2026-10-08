@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections import OrderedDict
 from typing import Any
 import json
 
@@ -12,6 +11,7 @@ from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from catmod.config import get_settings
+from catmod.jobs import JobStore
 from catmod.flood.gemini import gemini_configured
 from catmod.flood.maps import MapsError, fetch_aerial, fetch_street_view, geocode_address, maps_configured
 from catmod.spatial.elevation import lookup_elevation_m
@@ -49,15 +49,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-_JOBS: OrderedDict[str, dict[str, Any]] = OrderedDict()
+_STORE: JobStore | None = None
+
+
+def job_store() -> JobStore:
+    global _STORE
+    if _STORE is None:
+        settings = get_settings()
+        _STORE = JobStore(settings.jobs_dir, settings.jobs_keep)
+    return _STORE
 
 
 def _remember(result: dict[str, Any]) -> dict[str, Any]:
-    settings = get_settings()
-    _JOBS[result["event_id"]] = result
-    while len(_JOBS) > settings.jobs_keep:
-        _JOBS.popitem(last=False)
-    return result
+    return job_store().remember(result)
 
 
 @app.get("/health")
@@ -81,20 +85,21 @@ def process_bordereau(payload: BordereauWebhook) -> JSONResponse:
 
 @app.get("/api/v1/leaflet-export")
 def leaflet_export(event_id: str | None = Query(default=None)) -> JSONResponse:
-    if not _JOBS:
-        raise HTTPException(status_code=404, detail="No modeled events in memory. POST /v1/process-bordereau first.")
+    store = job_store()
+    if not store:
+        raise HTTPException(status_code=404, detail="No modeled events saved yet. POST /v1/process-bordereau first.")
     if event_id:
-        job = _JOBS.get(event_id)
+        job = store.get(event_id)
         if job is None:
             raise HTTPException(status_code=404, detail=f"Unknown event_id {event_id}")
     else:
-        job = next(reversed(_JOBS.values()))
+        job = store.latest()
     return JSONResponse(job["geojson"])
 
 
 @app.get("/api/v1/audit/{event_id}")
 def audit(event_id: str) -> JSONResponse:
-    job = _JOBS.get(event_id)
+    job = job_store().get(event_id)
     if job is None:
         raise HTTPException(status_code=404, detail=f"Unknown event_id {event_id}")
     return JSONResponse(job["audit"])
@@ -111,7 +116,7 @@ def events() -> dict[str, Any]:
                 "reinsurer_payout": j["reinsurer_payout"],
                 "flagged_count": j["flagged_count"],
             }
-            for j in _JOBS.values()
+            for j in job_store().values()
         ]
     }
 
@@ -162,12 +167,13 @@ def flood_evaluate(payload: FloodEvaluateIn) -> JSONResponse:
 
 @app.get("/api/v1/flood/footprints")
 def flood_footprints(event_id: str | None = Query(default=None)) -> JSONResponse:
+    store = job_store()
     if event_id:
-        job = _JOBS.get(event_id)
+        job = store.get(event_id)
         if job is None:
             raise HTTPException(status_code=404, detail=f"Unknown event_id {event_id}")
-    elif _JOBS:
-        job = next(reversed(_JOBS.values()))
+    elif store:
+        job = store.latest()
     else:
         return JSONResponse(footprints_for_points([]))
     return JSONResponse(footprints_for_points(job.get("claims") or []))
@@ -213,14 +219,13 @@ def flood_street(lat: float = Query(...), lng: float = Query(...)) -> Response:
 
 
 def _job_or_none(event_id: str | None) -> dict[str, Any] | None:
+    store = job_store()
     if event_id:
-        job = _JOBS.get(event_id)
+        job = store.get(event_id)
         if job is None:
             raise HTTPException(status_code=404, detail=f"Unknown event_id {event_id}")
         return job
-    if _JOBS:
-        return next(reversed(_JOBS.values()))
-    return None
+    return store.latest()
 
 
 def _blender_payload(event_id: str | None, shader_preset: str, storey_height_m: float) -> dict[str, Any]:

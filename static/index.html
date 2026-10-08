@@ -727,13 +727,12 @@
   }
   #eventsDesk .who-menu button:hover{background:#f5f6fa;}
   #eventsDesk .dk-body{flex:1;min-height:0;overflow:auto;padding:26px 22px 18px;}
-  #eventsDesk .dk-title-row{display:flex;align-items:center;justify-content:space-between;margin:0 6px 18px;gap:12px;}
+  #eventsDesk .dk-title-row{display:flex;align-items:center;margin:0 6px 14px;}
   #eventsDesk .dk-title-row h1{margin:0;font:700 28px/1 Poppins,sans-serif;letter-spacing:-.4px;color:#191c23;}
   #eventsDesk .dk-addbtn{
     height:34px;padding:0 14px;border:0;border-radius:6px;background:#0dd573;color:#fff;
     font:600 13px Poppins,sans-serif;cursor:pointer;box-shadow:0 8px 16px rgba(13,213,115,.32);white-space:nowrap;
   }
-  #eventsDesk .dk-note{margin:-8px 6px 14px;color:#8b919c;font:400 12px Poppins,sans-serif;}
   #eventsDesk .dk-tabs{display:flex;gap:28px;margin:0 6px;border-bottom:1px solid #e6e8ee;}
   #eventsDesk .dk-tabs button{
     border:0;background:transparent;padding:8px 0 11px;font:500 13px Poppins,sans-serif;color:#a0a6b0;cursor:pointer;position:relative;
@@ -986,6 +985,7 @@
                   <input id="deskSearch" type="search" placeholder="Search" aria-label="Search this session" autocomplete="off">
                 </label>
                 <div class="dk-top-right">
+                  <button type="button" class="dk-addbtn" id="deskUpload">+ Upload folder</button>
                   <button type="button" class="dk-bell" id="deskBell" aria-label="Session alerts">
                     <svg viewBox="0 0 24 24"><path d="M6 16V10a6 6 0 1 1 12 0v6l1.5 2h-15z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>
                   </button>
@@ -1002,9 +1002,7 @@
               <div class="dk-body">
                 <div class="dk-title-row">
                   <h1>Dashboard</h1>
-                  <button type="button" class="dk-addbtn" id="deskUpload">+ Upload folder</button>
                 </div>
-                <p class="dk-note" id="deskNote">Folders stay in this tab only. A refresh clears them. Modeled books stay until the server restarts.</p>
                 <div class="dk-tabs" role="tablist">
                   <button type="button" data-tab="queue" class="on" role="tab">Event queue</button>
                   <button type="button" data-tab="files" role="tab">Files</button>
@@ -1234,6 +1232,61 @@
   var resultAnswer = document.getElementById("resultAnswer");
   var searching = false;
   var sessionFiles = [];
+  var FILE_DB = "catmod-desk";
+  var FILE_STORE = "files";
+  function openFileDb(){
+    return new Promise(function(resolve, reject){
+      if(!window.indexedDB){ reject(new Error("no indexedDB")); return; }
+      var req = indexedDB.open(FILE_DB, 1);
+      req.onupgradeneeded = function(){
+        var db = req.result;
+        if(!db.objectStoreNames.contains(FILE_STORE)) db.createObjectStore(FILE_STORE, {keyPath:"id"});
+      };
+      req.onsuccess = function(){ resolve(req.result); };
+      req.onerror = function(){ reject(req.error); };
+    });
+  }
+  function fileStore(mode, run){
+    return openFileDb().then(function(db){
+      return new Promise(function(resolve, reject){
+        var tx = db.transaction(FILE_STORE, mode);
+        var req;
+        try{ req = run(tx.objectStore(FILE_STORE)); }
+        catch(err){ reject(err); return; }
+        tx.oncomplete = function(){ resolve(req && req.result); };
+        tx.onerror = function(){ reject(tx.error); };
+        tx.onabort = function(){ reject(tx.error || new Error("aborted")); };
+      });
+    });
+  }
+  var retiredFileIds = {};
+  var filesCleared = false;
+  function loadStoredFiles(){
+    return fileStore("readonly", function(store){ return store.getAll(); }).then(function(rows){
+      if(filesCleared) return;
+      var byId = {};
+      sessionFiles.forEach(function(row){ if(row && row.id) byId[row.id] = row; });
+      (rows || []).forEach(function(row){
+        if(row && row.id && !retiredFileIds[row.id] && !byId[row.id]) byId[row.id] = row;
+      });
+      sessionFiles = Object.keys(byId).map(function(id){ return byId[id]; }).sort(function(a, b){
+        return String(a.ingested || "").localeCompare(String(b.ingested || ""));
+      });
+      if(document.body.classList.contains("has-desk")) renderDesk();
+    }).catch(function(){});
+  }
+  function saveSessionFile(row){
+    if(row && row.id) delete retiredFileIds[row.id];
+    return fileStore("readwrite", function(store){ return store.put(row); }).catch(function(){});
+  }
+  function forgetSessionFile(id){
+    retiredFileIds[id] = true;
+    return fileStore("readwrite", function(store){ return store.delete(id); }).catch(function(){});
+  }
+  function forgetAllSessionFiles(){
+    filesCleared = true;
+    return fileStore("readwrite", function(store){ return store.clear(); }).catch(function(){});
+  }
   var deskEvents = [];
   var deskTab = "queue";
   var deskQuery = "";
@@ -1601,12 +1654,12 @@
     var rows = (data && data.events) || [];
     var lines = rows.length ? rows.map(function(ev){
       return ev.event_id + "  gross " + money(ev.total_gross_claim) + "  reinsurer " + money(ev.reinsurer_payout) + "  flags " + ev.flagged_count;
-    }) : ["No modeled events in memory yet. Run a Nairobi or Nzoia book."];
+    }) : ["No modeled events saved yet. Run a Nairobi or Nzoia book."];
     return {
       status: "Read " + rows.length + " event" + (rows.length === 1 ? "" : "s") + " from /api/v1/events.",
       answer: lines.join("\n"),
       sources: rows.slice(0, 8).map(function(ev){ return {publication_title: ev.event_id, source_origin: "event.csv"}; }),
-      modes: {note:"Events live in this server process. A restart clears the list."}
+      modes: {note:"Modeled events are saved on this computer and loaded again when the server starts."}
     };
   }
   function auditView(data){
@@ -1803,7 +1856,7 @@
           '<span class="dk-more"><button type="button" class="dk-kebab" data-kebab="' + esc(file.id) + '" aria-label="File actions">⋮</button>' +
           '<div class="dk-menu"' + (open ? "" : " hidden") + ">" +
           '<button type="button" data-act="query" data-file="' + esc(file.id) + '">Query this file</button>' +
-          '<button type="button" data-act="drop" data-file="' + esc(file.id) + '">Drop from session</button>' +
+          '<button type="button" data-act="drop" data-file="' + esc(file.id) + '">Remove</button>' +
           "</div></span></div>";
       });
     }else{
@@ -1860,10 +1913,7 @@
     }
     document.getElementById("deskRows").innerHTML = rows.length
       ? rows.join("")
-      : '<p class="dk-empty">' + (query ? "Nothing in this session matches that search." : "Upload a folder, or run a book. The queue lists what this session is holding.") + "</p>";
-    document.getElementById("deskNote").textContent = sessionFiles.length
-      ? sessionFiles.length + " file" + (sessionFiles.length === 1 ? "" : "s") + " in this tab. Refresh clears the folders. Modeled books stay until the server restarts."
-      : "Folders stay in this tab only. A refresh clears them. Modeled books stay until the server restarts.";
+      : '<p class="dk-empty">' + (query ? "Nothing saved matches that search." : "Upload a folder, or run a book. The queue lists what is saved on this computer.") + "</p>";
   }
   function showDesk(){
     document.body.classList.add("has-result", "has-desk");
@@ -1889,13 +1939,13 @@
     if(opts.query != null) deskQuery = opts.query;
     deskKebab = "";
     showDesk();
-    if(opts.pick) document.getElementById("folderPick").click();
+    if(opts.pick) chooseFolder();
     return refreshDeskEvents().then(function(data){
       return {
-        status: "Opened the event queue. " + sessionFiles.length + " uploaded file" + (sessionFiles.length === 1 ? "" : "s") + " in this session.",
+        status: "Opened the event queue. " + sessionFiles.length + " uploaded file" + (sessionFiles.length === 1 ? "" : "s") + " saved in this browser.",
         answer: eventsView(data).answer,
         sources: eventsView(data).sources,
-        modes: {note:"Uploaded folders live in this tab until you refresh. Modeled events live in the server process until it restarts."}
+        modes: {note:"Uploaded folders stay in this browser. Modeled events stay on this computer."}
       };
     });
   }
@@ -1913,6 +1963,7 @@
     }).then(function(data){
       row.eventId = data.event_id || "";
       row.kind = "Bordereau";
+      saveSessionFile(row);
       if(data.event_id) lastEventId = data.event_id;
       return refreshDeskEvents();
     }).catch(function(){
@@ -1920,13 +1971,51 @@
       renderDesk();
     });
   }
+  function collectDir(handle, prefix){
+    var files = [];
+    var iter = handle.values();
+    function step(){
+      return iter.next().then(function(item){
+        if(item.done) return files;
+        var entry = item.value;
+        var rel = prefix ? prefix + "/" + entry.name : entry.name;
+        if(entry.kind === "file"){
+          return entry.getFile().then(function(file){
+            file.deskPath = rel;
+            files.push(file);
+            return step();
+          });
+        }
+        if(entry.kind === "directory"){
+          return collectDir(entry, rel).then(function(nested){
+            Array.prototype.push.apply(files, nested);
+            return step();
+          });
+        }
+        return step();
+      });
+    }
+    return step();
+  }
+  function chooseFolder(){
+    if(window.showDirectoryPicker){
+      return showDirectoryPicker({mode:"read"}).then(function(dir){
+        return collectDir(dir, dir.name);
+      }).then(function(files){
+        if(files && files.length) return ingestFolder(files);
+      }).catch(function(err){
+        if(err && err.name === "AbortError") return;
+      });
+    }
+    document.getElementById("folderPick").click();
+  }
   function ingestFolder(fileList){
     var files = Array.prototype.slice.call(fileList || []);
     if(!files.length) return Promise.resolve();
     showDesk();
     deskTab = "queue";
     return Promise.all(files.map(function(file){
-      var rel = file.webkitRelativePath || file.name;
+      var rel = file.deskPath || file.webkitRelativePath || file.name;
       var folder = rel.split("/")[0] || file.name;
       return readFileText(file).then(function(text){
         return {
@@ -1943,6 +2032,7 @@
       });
     })).then(function(rows){
       sessionFiles = sessionFiles.concat(rows);
+      rows.forEach(saveSessionFile);
       renderDesk();
       var books = rows.filter(function(row){ return row.kind === "Bordereau" && row.text; });
       return books.reduce(function(chain, row){
@@ -1965,13 +2055,13 @@
     bindDesk.done = true;
     document.getElementById("deskHome").addEventListener("click", function(){ resetHome(); });
     document.getElementById("deskUpload").addEventListener("click", function(){
-      document.getElementById("folderPick").click();
+      chooseFolder();
     });
     desk.addEventListener("click", function(e){
       var rail = e.target.closest("[data-rail]");
       if(rail){
         if(rail.getAttribute("data-rail") === "upload"){
-          document.getElementById("folderPick").click();
+          chooseFolder();
           return;
         }
         deskTab = rail.getAttribute("data-rail") === "files" ? "files" : "queue";
@@ -2000,6 +2090,7 @@
         if(action === "drop"){
           var id = act.getAttribute("data-file");
           sessionFiles = sessionFiles.filter(function(file){ return file.id !== id; });
+          forgetSessionFile(id);
           deskKebab = "";
           renderDesk();
           return;
@@ -2035,6 +2126,7 @@
     document.getElementById("deskClear").addEventListener("click", function(e){
       e.stopPropagation();
       sessionFiles = [];
+      forgetAllSessionFiles();
       deskKebab = "";
       deskMenuOpen = false;
       document.getElementById("deskUserMenu").hidden = true;
@@ -2081,14 +2173,14 @@
     if(hits.length){
       return openEventsDesk({tab:"files", query:text}).then(function(){
         return {
-          status: "Queried " + hits.length + " file" + (hits.length === 1 ? "" : "s") + " held in this session.",
+          status: "Queried " + hits.length + " file" + (hits.length === 1 ? "" : "s") + " saved in this browser.",
           answer: hits.slice(0, 8).map(function(file){
             return file.name + "\n" + hitSnippet(file, text);
           }).join("\n\n"),
           sources: hits.slice(0, 6).map(function(file){
             return {publication_title: file.name, source_origin: file.path};
           }),
-          modes: {note:"Matches come from folders uploaded in this tab. Refresh clears them."}
+          modes: {note:"Matches come from folders saved in this browser."}
         };
       });
     }
@@ -2235,7 +2327,7 @@
       e.preventDefault();
       closeMenus();
       showDesk();
-      document.getElementById("folderPick").click();
+      chooseFolder();
       return;
     }
     var pwa = e.target.closest("[data-pwa]");
@@ -2289,6 +2381,7 @@
   }
   renderShortcuts();
   bindDesk();
+  loadStoredFiles();
   plusBtn.addEventListener("click", function(e){
     e.stopPropagation();
     var open = plusMenu.classList.toggle("open");
@@ -2304,7 +2397,7 @@
     if(upload){
       closeMenus();
       showDesk();
-      document.getElementById("folderPick").click();
+      chooseFolder();
       return;
     }
     var pwa = e.target.closest("[data-pwa]");

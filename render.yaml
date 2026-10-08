@@ -3,7 +3,7 @@
 #
 # Apply from the Render dashboard: New > Blueprint > connect skanyingi/Alpha.
 # The service name "alpha" is what Render publishes at https://alpha.onrender.com.
-# One instance only: modeled jobs are kept in process memory.
+# One instance only: modeled jobs are written to the persistent disk and reloaded on boot.
 
 services:
   - type: web
@@ -20,7 +20,7 @@ services:
       python -m pip install --upgrade pip setuptools wheel
       && python -m pip install -r requirements.txt
       && python -c "import main; assert main.app.title"
-    preDeployCommand: mkdir -p /var/data/audit_logs
+    preDeployCommand: mkdir -p /var/data/audit_logs /var/data/jobs
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1
     disk:
       name: alpha-audit
@@ -35,6 +35,8 @@ services:
         value: https://alpha.onrender.com
       - key: CATMOD_AUDIT_DIR
         value: /var/data/audit_logs
+      - key: CATMOD_JOBS_DIR
+        value: /var/data/jobs
       - key: CATMOD_HAZARD_REGION
         value: nairobi
       - key: CATMOD_HDC_DIM
