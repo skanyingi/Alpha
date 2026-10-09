@@ -1079,7 +1079,7 @@
   .agents-lead{margin:0 0 8px;color:#fff;font:500 14px Inter,sans-serif;text-shadow:0 1px 8px rgba(0,0,0,.45);}
   .agents-orbit{
     position:relative;
-    width:min(720px, 100%, calc(100vh - 210px));
+    width:min(780px, 100%, calc(100vh - 200px));
     aspect-ratio:1;
     margin:0 auto;
   }
@@ -1092,31 +1092,161 @@
   .agent-node{
     position:absolute;z-index:1;
     left:0;top:0;
-    width:18%;height:18%;
+    width:24%;height:24%;
     transform:translate(-50%,-50%);
     border-radius:50%;
     background:#fff;color:#202124;
     box-shadow:0 8px 24px rgba(0,0,0,.18);
     display:flex;flex-direction:column;align-items:center;justify-content:center;
-    text-align:center;padding:8px;box-sizing:border-box;
+    text-align:center;padding:12px;box-sizing:border-box;
+    cursor:pointer;
+    transition:transform .25s ease, box-shadow .25s ease;
   }
-  .agent-node.is-hub{
-    width:26%;height:26%;z-index:2;
-    border:3px solid #1a73e8;
+  .agent-node.is-hub{width:32%;height:32%;z-index:2;}
+  .agent-node::before{
+    content:"";
+    position:absolute;inset:-8px;border-radius:50%;padding:3px;
+    background:conic-gradient(from var(--gem-angle), var(--g-blue), var(--g-red), var(--g-orange), var(--g-yellow), var(--g-green), var(--g-blue));
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+    mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite:exclude;
+    pointer-events:none;z-index:0;
+    animation:gem-spin 2.8s linear infinite, agent-glow 2.2s ease-in-out infinite;
   }
-  .agent-node svg{width:26px;height:26px;flex:none;}
-  .agent-node.is-hub svg{width:34px;height:34px;}
+  .agent-node > *{position:relative;z-index:1;}
+  .agent-node:hover,.agent-node:focus-visible,.agent-node.is-open{
+    z-index:6;
+    transform:translate(-50%,-50%) scale(1.08);
+    box-shadow:0 0 0 3px rgba(66,133,244,.35), 0 14px 36px rgba(0,0,0,.24);
+    outline:none;
+  }
+  .agent-node svg{width:30px;height:30px;flex:none;transform-origin:center;}
+  .agent-node.is-hub svg{width:40px;height:40px;}
+  .agent-node[data-role="JEV_ROUTER"] svg{animation:agent-spin 8s linear infinite;}
+  .agent-node[data-role="INGESTION"] svg,
+  .agent-node[data-role="HAZARD_VULNERABILITY"] svg,
+  .agent-node[data-role="GEMINI_RAG"] svg{animation:agent-float 1.6s ease-in-out infinite;}
+  .agent-node[data-role="HDC_MEMORY"] svg path,
+  .agent-node[data-role="FINANCE_EXECUTOR"] svg path,
+  .agent-node[data-role="ANALYTICS_GEOJSON"] svg path{
+    stroke-dasharray:7 4;
+    animation:agent-draw 1.8s linear infinite;
+  }
   .agent-node b{
-    display:block;margin-top:6px;max-width:100%;
-    font:600 clamp(9px,1.05vw,12px)/1.15 Inter,sans-serif;
+    display:block;margin-top:6px;max-width:92%;
+    font:600 clamp(12px,1.35vw,15px)/1.15 Inter,sans-serif;
   }
   .agent-node small{
-    display:block;margin-top:3px;max-width:100%;
-    color:#80868b;font:500 10px/1.2 Inter,sans-serif;
+    display:block;margin-top:3px;max-width:92%;
+    color:#80868b;font:500 11px/1.2 Inter,sans-serif;
   }
+  .agent-tip{
+    position:absolute;left:50%;top:calc(100% + 10px);
+    transform:translateX(-50%) translateY(4px);
+    width:max-content;max-width:240px;
+    padding:8px 10px;border-radius:12px;
+    background:#fff;color:#202124;
+    box-shadow:0 10px 28px rgba(0,0,0,.2);
+    font:400 12px/1.4 Inter,sans-serif;text-align:left;
+    opacity:0;pointer-events:none;
+    transition:opacity .2s ease, transform .2s ease;
+  }
+  .agent-node:hover .agent-tip,
+  .agent-node:focus-visible .agent-tip,
+  .agent-node.is-open .agent-tip{
+    opacity:1;transform:translateX(-50%) translateY(0);
+  }
+  @keyframes agent-glow{
+    0%,100%{opacity:.45;filter:drop-shadow(0 0 4px rgba(66,133,244,.35));}
+    50%{opacity:1;filter:drop-shadow(0 0 12px rgba(66,133,244,.85)) drop-shadow(0 0 16px rgba(234,67,53,.35));}
+  }
+  @keyframes agent-spin{to{transform:rotate(360deg);}}
+  @keyframes agent-float{
+    0%,100%{transform:translateY(0);}
+    50%{transform:translateY(-3px);}
+  }
+  @keyframes agent-draw{to{stroke-dashoffset:-22;}}
   @media (max-width:720px){
-    .agent-node small{display:none;}
     .agents-lead{margin-bottom:0;}
+    .agent-node{width:27%;height:27%;}
+    .agent-node.is-hub{width:34%;height:34%;}
+  }
+  .agents-flow{
+    width:calc(100% + 56px);
+    margin:18px -28px -28px;
+    padding:36px 28px 56px;
+    background:#f5f4f0;color:#111;
+    border-radius:28px 28px 0 0;
+  }
+  .agents-flow-inner{width:min(1040px,100%);margin:0 auto;}
+  .flow-block{margin-top:42px;}
+  .flow-block:first-child{margin-top:0;}
+  .flow-kicker{
+    display:inline-flex;align-items:center;
+    padding:4px 10px;border-radius:999px;
+    background:rgba(0,0,0,.05);color:rgba(0,0,0,.45);
+    font:600 11px Inter,sans-serif;letter-spacing:.14em;
+  }
+  .flow-title{
+    margin:12px 0 0;color:#111;
+    font:500 clamp(28px,4vw,44px)/1.05 Outfit,sans-serif;
+    letter-spacing:-.03em;white-space:pre-line;
+  }
+  .flow-note{margin:10px 0 0;max-width:36rem;color:rgba(0,0,0,.5);font:400 14px/1.5 Inter,sans-serif;}
+  .flow-bento{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px;margin-top:18px;}
+  .flow-card{
+    background:#fff;border:1px solid rgba(0,0,0,.07);border-radius:18px;
+    padding:22px;min-height:150px;
+  }
+  .flow-card.span-12{grid-column:span 12;}
+  .flow-card.span-4{grid-column:span 4;}
+  .flow-card h3{margin:14px 0 6px;font:500 20px/1.2 Outfit,sans-serif;}
+  .flow-card p,.flow-stack-card p,.flow-step p{margin:0;color:rgba(0,0,0,.5);font:400 14px/1.5 Inter,sans-serif;}
+  .flow-ico{
+    width:40px;height:40px;border-radius:12px;
+    border:1px solid rgba(0,0,0,.1);background:#fff;
+    display:grid;place-items:center;
+  }
+  .flow-ico svg{width:18px;height:18px;}
+  .flow-stack{margin-top:18px;}
+  .flow-stack-slot{position:sticky;margin-bottom:14px;}
+  .flow-stack-card{
+    background:#faf9f7;border:1px solid rgba(0,0,0,.07);border-radius:18px;
+    padding:22px 24px 16px;
+    transform-origin:top center;
+    transition:transform .3s cubic-bezier(.16,1,.3,1);
+  }
+  .flow-stack-card h3{margin:14px 0 8px;font:500 22px/1.2 Outfit,sans-serif;}
+  .flow-stats{display:flex;gap:28px;margin-top:16px;padding-top:14px;border-top:1px solid rgba(0,0,0,.06);}
+  .flow-stats b{display:block;font:500 18px Outfit,sans-serif;}
+  .flow-stats small{color:rgba(0,0,0,.4);font:500 11px Inter,sans-serif;letter-spacing:.08em;}
+  .flow-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:18px;}
+  .flow-step{
+    all:unset;cursor:pointer;box-sizing:border-box;
+    display:flex;flex-direction:column;min-height:210px;
+    background:#fff;border:1px solid rgba(0,0,0,.07);border-radius:18px;
+    padding:20px;
+  }
+  .flow-step:hover{border-color:rgba(0,0,0,.2);background:#fafaf8;}
+  .flow-step span{font:600 11px Inter,sans-serif;letter-spacing:.14em;color:rgba(0,0,0,.28);}
+  .flow-step b{display:block;margin-top:auto;font:500 24px/1.1 Outfit,sans-serif;color:#111;}
+  .flow-step p{margin-top:8px;}
+  .flow-trail{display:flex;flex-direction:column;gap:8px;margin-top:16px;}
+  .flow-log{
+    display:flex;align-items:center;gap:12px;
+    padding:10px 12px;border-radius:12px;
+    background:rgba(0,0,0,.02);border:1px solid rgba(0,0,0,.05);
+    font:400 13px Inter,sans-serif;
+  }
+  .flow-log em{font-style:normal;color:rgba(0,0,0,.35);font-size:11px;min-width:148px;}
+  .flow-log span{flex:1;min-width:0;}
+  .flow-log small{color:rgba(0,0,0,.45);}
+  .flow-dot{width:7px;height:7px;border-radius:50%;background:#34a853;flex:none;}
+  @media (max-width:800px){
+    .flow-card.span-4,.flow-steps{grid-template-columns:1fr;}
+    .flow-card.span-4{grid-column:span 12;}
+    .flow-log em{min-width:0;}
   }
   #workspacePage{
     position:fixed;inset:0;z-index:15;
@@ -1433,6 +1563,55 @@
   </div>
 
   <div class="cards">
+    <a class="gcard gem-glow" href="#ask" data-upload>
+      <span class="gcard-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 16V6M8 9.5 12 5.5 16 9.5"/><path d="M5 19h14"/>
+        </svg>
+      </span>
+      <span>
+        <strong>Upload</strong>
+        <em>Pick files from the desktop</em>
+      </span>
+    </a>
+    <a class="gcard gem-glow" href="#ask" data-query="List modeled events">
+      <span class="gcard-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#2fb964" stroke-width="1.7" stroke-linejoin="round">
+          <rect x="6.5" y="2.5" width="11" height="19" rx="2.4"/>
+          <path d="M10.5 18.5h3M9.5 7h5M9.5 10h5M9.5 13h3"/>
+        </svg>
+      </span>
+      <span>
+        <strong>Model events</strong>
+        <em>Gross, reinsurer, flags</em>
+      </span>
+    </a>
+    <a class="gcard gem-glow" href="#workspace" data-workspace>
+      <span class="gcard-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="3" y="3" width="8" height="8" rx="1.6" fill="#1a73e8"/>
+          <rect x="13" y="3" width="8" height="8" rx="1.6" fill="#e8453c"/>
+          <rect x="3" y="13" width="8" height="8" rx="1.6" fill="#f9ab00"/>
+          <rect x="13" y="13" width="8" height="8" rx="1.6" fill="#34a853"/>
+        </svg>
+      </span>
+      <span>
+        <strong>Google Workspace</strong>
+        <em>Sheets, Docs, and Drive</em>
+      </span>
+    </a>
+    <a class="gcard gem-glow" href="#agents" data-agents>
+      <span class="gcard-ico" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M12 2.8 13.5 8.4 19.1 9.9 13.5 11.4 12 17 10.5 11.4 4.9 9.9 10.5 8.4 12 2.8Z" fill="#1a73e8"/>
+          <path d="M18.2 13.6 19 16.2 21.6 17 19 17.8 18.2 20.4 17.4 17.8 14.8 17 17.4 16.2 18.2 13.6Z" fill="#9334e6"/>
+        </svg>
+      </span>
+      <span>
+        <strong>Alpha agents</strong>
+        <em>Jev router and the six specialists</em>
+      </span>
+    </a>
     <a class="gcard gem-glow" href="#ask" data-query="Show the flood hazard catalogue">
       <span class="gcard-ico" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="1.7" stroke-linejoin="round">
@@ -1477,57 +1656,7 @@
         <em>Decimal waterfall, gross and reinsurer</em>
       </span>
     </a>
-    <a class="gcard gem-glow" href="#agents" data-agents>
-      <span class="gcard-ico" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none">
-          <path d="M12 2.8 13.5 8.4 19.1 9.9 13.5 11.4 12 17 10.5 11.4 4.9 9.9 10.5 8.4 12 2.8Z" fill="#1a73e8"/>
-          <path d="M18.2 13.6 19 16.2 21.6 17 19 17.8 18.2 20.4 17.4 17.8 14.8 17 17.4 16.2 18.2 13.6Z" fill="#9334e6"/>
-        </svg>
-      </span>
-      <span>
-        <strong>Alpha agents</strong>
-        <em>Jev router and the six specialists</em>
-      </span>
-    </a>
-    <a class="gcard gem-glow" href="#ask" data-upload>
-      <span class="gcard-ico" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 16V6M8 9.5 12 5.5 16 9.5"/><path d="M5 19h14"/>
-        </svg>
-      </span>
-      <span>
-        <strong>Upload</strong>
-        <em>Pick files from the desktop</em>
-      </span>
-    </a>
-    <a class="gcard gem-glow" href="#ask" data-query="List modeled events">
-      <span class="gcard-ico" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#2fb964" stroke-width="1.7" stroke-linejoin="round">
-          <rect x="6.5" y="2.5" width="11" height="19" rx="2.4"/>
-          <path d="M10.5 18.5h3M9.5 7h5M9.5 10h5M9.5 13h3"/>
-        </svg>
-      </span>
-      <span>
-        <strong>Model events</strong>
-        <em>Gross, reinsurer, flags</em>
-      </span>
-    </a>
-    <a class="gcard gem-glow" href="#workspace" data-workspace>
-      <span class="gcard-ico" aria-hidden="true">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <rect x="3" y="3" width="8" height="8" rx="1.6" fill="#1a73e8"/>
-          <rect x="13" y="3" width="8" height="8" rx="1.6" fill="#e8453c"/>
-          <rect x="3" y="13" width="8" height="8" rx="1.6" fill="#f9ab00"/>
-          <rect x="13" y="13" width="8" height="8" rx="1.6" fill="#34a853"/>
-        </svg>
-      </span>
-      <span>
-        <strong>Google Workspace</strong>
-        <em>Sheets, Docs, and Drive</em>
-      </span>
-    </a>
   </div>
-
   <div class="shortcuts" id="shortcuts"></div>
 </main>
 
@@ -1646,6 +1775,7 @@
     <p class="agents-lead" id="agentsLead">Jev routes the book. The financial engine stays on decimal cents.</p>
     <div class="agents-orbit" id="agentsGrid"></div>
   </section>
+  <section class="agents-flow" id="agentsFlow" aria-label="Desk agent flow"></section>
 </div>
 
 <div id="workspacePage" hidden>
@@ -3002,27 +3132,109 @@
     var ring = agents.filter(function(agent){ return agent !== hub; });
     var lines = ring.map(function(agent, index){
       var angle = (-Math.PI / 2) + (index * 2 * Math.PI / ring.length);
-      var sx = 50 + Math.cos(angle) * 34;
-      var sy = 50 + Math.sin(angle) * 34;
-      var x1 = 50 + Math.cos(angle) * 14;
-      var y1 = 50 + Math.sin(angle) * 14;
-      var x2 = sx - Math.cos(angle) * 10;
-      var y2 = sy - Math.sin(angle) * 10;
+      var sx = 50 + Math.cos(angle) * 38;
+      var sy = 50 + Math.sin(angle) * 38;
+      var x1 = 50 + Math.cos(angle) * 17;
+      var y1 = 50 + Math.sin(angle) * 17;
+      var x2 = sx - Math.cos(angle) * 13;
+      var y2 = sy - Math.sin(angle) * 13;
       return '<line x1="' + x2.toFixed(2) + '" y1="' + y2.toFixed(2) + '" x2="' + x1.toFixed(2) + '" y2="' + y1.toFixed(2) + '" marker-end="url(#agentArrow)"/>';
     }).join("");
     var nodes = ring.map(function(agent, index){
       var angle = (-Math.PI / 2) + (index * 2 * Math.PI / ring.length);
-      var x = 50 + Math.cos(angle) * 34;
-      var y = 50 + Math.sin(angle) * 34;
+      var x = 50 + Math.cos(angle) * 38;
+      var y = 50 + Math.sin(angle) * 38;
       return agentNode(agent, x, y, false);
     }).join("");
     orbit.innerHTML = '<svg class="agents-arrows" viewBox="0 0 100 100" aria-hidden="true"><defs><marker id="agentArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#fff"/></marker></defs>' + lines + '</svg>' + agentNode(hub, 50, 50, true) + nodes;
+    bindAgentNodes();
+    renderAgentFlow(agents);
+  }
+  function agentRunLine(agent){
+    var status = agent.status && String(agent.status).toLowerCase() !== "idle" ? agent.status : "";
+    var latency = agent.latency_ms == null ? "" : Math.round(agent.latency_ms) + " ms";
+    return [status, latency].filter(Boolean).join(" · ");
+  }
+  function renderAgentFlow(list){
+    var host = document.getElementById("agentsFlow");
+    if(!host) return;
+    var agents = (list || AGENT_CARDS).slice();
+    var ring = agents.filter(function(agent){ return agent.role !== "JEV_ROUTER"; });
+    var cards = ring.map(function(agent, index){
+      return '<div class="flow-stack-slot" style="top:' + (12 + index * 14) + 'px;z-index:' + (10 + index) + '"><article class="flow-stack-card"><span class="flow-kicker">' + esc(agent.role) + '</span><h3>' + esc(agent.title || agent.role) + '</h3><p>' + esc(agent.summary || "") + '</p><div class="flow-stats"><div><b>Layer ' + esc(String(agent.layer)) + '</b><small>DESK LAYER</small></div><div><b>' + esc(agentRunLine(agent)) + '</b><small>LAST RUN</small></div></div></article></div>';
+    }).join("");
+    var logs = agents.map(function(agent){
+      return '<div class="flow-log"><em>' + esc(agent.role) + '</em><span>' + esc(agent.title || agent.role) + '</span><small>' + esc(agentRunLine(agent)) + '</small><i class="flow-dot"></i></div>';
+    }).join("");
+    host.innerHTML = '<div class="agents-flow-inner">'
+      + '<div class="flow-block"><span class="flow-kicker">DESK</span><h2 class="flow-title">The book runs\nthrough Jev.</h2>'
+      + '<div class="flow-bento">'
+      + '<article class="flow-card span-12"><div class="flow-ico">' + agentIcon("JEV_ROUTER") + '</div><h3>Jev router</h3><p>Choice, Score, and Noul decide finance or HDC inside 500 ms. Nairobi and Nzoia are the only regions. The payout stays on decimal cents.</p></article>'
+      + '<article class="flow-card span-4"><div class="flow-ico">' + agentIcon("INGESTION") + '</div><h3>Ingestion</h3><p>The uploaded CSV is parsed here. Housing class and insured value are read from the book, including tiv_kes and housing_class.</p></article>'
+      + '<article class="flow-card span-4"><div class="flow-ico">' + agentIcon("HDC_MEMORY") + '</div><h3>HDC memory</h3><p>Fourier hypervectors keep the lines Jev flagged. This memory does not replace the treaty payout.</p></article>'
+      + '<article class="flow-card span-4"><div class="flow-ico">' + agentIcon("FINANCE_EXECUTOR") + '</div><h3>Finance guardrail</h3><p>Layer 4 prices the default treaty, $100M xs $40M at a 90% share. Model math does not enter the waterfall.</p></article>'
+      + '</div></div>'
+      + '<div class="flow-block"><span class="flow-kicker">AGENTS</span><h2 class="flow-title">The specialists\naround Jev.</h2><p class="flow-note">Each card is one agent on this desk. Scroll and they stack. The ring above is the same cast.</p><div class="flow-stack" id="agentStack">' + cards + '</div></div>'
+      + '<div class="flow-block"><span class="flow-kicker">RUN</span><h2 class="flow-title">Four steps,\nthen the book is priced.</h2><div class="flow-steps">'
+      + '<button type="button" class="flow-step" data-flow="studio"><span>01</span><b>Ingest</b><p>Open the studio and add the bordereau. The home desk stays the place you upload.</p></button>'
+      + '<button type="button" class="flow-step" data-flow="ring"><span>02</span><b>Route</b><p>Jev scores the lines and sends flagged rows to HDC. The rest go to finance.</p></button>'
+      + '<button type="button" class="flow-step" data-flow="desk"><span>03</span><b>Price</b><p>Open the event queue. Gross, reinsurer, and cedant come back in decimal cents.</p></button>'
+      + '<button type="button" class="flow-step" data-flow="map"><span>04</span><b>Map</b><p>Open the Nairobi book plot. The EP curve and housing mix stay on the studio graphs.</p></button>'
+      + '</div></div>'
+      + '<div class="flow-block"><span class="flow-kicker">TRACE</span><h2 class="flow-title">What each agent\nlast reported.</h2><div class="flow-trail">' + logs + '</div></div>'
+      + '</div>';
+    bindAgentFlow();
+  }
+  function bindAgentFlow(){
+    var page = document.getElementById("agentsPage");
+    var host = document.getElementById("agentsFlow");
+    if(!page || !host || bindAgentFlow.done) return;
+    bindAgentFlow.done = true;
+    host.addEventListener("click", function(ev){
+      var btn = ev.target.closest("[data-flow]");
+      if(!btn) return;
+      var kind = btn.getAttribute("data-flow");
+      if(kind === "studio") openStudio();
+      else if(kind === "desk") showDesk();
+      else if(kind === "map") openNairobiMap();
+      else {
+        var orbit = document.getElementById("agentsGrid");
+        if(orbit) orbit.scrollIntoView({behavior:"smooth", block:"center"});
+      }
+    });
+    page.addEventListener("scroll", function(){
+      var slots = page.querySelectorAll(".flow-stack-slot");
+      var pageTop = page.getBoundingClientRect().top;
+      slots.forEach(function(slot, index){
+        var depth = 0;
+        for(var next = index + 1; next < slots.length; next++){
+          var stickyTop = pageTop + 12 + next * 14;
+          if(slots[next].getBoundingClientRect().top <= stickyTop + 2) depth++;
+        }
+        var face = slot.querySelector(".flow-stack-card");
+        if(!face) return;
+        face.style.transform = "scale(" + (1 - depth * 0.04) + ") translateY(" + (depth * 8) + "px)";
+      });
+    }, {passive:true});
   }
   function agentNode(agent, x, y, hub){
+    var status = agent.status && String(agent.status).toLowerCase() !== "idle" ? agent.status : "";
     var latency = agent.latency_ms == null ? "" : Math.round(agent.latency_ms) + " ms";
-    var detail = [agent.status, latency].filter(Boolean).join(" · ");
-    var title = (agent.summary || "") + (detail ? " " + detail : "");
-    return '<article class="agent-node' + (hub ? " is-hub" : "") + '" style="left:' + x.toFixed(2) + '%;top:' + y.toFixed(2) + '%" title="' + esc(title) + '">' + agentIcon(agent.role) + '<b>' + esc(agent.title || agent.role) + '</b><small>' + esc(hub ? "Main agent" : (detail || ("Layer " + agent.layer))) + '</small></article>';
+    var detail = [status, latency].filter(Boolean).join(" · ");
+    var caption = hub ? "Main agent" : (detail || ("Layer " + agent.layer));
+    return '<article class="agent-node' + (hub ? " is-hub" : "") + '" tabindex="0" data-role="' + esc(agent.role) + '" style="left:' + x.toFixed(2) + '%;top:' + y.toFixed(2) + '%">' + agentIcon(agent.role) + '<b>' + esc(agent.title || agent.role) + '</b><small>' + esc(caption) + '</small><p class="agent-tip">' + esc(agent.summary || "") + '</p></article>';
+  }
+  function bindAgentNodes(){
+    var orbit = document.getElementById("agentsGrid");
+    if(!orbit || bindAgentNodes.done) return;
+    bindAgentNodes.done = true;
+    orbit.addEventListener("click", function(ev){
+      var node = ev.target.closest(".agent-node");
+      if(!node) return;
+      var open = node.classList.contains("is-open");
+      orbit.querySelectorAll(".agent-node.is-open").forEach(function(el){ el.classList.remove("is-open"); });
+      if(!open) node.classList.add("is-open");
+    });
   }
   var WS_ICONS = {
     sheets: '<svg viewBox="0 0 48 48"><rect x="8" y="6" width="32" height="36" rx="4" fill="#0F9D58"/><rect x="14" y="16" width="20" height="3" fill="#fff"/><rect x="14" y="22" width="20" height="3" fill="#fff"/><rect x="14" y="28" width="12" height="3" fill="#fff"/></svg>',
