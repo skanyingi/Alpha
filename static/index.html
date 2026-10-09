@@ -824,21 +824,7 @@
     font:600 14px Inter,sans-serif;
   }
   .studio-add:hover{background:#d7ffe9;}
-  .studio-web{
-    display:flex;flex-direction:column;gap:8px;
-    background:#f7f8fa;border-radius:16px;padding:10px;
-  }
-  .studio-web input{
-    width:100%;border:0;outline:0;background:transparent;
-    font:400 13px Inter,sans-serif;color:#202124;
-  }
-  .studio-web-row{display:flex;align-items:center;gap:8px;}
-  .studio-chip{
-    all:unset;cursor:pointer;width:32px;height:32px;border-radius:999px;
-    display:grid;place-items:center;background:#fff;color:#5f6368;
-    box-shadow:0 1px 2px rgba(0,0,0,.08);
-  }
-  .studio-chip svg,.studio-go svg{width:16px;height:16px;display:block;}
+  .studio-go svg{width:16px;height:16px;display:block;}
   .studio-go{
     all:unset;cursor:pointer;margin-left:auto;width:32px;height:32px;border-radius:999px;
     display:grid;place-items:center;background:#202124;color:#fff;
@@ -1496,20 +1482,6 @@
       </button>
     </div>
     <button type="button" class="studio-add" id="studioAdd">+ Add sources</button>
-    <form class="studio-web" id="studioWeb">
-      <input id="studioWebQ" type="search" placeholder="Search the web for new sources" autocomplete="off">
-      <div class="studio-web-row">
-        <button type="button" class="studio-chip" aria-label="Web">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2 2.2 3 5 3 8s-1 5.8-3 8c-2-2.2-3-5-3-8s1-5.8 3-8z"/></svg>
-        </button>
-        <button type="button" class="studio-chip" aria-label="Refresh sources">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg>
-        </button>
-        <button type="submit" class="studio-go" aria-label="Search sources">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-        </button>
-      </div>
-    </form>
     <div class="studio-sources" id="studioSources"></div>
   </aside>
   <section class="studio-card studio-main">
@@ -3438,12 +3410,6 @@
     if(bindStudio.done) return;
     bindStudio.done = true;
     document.getElementById("studioAdd").addEventListener("click", function(){ startDesktopUpload(); });
-    document.getElementById("studioWeb").addEventListener("submit", function(e){
-      e.preventDefault();
-      var qbox = document.getElementById("studioWebQ");
-      studioAnswer(qbox.value);
-      qbox.value = "";
-    });
     document.getElementById("studioAsk").addEventListener("submit", function(e){
       e.preventDefault();
       var qbox = document.getElementById("studioAskQ");
@@ -3473,8 +3439,6 @@
       drawer.classList.remove("is-open");
       drawer.setAttribute("aria-hidden","true");
     });
-    var refresh = document.querySelector("#studioWeb .studio-chip[aria-label='Refresh sources']");
-    if(refresh) refresh.addEventListener("click", function(){ renderStudio(); });
   }
   bindStudio();
   function startDesktopUpload(){
