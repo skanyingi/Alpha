@@ -32,11 +32,9 @@
   .hz-x svg{width:20px;height:20px;display:block;}
   html.is-embedded .hz-x{display:none;}
   .hz-shell{
-    position:fixed;inset:22px 28px;
+    position:fixed;inset:0;
     background:#fff;
-    border-radius:28px;
-    border:1px solid rgba(255,255,255,.8);
-    box-shadow:0 1px 3px rgba(60,64,67,.18), 0 18px 50px rgba(32,33,36,.12);
+    border-radius:0;
     display:grid;
     grid-template-columns:72px minmax(0,1fr);
     overflow:hidden;
@@ -68,14 +66,6 @@
     margin-bottom:8px;
   }
   .hz-stage{position:relative;min-width:0;min-height:0;}
-  .hz-halo{
-    position:absolute;left:46%;top:48%;
-    width:min(760px, 70%);aspect-ratio:1;
-    transform:translate(-50%,-52%);
-    border-radius:50%;pointer-events:none;z-index:0;
-    background:
-      radial-gradient(circle at 50% 48%, #fbfcfe 0 42%, #f3f5f8 58%, #e7ebf1 68%, rgba(255,255,255,0) 76%);
-  }
   .hz-globe{
     position:absolute;left:46%;top:48%;z-index:1;
     width:min(540px, 48%);aspect-ratio:1;
@@ -83,7 +73,7 @@
   }
   .hz-globe canvas{width:100%!important;height:100%!important;display:block;cursor:grab;}
   .hz-left{
-    position:absolute;left:28px;top:28px;z-index:3;
+    position:absolute;left:8px;top:8px;z-index:3;
     width:min(340px, 38%);
     pointer-events:none;
   }
@@ -121,7 +111,7 @@
   }
   .hz-note.show{display:block;}
   .hz-floats{
-    position:absolute;left:22px;bottom:20px;z-index:5;
+    position:absolute;left:8px;bottom:8px;z-index:5;
     display:flex;align-items:flex-end;gap:14px;
   }
   .hz-stack{display:flex;flex-direction:column;gap:12px;width:210px;}
@@ -154,7 +144,7 @@
     background:var(--blue);opacity:.85;min-height:4px;
   }
   .hz-right{
-    position:absolute;top:28px;right:26px;bottom:22px;z-index:4;
+    position:absolute;top:8px;right:8px;bottom:8px;z-index:4;
     width:min(280px, 30%);
     display:flex;flex-direction:column;
     background:linear-gradient(90deg, rgba(255,255,255,0), #fff 18px);
@@ -205,12 +195,12 @@
   .hz-pin svg{width:16px;height:16px;display:block;}
   .hz-pin[hidden]{display:none;}
   @media (max-width:980px){
-    .hz-shell{inset:10px;grid-template-columns:56px 1fr;border-radius:18px;}
-    .hz-right{position:relative;top:auto;right:auto;bottom:auto;width:auto;padding:12px 16px 16px;}
-    .hz-floats{position:relative;left:auto;bottom:auto;padding:0 16px 16px;flex-wrap:wrap;}
+    .hz-shell{grid-template-columns:56px 1fr;}
+    .hz-right{position:relative;top:auto;right:auto;bottom:auto;width:auto;padding:8px;}
+    .hz-floats{position:relative;left:auto;bottom:auto;padding:0 8px 8px;flex-wrap:wrap;}
     .hz-stage{display:flex;flex-direction:column;overflow:auto;}
-    .hz-left{position:relative;left:auto;top:auto;width:auto;padding:16px;}
-    .hz-halo,.hz-globe{position:relative;left:auto;top:auto;transform:none;width:min(420px, 86%);margin:0 auto;}
+    .hz-left{position:relative;left:auto;top:auto;width:auto;padding:8px;}
+    .hz-globe{position:relative;left:auto;top:auto;transform:none;width:min(420px, 86%);margin:0 auto;}
   }
 </style>
 </head>
@@ -245,7 +235,6 @@
     </button>
   </aside>
   <div class="hz-stage" id="hzStage">
-    <div class="hz-halo" aria-hidden="true"></div>
     <div class="hz-globe" id="hzGlobe"></div>
     <div class="hz-left">
       <h1>Hazard catalogue</h1>
@@ -371,7 +360,6 @@ var mount = document.getElementById("hzGlobe");
 var stage = document.getElementById("hzStage");
 var R = 2;
 var paused = false;
-var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 var layers = { white:true, blue:true, green:true, heat:true, pluvial:true, fluvial:true, pins:true, marble:true };
 
 if(window.parent !== window) document.documentElement.classList.add("is-embedded");
@@ -579,15 +567,6 @@ var blueMesh = addSphere(blueMat, 1.004, 3);
 var greenMesh = addSphere(greenMat, 1.006, 4);
 var heatMesh = addSphere(heatMat, 1.008, 5);
 
-var fres = new THREE.ShaderMaterial({
-  uniforms:{ c:{value:0.12}, p:{value:4.6}, glow:{value:new THREE.Color(0xd7e8f8)} },
-  vertexShader:"varying vec3 vN; varying vec3 vP; void main(){ vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position,1.0); vP = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }",
-  fragmentShader:"uniform float c; uniform float p; uniform vec3 glow; varying vec3 vN; varying vec3 vP; void main(){ float i = pow(max(c - dot(vN, vP), 0.0), p); gl_FragColor = vec4(glow, 1.0) * clamp(i, 0.0, 1.0) * 0.45; }",
-  side:THREE.BackSide, blending:THREE.AdditiveBlending, transparent:true, depthWrite:false,
-  glslVersion:THREE.GLSL1
-});
-spin.add(new THREE.Mesh(new THREE.SphereGeometry(R * 1.12, 48, 48), fres));
-
 function applyPhoto(img){
   var next = derive(img);
   marbleMat.map = canvasTex(next.marble);
@@ -672,6 +651,7 @@ function frame(){
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
   }
+  if(!dragging) spin.rotation.y += 0.0024;
   renderer.render(scene, camera);
   if(!layers.pins) return;
   var placed = [];
