@@ -1045,6 +1045,14 @@
   body.has-hazard .cluster,
   body.has-hazard .top{visibility:hidden;pointer-events:none;}
   #hazardFrame{width:100%;height:100%;border:0;display:block;background:#e6e9ee;}
+  #vulnPage,#financePage{
+    position:fixed;inset:0;z-index:32;display:none;background:#e6e9ee;
+  }
+  body.has-vuln #vulnPage,body.has-finance #financePage{display:block;}
+  #vulnPage[hidden],#financePage[hidden]{display:none !important;}
+  body.has-vuln .cluster,body.has-vuln .top,
+  body.has-finance .cluster,body.has-finance .top{visibility:hidden;pointer-events:none;}
+  #vulnFrame,#financeFrame{width:100%;height:100%;border:0;display:block;background:#e6e9ee;}
   #mapPage{
     position:fixed;inset:0;z-index:30;display:none;background:#0b1c2c;
   }
@@ -1529,7 +1537,9 @@
   body.has-map .story-nav,
   body.has-agents .story-nav,
   body.has-workspace .story-nav,
-  body.has-hazard .story-nav{display:none;}
+  body.has-hazard .story-nav,
+  body.has-vuln .story-nav,
+  body.has-finance .story-nav{display:none;}
   body.has-result #story-desk,
   body.has-desk #story-desk,
   body.is-thinking #story-desk{
@@ -1817,7 +1827,7 @@
         <em>Locations in the uploaded book</em>
       </span>
     </a>
-    <a class="gcard gem-glow" href="#ask" data-query="Show the vulnerability curves">
+    <a class="gcard gem-glow" href="#vulnerability" data-vulnerability>
       <span class="gcard-ico" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="#e8a317" stroke-width="1.7" stroke-linecap="round">
           <path d="M4 16c2.2-4 4.2-6 8-6s5.8 2 8 6"/><path d="M4 10c2.2-3 4.2-4.5 8-4.5S17.8 7 20 10"/>
@@ -1828,7 +1838,7 @@
         <em>Damage curves on the modeled book</em>
       </span>
     </a>
-    <a class="gcard gem-glow" href="#ask" data-query="Open the financial engine">
+    <a class="gcard gem-glow" href="#finance" data-finance>
       <span class="gcard-ico" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="#2fb964" stroke-width="1.7" stroke-linejoin="round">
           <path d="M4 18V8h3v10H4zM10.5 18V5h3v13h-3zM17 18v-6h3v6h-3z"/>
@@ -1910,6 +1920,18 @@
 <div id="hazardPage" hidden>
   <iframe id="hazardFrame" title="Hazard catalogue"></iframe>
   <button class="panel-x" id="hazardClose" type="button" aria-label="Close hazard catalogue">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+</div>
+<div id="vulnPage" hidden>
+  <iframe id="vulnFrame" title="Vulnerability curves"></iframe>
+  <button class="panel-x" id="vulnClose" type="button" aria-label="Close vulnerability">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+</div>
+<div id="financePage" hidden>
+  <iframe id="financeFrame" title="Financial engine"></iframe>
+  <button class="panel-x" id="financeClose" type="button" aria-label="Close financial engine">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
   </button>
 </div>
@@ -2337,9 +2359,13 @@
     stopBombard();
     window.clearInterval(statusTimer);
     window.clearTimeout(revealTimer);
-    document.body.classList.remove("is-thinking","is-leaving","has-result","has-desk","has-studio","has-agents","has-workspace","has-map","has-hazard");
+    document.body.classList.remove("is-thinking","is-leaving","has-result","has-desk","has-studio","has-agents","has-workspace","has-map","has-hazard","has-vuln","has-finance");
     var hazardPage = document.getElementById("hazardPage");
     if(hazardPage) hazardPage.hidden = true;
+    ["vulnPage","financePage"].forEach(function(id){
+      var page = document.getElementById(id);
+      if(page) page.hidden = true;
+    });
     var hazardFrame = document.getElementById("hazardFrame");
     if(hazardFrame && hazardFrame.contentWindow) hazardFrame.contentWindow.postMessage("hazard-pause", "*");
     var studio = document.getElementById("studioPage");
@@ -2447,13 +2473,17 @@
     frame.src = src;
   }
   function showMapShell(){
-    document.body.classList.remove("has-desk","has-result","is-thinking","has-studio","has-agents","has-workspace","has-hazard");
+    document.body.classList.remove("has-desk","has-result","is-thinking","has-studio","has-agents","has-workspace","has-hazard","has-vuln","has-finance");
     var studio = document.getElementById("studioPage");
     if(studio) studio.hidden = true;
     var agentsPage = document.getElementById("agentsPage");
     if(agentsPage) agentsPage.hidden = true;
     var workspacePage = document.getElementById("workspacePage");
     if(workspacePage) workspacePage.hidden = true;
+    ["hazardPage","vulnPage","financePage"].forEach(function(id){
+      var page = document.getElementById(id);
+      if(page) page.hidden = true;
+    });
     var drawer = document.getElementById("studioDrawer");
     if(drawer){ drawer.classList.remove("is-open"); drawer.setAttribute("aria-hidden", "true"); }
     document.body.classList.add("has-map");
@@ -3520,16 +3550,25 @@
       return '<article class="ws-card"><span class="ws-ico" aria-hidden="true">' + WS_ICONS[kind] + '</span><span><b>' + esc(row.title || "Workspace item") + '</b><em>' + esc([row.detail, when].filter(Boolean).join(" · ")) + '</em></span></article>';
     }).join("");
   }
+  function hideBookPages(){
+    ["mapPage","studioPage","agentsPage","workspacePage","hazardPage","vulnPage","financePage"].forEach(function(id){
+      var page = document.getElementById(id);
+      if(page) page.hidden = true;
+    });
+  }
+  function openCurvePage(kind){
+    document.body.classList.remove("has-desk","has-result","is-thinking","has-studio","has-agents","has-workspace","has-map","has-hazard","has-vuln","has-finance");
+    hideBookPages();
+    var page = document.getElementById(kind === "finance" ? "financePage" : "vulnPage");
+    var frame = document.getElementById(kind === "finance" ? "financeFrame" : "vulnFrame");
+    document.body.classList.add(kind === "finance" ? "has-finance" : "has-vuln");
+    page.hidden = false;
+    var src = kind === "finance" ? "finance.html" : "vulnerability.html";
+    if(!frame.getAttribute("src")) frame.src = src;
+  }
   function openHazard(){
-    document.body.classList.remove("has-desk","has-result","is-thinking","has-studio","has-agents","has-workspace","has-map");
-    var mapPage = document.getElementById("mapPage");
-    if(mapPage) mapPage.hidden = true;
-    var studio = document.getElementById("studioPage");
-    if(studio) studio.hidden = true;
-    var agentsPage = document.getElementById("agentsPage");
-    if(agentsPage) agentsPage.hidden = true;
-    var workspacePage = document.getElementById("workspacePage");
-    if(workspacePage) workspacePage.hidden = true;
+    document.body.classList.remove("has-desk","has-result","is-thinking","has-studio","has-agents","has-workspace","has-map","has-vuln","has-finance");
+    hideBookPages();
     document.body.classList.add("has-hazard");
     var page = document.getElementById("hazardPage");
     page.hidden = false;
@@ -3538,13 +3577,8 @@
     else if(frame.contentWindow) frame.contentWindow.postMessage("hazard-resume", "*");
   }
   function openWorkspace(){
-    document.body.classList.remove("has-desk","has-result","is-thinking","has-studio","has-agents","has-map","has-hazard");
-    var mapPage = document.getElementById("mapPage");
-    if(mapPage) mapPage.hidden = true;
-    var studio = document.getElementById("studioPage");
-    if(studio) studio.hidden = true;
-    var agentsPage = document.getElementById("agentsPage");
-    if(agentsPage) agentsPage.hidden = true;
+    document.body.classList.remove("has-desk","has-result","is-thinking","has-studio","has-agents","has-map","has-hazard","has-vuln","has-finance");
+    hideBookPages();
     document.body.classList.add("has-workspace");
     document.getElementById("workspacePage").hidden = false;
     var local = sessionFiles.map(function(file){
@@ -3565,13 +3599,8 @@
     }).catch(function(){});
   }
   function openAgents(){
-    document.body.classList.remove("has-desk","has-result","is-thinking","has-studio","has-workspace","has-map","has-hazard");
-    var mapPage = document.getElementById("mapPage");
-    if(mapPage) mapPage.hidden = true;
-    var studio = document.getElementById("studioPage");
-    if(studio) studio.hidden = true;
-    var workspacePage = document.getElementById("workspacePage");
-    if(workspacePage) workspacePage.hidden = true;
+    document.body.classList.remove("has-desk","has-result","is-thinking","has-studio","has-workspace","has-map","has-hazard","has-vuln","has-finance");
+    hideBookPages();
     document.body.classList.add("has-agents");
     document.getElementById("agentsPage").hidden = false;
     renderAgents(AGENT_CARDS);
@@ -3584,13 +3613,8 @@
     }).catch(function(){});
   }
   function openStudio(){
-    document.body.classList.remove("has-desk","has-result","is-thinking","has-agents","has-workspace","has-map","has-hazard");
-    var mapPage = document.getElementById("mapPage");
-    if(mapPage) mapPage.hidden = true;
-    var agentsPage = document.getElementById("agentsPage");
-    if(agentsPage) agentsPage.hidden = true;
-    var workspacePage = document.getElementById("workspacePage");
-    if(workspacePage) workspacePage.hidden = true;
+    document.body.classList.remove("has-desk","has-result","is-thinking","has-agents","has-workspace","has-map","has-hazard","has-vuln","has-finance");
+    hideBookPages();
     document.body.classList.add("has-studio");
     var page = document.getElementById("studioPage");
     page.hidden = false;
@@ -4590,6 +4614,14 @@
       openHazard();
       return;
     }
+    if(card.hasAttribute("data-vulnerability")){
+      openCurvePage("vulnerability");
+      return;
+    }
+    if(card.hasAttribute("data-finance")){
+      openCurvePage("finance");
+      return;
+    }
     var href = card.getAttribute("data-href");
     if(href){
       window.open(href, "_blank", "noopener");
@@ -4615,7 +4647,7 @@
   document.getElementById("mapHome").addEventListener("click", function(){
     document.getElementById("homeLink").click();
   });
-  ["resultClose","agentsClose","studioClose","workspaceClose","hazardClose"].forEach(function(id){
+  ["resultClose","agentsClose","studioClose","workspaceClose","hazardClose","vulnClose","financeClose"].forEach(function(id){
     var btn = document.getElementById(id);
     if(btn) btn.addEventListener("click", function(){ resetHome(); });
   });
@@ -4711,7 +4743,7 @@
     closeMenus();
   });
   window.addEventListener("message", function(e){
-    if(e.data === "hazard-close") resetHome();
+    if(e.data === "hazard-close" || e.data === "vuln-close" || e.data === "finance-close") resetHome();
   });
 
   var sheet = document.getElementById("sheet");
