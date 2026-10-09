@@ -2404,7 +2404,7 @@
     paintWhatIfLabels(document);
   }
   function writeBriefing(job){
-    var text = '<span class="studio-spin is-inline" aria-hidden="true"></span>Gemini is writing the executive risk briefing.';
+    var text = '<span class="studio-spin is-inline" aria-hidden="true"></span>Writing the executive risk briefing.';
     var brief = document.getElementById("riskBriefText");
     var studio = document.getElementById("studioBriefText");
     if(brief) brief.innerHTML = text;
@@ -2414,21 +2414,14 @@
     if(card) card.hidden = false;
     if(studioCard) studioCard.hidden = false;
     setStudioBusy(true);
-    postJSON("/api/v1/nlp/query", {
-      query: "Write an executive risk briefing in complete sentences about this modeled book. " +
-        "Quote these contractual figures rather than recalculating them. Ground-up loss is " + money(job.modeled_ground_up_loss) +
-        ". Reinsurer payout is " + money(job.reinsurer_payout) +
-        ". Cedant retention is " + money(job.cedant_retained_loss) +
-        ". Expected annual loss is " + money((job.ep_curve || {}).eal) +
-        ". Fraud flags number " + (job.flagged_count || 0) +
-        ". Mention the main return-period losses and close with an underwriting recommendation.",
+    postJSON("/api/v1/nlp/briefing", {
       event_id: job.event_id
     }).then(function(data){
-      var answer = data.answer || "Gemini did not return a briefing.";
+      var answer = data.briefing || data.answer || "The briefing came back empty.";
       if(brief) brief.textContent = answer;
       if(studio) studio.textContent = answer;
     }).catch(function(){
-      var answer = "Gemini could not write the risk briefing for this book.";
+      var answer = "The risk briefing could not be generated for this book.";
       if(brief) brief.textContent = answer;
       if(studio) studio.textContent = answer;
     }).finally(function(){

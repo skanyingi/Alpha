@@ -75,11 +75,15 @@ services:
         value: "400"
       - key: GEMINI_MODEL
         value: gemini-3.8-flash
+      - key: OPENROUTER_MODEL
+        value: openai/gpt-4.1-nano
       - key: JEV_API_KEY
         sync: false
       - key: GOOGLE_MAPS_API_KEY
         sync: false
       - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
         sync: false
       - key: OPEN_BUILDINGS_GEOJSON_URL
         sync: false

@@ -25,6 +25,7 @@ from catmod.audit import AuditLog
 from catmod.config import get_settings
 from catmod.jobs import JobStore
 from catmod.nlp.gemini_rag import (
+    brief_job,
     build_dataset_context,
     parse_csv_text,
     query_dataset_rag,
@@ -52,6 +53,7 @@ from catmod.pipeline import run_pipeline
 from catmod.schemas import (
     BlenderManifestIn,
     BordereauWebhook,
+    BriefingIn,
     ElevationIn,
     FloodEvaluateIn,
     RAGQueryIn,
@@ -125,7 +127,10 @@ def _job_or_404(event_id: str | None) -> dict[str, Any]:
         return job
     job = store.latest()
     if job is None:
-        raise HTTPException(status_code=404, detail="No modeled events saved yet. POST /v1/process-bordereau first.")
+        raise HTTPException(
+            status_code=404,
+            detail="No modeled events saved yet. POST /v1/process-bordereau first.",
+        )
     return job
 
 
@@ -137,9 +142,13 @@ def simulate_ep(payload: SimulateEpIn) -> JSONResponse:
     stored = job.get("treaty") or {}
     treaty = treaty_for_what_if(
         job,
-        attachment_point=float(stored.get("attachment_point") or settings.default_attachment),
+        attachment_point=float(
+            stored.get("attachment_point") or settings.default_attachment
+        ),
         limit=float(stored.get("limit") or settings.default_limit),
-        co_participation=float(stored.get("co_participation") or settings.default_copart),
+        co_participation=float(
+            stored.get("co_participation") or settings.default_copart
+        ),
         reinstatement_cost=settings.default_reinstatement_rate,
     )
     ep = job.get("ep_curve") or {}
@@ -193,7 +202,10 @@ def reinsurance_waterfall(payload: WaterfallWhatIfIn) -> JSONResponse:
 def leaflet_export(event_id: str | None = Query(default=None)) -> JSONResponse:
     store = job_store()
     if not store:
-        raise HTTPException(status_code=404, detail="No modeled events saved yet. POST /v1/process-bordereau first.")
+        raise HTTPException(
+            status_code=404,
+            detail="No modeled events saved yet. POST /v1/process-bordereau first.",
+        )
     if event_id:
         job = store.get(event_id)
         if job is None:
@@ -214,9 +226,16 @@ def audit(event_id: str) -> JSONResponse:
 def _workspace_kind(name: str, url: str = "") -> str:
     text = f"{name} {url}".lower()
     base = name.lower().strip()
-    if "docs.google.com/document" in text or ".gdoc" in text or base.endswith((".docx", ".doc", ".pdf")):
+    if (
+        "docs.google.com/document" in text
+        or ".gdoc" in text
+        or base.endswith((".docx", ".doc", ".pdf"))
+    ):
         return "docs"
-    if any(token in text for token in ("spreadsheet", "sheets.google", ".csv", ".xlsx", ".xls")):
+    if any(
+        token in text
+        for token in ("spreadsheet", "sheets.google", ".csv", ".xlsx", ".xls")
+    ):
         return "sheets"
     if "mail.google" in text or "gmail" in text:
         return "gmail"
@@ -236,17 +255,33 @@ def workspace_events() -> dict[str, Any]:
         detail = event_id
         if isinstance(gross, (int, float)):
             detail = f"{event_id} · gross ${float(gross):,.2f}"
-        rows.append({"kind": _workspace_kind(filename), "title": filename, "detail": detail, "when": when})
-        if email:
-            rows.append({
-                "kind": "gmail",
-                "title": email,
-                "detail": f"Workspace message for {event_id}",
+        rows.append(
+            {
+                "kind": _workspace_kind(filename),
+                "title": filename,
+                "detail": detail,
                 "when": when,
-            })
+            }
+        )
+        if email:
+            rows.append(
+                {
+                    "kind": "gmail",
+                    "title": email,
+                    "detail": f"Workspace message for {event_id}",
+                    "when": when,
+                }
+            )
         for url in job.get("source_urls") or []:
             link = str(url)
-            rows.append({"kind": _workspace_kind(link, link), "title": link, "detail": event_id, "when": when})
+            rows.append(
+                {
+                    "kind": _workspace_kind(link, link),
+                    "title": link,
+                    "detail": event_id,
+                    "when": when,
+                }
+            )
     return {"events": rows[:40]}
 
 
@@ -295,10 +330,12 @@ def _rag_context(payload: RAGQueryIn) -> dict[str, Any]:
     raise ValueError("Upload a portfolio CSV before asking about a dataset.")
 
 
-def _record_rag(event_id: str, detail: dict[str, Any]) -> None:
+def _record_rag(
+    event_id: str, detail: dict[str, Any], name: str = "gemini_nlp_rag_queried"
+) -> None:
     settings = get_settings()
     log = AuditLog(event_id or "NLP-SESSION", audit_dir=settings.audit_dir)
-    log.record(layer=1, name="gemini_nlp_rag_queried", status="ok", detail=detail)
+    log.record(layer=1, name=name, status="ok", detail=detail)
 
 
 @app.post("/api/v1/nlp/query")
@@ -375,6 +412,41 @@ def nlp_summary(payload: SummaryIn) -> JSONResponse:
             "source": result.get("source"),
             "event_id": context.get("event_id"),
             "dataset_name": context.get("name"),
+        }
+    )
+
+
+@app.post("/api/v1/nlp/briefing")
+def nlp_briefing(payload: BriefingIn) -> JSONResponse:
+    """Plain-English risk briefing from the modeled book output (stats, EP curve, top losses)."""
+    job = _job_or_404(payload.event_id)
+    result = brief_job(job, get_settings())
+    packet = result.get("packet") or {}
+    event_id = str(job.get("event_id") or payload.event_id or "NLP-SESSION")
+    try:
+        _record_rag(
+            event_id,
+            {
+                "query": "risk briefing",
+                "dataset": payload.dataset_name or job.get("filename"),
+                "source": result.get("source"),
+                "path": "nlp_briefing",
+                "largest_loss_count": len(packet.get("largest_losses") or []),
+                "ep_points": len((packet.get("ep_curve") or {}).get("curve") or []),
+            },
+            name="nlp_risk_briefing",
+        )
+    except Exception:
+        pass
+    return JSONResponse(
+        {
+            "briefing": result.get("briefing") or "",
+            "answer": result.get("briefing") or "",
+            "source": result.get("source"),
+            "event_id": job.get("event_id"),
+            "statistics": packet.get("statistics") or {},
+            "ep_curve": packet.get("ep_curve") or {},
+            "largest_losses": packet.get("largest_losses") or [],
         }
     )
 
@@ -462,7 +534,9 @@ def flood_aerial(lat: float = Query(...), lng: float = Query(...)) -> Response:
     try:
         payload, mime = fetch_aerial(lat, lng)
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Aerial imagery fetch failed: {exc}") from exc
+        raise HTTPException(
+            status_code=502, detail=f"Aerial imagery fetch failed: {exc}"
+        ) from exc
     return Response(content=payload, media_type=mime)
 
 
@@ -477,7 +551,9 @@ def flood_street(lat: float = Query(...), lng: float = Query(...)) -> Response:
     try:
         payload, mime = fetch_street_view(lat, lng, depth_m=depth_m)
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Street View fetch failed: {exc}") from exc
+        raise HTTPException(
+            status_code=502, detail=f"Street View fetch failed: {exc}"
+        ) from exc
     return Response(content=payload, media_type=mime)
 
 
@@ -491,7 +567,9 @@ def _job_or_none(event_id: str | None) -> dict[str, Any] | None:
     return store.latest()
 
 
-def _blender_payload(event_id: str | None, shader_preset: str, storey_height_m: float) -> dict[str, Any]:
+def _blender_payload(
+    event_id: str | None, shader_preset: str, storey_height_m: float
+) -> dict[str, Any]:
     try:
         resolve_preset(shader_preset)
     except ValueError as exc:
@@ -524,7 +602,9 @@ def spatial_elevation(payload: ElevationIn) -> JSONResponse:
     bbox = None
     if payload.bbox is not None:
         if len(payload.bbox) != 4:
-            raise HTTPException(status_code=400, detail="bbox must be [west, south, east, north]")
+            raise HTTPException(
+                status_code=400, detail="bbox must be [west, south, east, north]"
+            )
         bbox = (payload.bbox[0], payload.bbox[1], payload.bbox[2], payload.bbox[3])
     try:
         result = build_elevation_payload(
@@ -551,9 +631,13 @@ def spatial_elevation_get(
     cols: int = Query(default=12, ge=2, le=64),
 ) -> JSONResponse:
     locations = [(lat, lng)] if lat is not None and lng is not None else None
-    bbox = (west, south, east, north) if None not in (west, south, east, north) else None
+    bbox = (
+        (west, south, east, north) if None not in (west, south, east, north) else None
+    )
     try:
-        result = build_elevation_payload(locations=locations, bbox=bbox, rows=rows, cols=cols)
+        result = build_elevation_payload(
+            locations=locations, bbox=bbox, rows=rows, cols=cols
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return JSONResponse(result)
@@ -596,7 +680,9 @@ def flood_terrain_imagery(
     try:
         payload, mime = fetch_terrain_image(west, south, east, north)
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Terrain imagery fetch failed: {exc}") from exc
+        raise HTTPException(
+            status_code=502, detail=f"Terrain imagery fetch failed: {exc}"
+        ) from exc
     return Response(content=payload, media_type=mime)
 
 
@@ -667,7 +753,9 @@ def blender_manifest_post(
     payload: BlenderManifestIn,
     download: bool = Query(default=False),
 ) -> Response:
-    body = _blender_payload(payload.event_id, payload.shader_preset, payload.storey_height_m)
+    body = _blender_payload(
+        payload.event_id, payload.shader_preset, payload.storey_height_m
+    )
     return _blender_response(body, download)
 
 

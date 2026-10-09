@@ -1,7 +1,15 @@
+import json as jsonlib
+
+import httpx
 from fastapi.testclient import TestClient
 
 from catmod.config import Settings
-from catmod.nlp.gemini_rag import build_dataset_context, parse_csv_text, query_dataset_rag, summarize_dataset
+from catmod.nlp.gemini_rag import (
+    build_dataset_context,
+    parse_csv_text,
+    query_dataset_rag,
+    summarize_dataset,
+)
 
 
 NAIROBI = """asset_id,policy_id,latitude,longitude,elevation,occupancy,tiv,ground_up_loss,deductible,policy_limit,coinsurance,loss_date
@@ -41,7 +49,9 @@ def test_starter_kit_columns_and_greeting():
         "NBO-0000,-1.314897,36.935883,semi_permanent,5170000\n"
         "NBO-0001,-1.286,36.82,informal_iron_sheet,900000\n"
     )
-    context = build_dataset_context(parse_csv_text(text), name="exposure_nairobi_synthetic.csv")
+    context = build_dataset_context(
+        parse_csv_text(text), name="exposure_nairobi_synthetic.csv"
+    )
     summary = query_dataset_rag("hello", context, _settings())
     assert summary["source"] == "local-keyword"
     assert "2 rows" in summary["answer"]
@@ -73,8 +83,12 @@ def test_gemini_failure_falls_back(monkeypatch):
         def post(self, *_args, **_kwargs):
             raise RuntimeError("upstream down")
 
-    monkeypatch.setattr("catmod.nlp.gemini_rag.httpx.Client", lambda timeout=45.0: Broken())
-    settings = Settings.model_construct(gemini_api_key="present", gemini_model="gemini-2.0-flash")
+    monkeypatch.setattr(
+        "catmod.nlp.gemini_rag.httpx.Client", lambda timeout=45.0: Broken()
+    )
+    settings = Settings.model_construct(
+        gemini_api_key="present", gemini_model="gemini-2.0-flash"
+    )
     result = query_dataset_rag(
         "Which properties are informal iron sheet in Nairobi?",
         _context(),
@@ -165,3 +179,265 @@ def test_summary_endpoint_reads_uploaded_csv(tmp_path, monkeypatch):
     assert body["source"] == "local-keyword"
     assert "rows" in body["answer"].lower()
     assert body["dataset_name"] == "uploaded-session.csv"
+
+
+class _FakeResponse:
+    def __init__(self, body):
+        self._body = body
+
+    def raise_for_status(self):
+        return None
+
+    def json(self):
+        return self._body
+
+
+class _FakeClient:
+    """Answers both Gemini and OpenRouter shapes, recording every URL."""
+
+    def __init__(self, calls, answer="Both providers answer.", matched=None):
+        self._calls = calls
+        self._answer = answer
+        self._matched = matched or ["N-001"]
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def _content(self):
+        return jsonlib.dumps(
+            {
+                "answer": self._answer,
+                "matched_asset_ids": self._matched,
+                "summary_stats": {"row_count": 4},
+                "confidence": 0.8,
+            }
+        )
+
+    def post(self, url, params=None, headers=None, json=None):
+        self._calls.append({"url": url, "headers": headers or {}})
+        if "openrouter" in url:
+            return _FakeResponse(
+                {"choices": [{"message": {"content": self._content()}}]}
+            )
+        return _FakeResponse(
+            {"candidates": [{"content": {"parts": [{"text": self._content()}]}}]}
+        )
+
+
+class _BrokenClient:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def post(self, *_args, **_kwargs):
+        raise RuntimeError("upstream down")
+
+
+class _GeminiDownClient:
+    """Gemini returns 429 on every model; OpenRouter answers."""
+
+    def __init__(self, calls):
+        self._calls = calls
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def post(self, url, params=None, headers=None, json=None):
+        self._calls.append(url)
+        if "openrouter" in url:
+            content = jsonlib.dumps(
+                {
+                    "answer": "OpenRouter covers the Gemini outage.",
+                    "matched_asset_ids": ["N-001"],
+                    "summary_stats": {"row_count": 4},
+                    "confidence": 0.9,
+                }
+            )
+            return _FakeResponse({"choices": [{"message": {"content": content}}]})
+        request = httpx.Request("POST", url)
+        raise httpx.HTTPStatusError(
+            "429", request=request, response=httpx.Response(429, request=request)
+        )
+
+
+def test_openrouter_covers_gemini_rate_limit(monkeypatch):
+    calls = []
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.setattr(
+        "catmod.nlp.gemini_rag.httpx.Client", lambda **kwargs: _GeminiDownClient(calls)
+    )
+    settings = Settings.model_construct(
+        gemini_api_key="gem-present",
+        gemini_model="gemini-3.8-flash",
+        openrouter_api_key="or-present",
+        openrouter_model="qwen/qwen3.8-flash",
+        openrouter_base_url="https://openrouter.ai/api/v1",
+        openrouter_timeout_s=45.0,
+    )
+    result = query_dataset_rag("tell me the risk of the data", _context(), settings)
+    assert result["source"] == "openrouter:qwen/qwen3.8-flash"
+    assert result["answer"] == "OpenRouter covers the Gemini outage."
+    assert any("generativelanguage.googleapis.com" in url for url in calls)
+    assert any("openrouter.ai" in url for url in calls)
+
+
+def test_openrouter_used_when_gemini_key_absent(monkeypatch):
+    calls = []
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.setattr(
+        "catmod.nlp.gemini_rag.httpx.Client", lambda **kwargs: _FakeClient(calls)
+    )
+    settings = Settings.model_construct(
+        gemini_api_key="",
+        gemini_model="gemini-2.0-flash",
+        openrouter_api_key="or-present",
+        openrouter_model="qwen/qwen3.8-flash",
+        openrouter_base_url="https://openrouter.ai/api/v1",
+        openrouter_timeout_s=45.0,
+    )
+    result = query_dataset_rag(
+        "Which properties are informal iron sheet in Nairobi?",
+        _context(),
+        settings,
+    )
+    assert result["source"] == "openrouter:qwen/qwen3.8-flash"
+    assert result["matched_asset_ids"] == ["N-001"]
+    assert result["answer"] == "Both providers answer."
+    assert any("openrouter.ai/api/v1/chat/completions" in c["url"] for c in calls)
+    assert calls[0]["headers"].get("Authorization") == "Bearer or-present"
+
+
+def test_gemini_stays_primary_when_both_keys_set(monkeypatch):
+    calls = []
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.setattr(
+        "catmod.nlp.gemini_rag.httpx.Client", lambda **kwargs: _FakeClient(calls)
+    )
+    settings = Settings.model_construct(
+        gemini_api_key="gem-present",
+        gemini_model="gemini-2.0-flash",
+        openrouter_api_key="or-present",
+        openrouter_model="qwen/qwen3.8-flash",
+        openrouter_base_url="https://openrouter.ai/api/v1",
+        openrouter_timeout_s=45.0,
+    )
+    result = query_dataset_rag("Summarize the total TIV", _context(), settings)
+    assert result["source"] == "gemini:gemini-2.0-flash"
+    assert all("openrouter" not in c["url"] for c in calls)
+    assert any("generativelanguage.googleapis.com" in c["url"] for c in calls)
+
+
+def test_openrouter_failure_falls_back_to_local(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.setattr(
+        "catmod.nlp.gemini_rag.httpx.Client", lambda **kwargs: _BrokenClient()
+    )
+    settings = Settings.model_construct(
+        gemini_api_key="",
+        gemini_model="gemini-2.0-flash",
+        openrouter_api_key="or-present",
+        openrouter_model="qwen/qwen3.8-flash",
+        openrouter_base_url="https://openrouter.ai/api/v1",
+        openrouter_timeout_s=45.0,
+    )
+    result = query_dataset_rag(
+        "Which properties are informal iron sheet in Nairobi?",
+        _context(),
+        settings,
+    )
+    assert result["source"] == "local-keyword"
+    assert result["matched_asset_ids"] == ["N-001"]
+
+
+def test_blank_provider_keys_do_not_call_network(monkeypatch):
+    def explode(*_args, **_kwargs):
+        raise AssertionError("No provider should be called without a key")
+
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.setattr("catmod.nlp.gemini_rag.httpx.Client", explode)
+    settings = Settings.model_construct(
+        gemini_api_key="",
+        gemini_model="gemini-2.0-flash",
+        openrouter_api_key="",
+        openrouter_model="qwen/qwen3.8-flash",
+        openrouter_base_url="https://openrouter.ai/api/v1",
+        openrouter_timeout_s=45.0,
+    )
+    result = query_dataset_rag("Summarize the total TIV", _context(), settings)
+    assert result["source"] == "local-keyword"
+
+
+def test_openrouter_chain_reads_configured_fallbacks():
+    from catmod.nlp.gemini_rag import _openrouter_chain
+
+    settings = Settings.model_construct(
+        openrouter_model="primary/model",
+        openrouter_fallbacks="a/one, b/two ,, c/three",
+    )
+    chain = _openrouter_chain(settings)
+    assert chain[:4] == ["primary/model", "a/one", "b/two", "c/three"]
+
+
+class _OpenRouterFailoverClient:
+    def __init__(self, calls):
+        self._calls = calls
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def post(self, url, params=None, headers=None, json=None):
+        model = (json or {}).get("model")
+        self._calls.append(model)
+        if model == "primary/model":
+            request = httpx.Request("POST", url)
+            raise httpx.HTTPStatusError(
+                "429", request=request, response=httpx.Response(429, request=request)
+            )
+        content = jsonlib.dumps(
+            {
+                "answer": "The fallback model answered.",
+                "matched_asset_ids": ["N-001"],
+                "summary_stats": {"row_count": 4},
+                "confidence": 0.9,
+            }
+        )
+        return _FakeResponse({"choices": [{"message": {"content": content}}]})
+
+
+def test_openrouter_failover_to_configured_model(monkeypatch):
+    calls = []
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.setattr(
+        "catmod.nlp.gemini_rag.httpx.Client",
+        lambda **kwargs: _OpenRouterFailoverClient(calls),
+    )
+    settings = Settings.model_construct(
+        gemini_api_key="",
+        gemini_model="gemini-2.0-flash",
+        openrouter_api_key="or-present",
+        openrouter_model="primary/model",
+        openrouter_fallbacks="fallback/model",
+        openrouter_base_url="https://openrouter.ai/api/v1",
+        openrouter_timeout_s=45.0,
+    )
+    result = query_dataset_rag("tell me the risk of the data", _context(), settings)
+    assert result["source"] == "openrouter:fallback/model"
+    assert result["answer"] == "The fallback model answered."
+    assert calls == ["primary/model", "fallback/model"]
