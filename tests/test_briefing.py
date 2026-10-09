@@ -96,6 +96,7 @@ def _settings(**overrides) -> Settings:
 class _FakeResponse:
     def __init__(self, body):
         self._body = body
+        self.status_code = 200
 
     def raise_for_status(self):
         return None

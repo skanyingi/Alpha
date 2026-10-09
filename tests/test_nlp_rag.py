@@ -184,6 +184,7 @@ def test_summary_endpoint_reads_uploaded_csv(tmp_path, monkeypatch):
 class _FakeResponse:
     def __init__(self, body):
         self._body = body
+        self.status_code = 200
 
     def raise_for_status(self):
         return None
@@ -238,8 +239,8 @@ class _BrokenClient:
         raise RuntimeError("upstream down")
 
 
-class _GeminiDownClient:
-    """Gemini returns 429 on every model; OpenRouter answers."""
+class _OpenRouterDownClient:
+    """OpenRouter returns 429 on every model; Gemini answers."""
 
     def __init__(self, calls):
         self._calls = calls
@@ -253,41 +254,44 @@ class _GeminiDownClient:
     def post(self, url, params=None, headers=None, json=None):
         self._calls.append(url)
         if "openrouter" in url:
-            content = jsonlib.dumps(
-                {
-                    "answer": "OpenRouter covers the Gemini outage.",
-                    "matched_asset_ids": ["N-001"],
-                    "summary_stats": {"row_count": 4},
-                    "confidence": 0.9,
-                }
+            request = httpx.Request("POST", url)
+            raise httpx.HTTPStatusError(
+                "429", request=request, response=httpx.Response(429, request=request)
             )
-            return _FakeResponse({"choices": [{"message": {"content": content}}]})
-        request = httpx.Request("POST", url)
-        raise httpx.HTTPStatusError(
-            "429", request=request, response=httpx.Response(429, request=request)
+        content = jsonlib.dumps(
+            {
+                "answer": "Gemini covers the OpenRouter outage.",
+                "matched_asset_ids": ["N-001"],
+                "summary_stats": {"row_count": 4},
+                "confidence": 0.9,
+            }
+        )
+        return _FakeResponse(
+            {"candidates": [{"content": {"parts": [{"text": content}]}}]}
         )
 
 
-def test_openrouter_covers_gemini_rate_limit(monkeypatch):
+def test_gemini_covers_openrouter_failure(monkeypatch):
     calls = []
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     monkeypatch.setattr(
-        "catmod.nlp.gemini_rag.httpx.Client", lambda **kwargs: _GeminiDownClient(calls)
+        "catmod.nlp.gemini_rag.httpx.Client",
+        lambda **kwargs: _OpenRouterDownClient(calls),
     )
     settings = Settings.model_construct(
         gemini_api_key="gem-present",
-        gemini_model="gemini-3.8-flash",
+        gemini_model="gemini-2.0-flash",
         openrouter_api_key="or-present",
         openrouter_model="qwen/qwen3.8-flash",
         openrouter_base_url="https://openrouter.ai/api/v1",
         openrouter_timeout_s=45.0,
     )
     result = query_dataset_rag("tell me the risk of the data", _context(), settings)
-    assert result["source"] == "openrouter:qwen/qwen3.8-flash"
-    assert result["answer"] == "OpenRouter covers the Gemini outage."
-    assert any("generativelanguage.googleapis.com" in url for url in calls)
+    assert result["source"] == "gemini:gemini-2.0-flash"
+    assert result["answer"] == "Gemini covers the OpenRouter outage."
     assert any("openrouter.ai" in url for url in calls)
+    assert any("generativelanguage.googleapis.com" in url for url in calls)
 
 
 def test_openrouter_used_when_gemini_key_absent(monkeypatch):
@@ -317,7 +321,7 @@ def test_openrouter_used_when_gemini_key_absent(monkeypatch):
     assert calls[0]["headers"].get("Authorization") == "Bearer or-present"
 
 
-def test_gemini_stays_primary_when_both_keys_set(monkeypatch):
+def test_openrouter_primary_when_both_keys_set(monkeypatch):
     calls = []
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
@@ -333,9 +337,9 @@ def test_gemini_stays_primary_when_both_keys_set(monkeypatch):
         openrouter_timeout_s=45.0,
     )
     result = query_dataset_rag("Summarize the total TIV", _context(), settings)
-    assert result["source"] == "gemini:gemini-2.0-flash"
-    assert all("openrouter" not in c["url"] for c in calls)
-    assert any("generativelanguage.googleapis.com" in c["url"] for c in calls)
+    assert result["source"] == "openrouter:qwen/qwen3.8-flash"
+    assert all("generativelanguage" not in c["url"] for c in calls)
+    assert any("openrouter.ai" in c["url"] for c in calls)
 
 
 def test_openrouter_failure_falls_back_to_local(monkeypatch):

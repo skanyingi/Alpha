@@ -186,14 +186,14 @@ def query_dataset_rag(
         )
     gemini_key = (getattr(settings, "gemini_api_key", None) or "").strip()
     openrouter_key = (getattr(settings, "openrouter_api_key", None) or "").strip()
-    if gemini_key:
-        result = _answer_with_gemini(question, dataset_context, gemini_key, settings)
-        if result is not None:
-            return result
     if openrouter_key:
         result = _answer_with_openrouter(
             question, dataset_context, openrouter_key, settings
         )
+        if result is not None:
+            return result
+    if gemini_key:
+        result = _answer_with_gemini(question, dataset_context, gemini_key, settings)
         if result is not None:
             return result
     return _local_fallback(question, dataset_context)
@@ -393,18 +393,6 @@ def _briefing_prompt(packet: dict[str, Any]) -> str:
 
 
 def _provider_answer(user_text: str, settings: Settings) -> tuple[str, str] | None:
-    gemini_key = (getattr(settings, "gemini_api_key", None) or "").strip()
-    if gemini_key:
-        for model in _model_chain(settings):
-            try:
-                parsed = _post_gemini(user_text, gemini_key, model)
-            except httpx.HTTPStatusError:
-                continue
-            except Exception:
-                break
-            answer = str(parsed.get("answer") or "").strip()
-            if answer:
-                return answer, f"gemini:{model}"
     openrouter_key = (getattr(settings, "openrouter_api_key", None) or "").strip()
     if openrouter_key:
         base_url = (
@@ -428,6 +416,18 @@ def _provider_answer(user_text: str, settings: Settings) -> tuple[str, str] | No
             answer = str(parsed.get("answer") or "").strip()
             if answer:
                 return answer, f"openrouter:{model}"
+    gemini_key = (getattr(settings, "gemini_api_key", None) or "").strip()
+    if gemini_key:
+        for model in _model_chain(settings):
+            try:
+                parsed = _post_gemini(user_text, gemini_key, model)
+            except httpx.HTTPStatusError:
+                continue
+            except Exception:
+                break
+            answer = str(parsed.get("answer") or "").strip()
+            if answer:
+                return answer, f"gemini:{model}"
     return None
 
 
@@ -564,7 +564,12 @@ def _post_openrouter(
     base_url: str,
     timeout: float = 45.0,
 ) -> dict[str, Any]:
-    payload = {
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+    }
+    url = base_url.rstrip("/") + OPENROUTER_CHAT_PATH
+    base_payload: dict[str, Any] = {
         "model": model,
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -572,13 +577,11 @@ def _post_openrouter(
         ],
         "temperature": 0.1,
     }
-    headers = {
-        "Authorization": f"Bearer {key}",
-        "Content-Type": "application/json",
-    }
-    url = base_url.rstrip("/") + OPENROUTER_CHAT_PATH
+    payload = {**base_payload, "response_format": {"type": "json_object"}}
     with httpx.Client(timeout=timeout) as client:
         response = client.post(url, headers=headers, json=payload)
+        if response.status_code in {400, 422}:
+            response = client.post(url, headers=headers, json=base_payload)
         response.raise_for_status()
         try:
             body = response.json()
@@ -929,8 +932,44 @@ def _parse_json(text: str) -> Any:
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError:
-        start = cleaned.find("{")
-        end = cleaned.rfind("}")
-        if start >= 0 and end > start:
-            return json.loads(cleaned[start : end + 1])
-        raise
+        pass
+    candidate = _first_json_object(cleaned)
+    if candidate is not None:
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError:
+            pass
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start >= 0 and end > start:
+        return json.loads(cleaned[start : end + 1])
+    raise ValueError("model response was not JSON")
+
+
+def _first_json_object(text: str) -> str | None:
+    """Return the first balanced {...} block, ignoring braces inside strings."""
+    start = text.find("{")
+    if start < 0:
+        return None
+    depth = 0
+    in_string = False
+    escaped = False
+    for index in range(start, len(text)):
+        char = text[index]
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start : index + 1]
+    return None
