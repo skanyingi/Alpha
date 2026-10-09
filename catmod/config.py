@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     google_maps_api_key: str | None = None
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-3.8-flash"
+    openrouter_api_key: str | None = None
+    openrouter_model: str = "openai/gpt-4.1-nano"
+    openrouter_fallbacks: str = ""
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_timeout_s: float = 45.0
     flood_wse_m: float = 2.5
     open_buildings_path: str = ""
     open_buildings_url: str = ""
@@ -72,13 +77,20 @@ class Settings(BaseSettings):
             "GOOGLE_MAPS_API_KEY": ("google_maps_api_key", str),
             "GEMINI_API_KEY": ("gemini_api_key", str),
             "GEMINI_MODEL": ("gemini_model", str),
+            "OPENROUTER_API_KEY": ("openrouter_api_key", str),
+            "OPENROUTER_MODEL": ("openrouter_model", str),
+            "OPENROUTER_FALLBACKS": ("openrouter_fallbacks", str),
+            "OPENROUTER_BASE_URL": ("openrouter_base_url", str),
             "CATMOD_FLOOD_WSE_M": ("flood_wse_m", float),
             "OPEN_BUILDINGS_PATH": ("open_buildings_path", str),
             "OPEN_BUILDINGS_GEOJSON_URL": ("open_buildings_url", str),
             "CATMOD_SHADER_PRESET": ("default_shader_preset", str),
             "CATMOD_HAZARD_REGION": ("default_hazard_region", str),
             "CATMOD_STOCHASTIC_BATCH_SIZE": ("stochastic_batch_size", int),
-            "CATMOD_STOCHASTIC_FULL_CATALOG_SIZE": ("stochastic_full_catalog_size", int),
+            "CATMOD_STOCHASTIC_FULL_CATALOG_SIZE": (
+                "stochastic_full_catalog_size",
+                int,
+            ),
             "CATMOD_MAP_LATITUDE": ("default_map_latitude", float),
             "CATMOD_MAP_LONGITUDE": ("default_map_longitude", float),
             "CATMOD_MAP_ZOOM": ("default_map_zoom", int),

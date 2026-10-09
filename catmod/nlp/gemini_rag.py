@@ -18,9 +18,15 @@ import httpx
 from catmod.config import Settings, get_settings
 from catmod.ingestion.parser import canonicalize_record
 
-GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+GEMINI_ENDPOINT = (
+    "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+)
 MODEL_NAME = "gemini-3.8-flash"
 MODEL_FALLBACKS = ("gemini-3.8-flash", "gemini-2.5-flash")
+
+OPENROUTER_MODEL = "openai/gpt-4.1-nano"
+OPENROUTER_FALLBACKS = ("openai/gpt-4o-mini", "meta-llama/llama-3.3-70b-instruct")
+OPENROUTER_CHAT_PATH = "/chat/completions"
 
 SYSTEM_PROMPT = (
     "You are an expert catastrophe reinsurance analyst assistant for CatMod. "
@@ -48,11 +54,43 @@ _PAYOUT_KEYS = {
 _GREET = {"hello", "hi", "hey", "thanks", "thank", "help", "ok", "okay"}
 
 _STOP = {
-    "which", "what", "where", "who", "are", "the", "and", "for", "with", "have",
-    "has", "from", "that", "this", "into", "over", "above", "under", "than",
-    "their", "there", "about", "show", "list", "please", "properties", "property",
-    "assets", "asset", "portfolio", "dataset", "summarize", "summary", "total",
-    "exposed", "exposure", "corridor",
+    "which",
+    "what",
+    "where",
+    "who",
+    "are",
+    "the",
+    "and",
+    "for",
+    "with",
+    "have",
+    "has",
+    "from",
+    "that",
+    "this",
+    "into",
+    "over",
+    "above",
+    "under",
+    "than",
+    "their",
+    "there",
+    "about",
+    "show",
+    "list",
+    "please",
+    "properties",
+    "property",
+    "assets",
+    "asset",
+    "portfolio",
+    "dataset",
+    "summarize",
+    "summary",
+    "total",
+    "exposed",
+    "exposure",
+    "corridor",
 }
 
 _DEPTH_RE = re.compile(
@@ -69,7 +107,11 @@ def parse_csv_text(text: str) -> list[dict[str, Any]]:
             continue
         rows.append(
             canonicalize_record(
-                {str(key or "").strip(): _coerce_cell(value) for key, value in raw.items() if key}
+                {
+                    str(key or "").strip(): _coerce_cell(value)
+                    for key, value in raw.items()
+                    if key
+                }
             )
         )
     return rows
@@ -104,9 +146,24 @@ def build_dataset_context(
 
 
 def _model_chain(settings: Settings) -> list[str]:
-    primary = (getattr(settings, "gemini_model", None) or MODEL_NAME).strip() or MODEL_NAME
+    primary = (
+        getattr(settings, "gemini_model", None) or MODEL_NAME
+    ).strip() or MODEL_NAME
     chain: list[str] = []
     for name in (primary, *MODEL_FALLBACKS):
+        if name and name not in chain:
+            chain.append(name)
+    return chain
+
+
+def _openrouter_chain(settings: Settings) -> list[str]:
+    primary = (
+        getattr(settings, "openrouter_model", None) or OPENROUTER_MODEL
+    ).strip() or OPENROUTER_MODEL
+    extra = getattr(settings, "openrouter_fallbacks", None) or ""
+    configured = [name.strip() for name in str(extra).split(",") if name.strip()]
+    chain: list[str] = []
+    for name in (primary, *configured, *OPENROUTER_FALLBACKS):
         if name and name not in chain:
             chain.append(name)
     return chain
@@ -120,24 +177,71 @@ def query_dataset_rag(
     settings = settings or get_settings()
     question = (query or "").strip()
     if not question:
-        return _pack("Ask a question about the portfolio.", [], _summary([]), 0.0, "local-keyword")
-    key = (getattr(settings, "gemini_api_key", None) or "").strip()
-    if not key:
-        return _local_fallback(question, dataset_context)
-    last_error: Exception | None = None
+        return _pack(
+            "Ask a question about the portfolio.",
+            [],
+            _summary([]),
+            0.0,
+            "local-keyword",
+        )
+    gemini_key = (getattr(settings, "gemini_api_key", None) or "").strip()
+    openrouter_key = (getattr(settings, "openrouter_api_key", None) or "").strip()
+    if gemini_key:
+        result = _answer_with_gemini(question, dataset_context, gemini_key, settings)
+        if result is not None:
+            return result
+    if openrouter_key:
+        result = _answer_with_openrouter(
+            question, dataset_context, openrouter_key, settings
+        )
+        if result is not None:
+            return result
+    return _local_fallback(question, dataset_context)
+
+
+def _answer_with_gemini(
+    question: str,
+    dataset_context: dict[str, Any],
+    key: str,
+    settings: Settings,
+) -> dict[str, Any] | None:
     for model in _model_chain(settings):
         try:
             parsed = _ask_gemini(question, dataset_context, key, model)
-        except httpx.HTTPStatusError as exc:
-            last_error = exc
+        except httpx.HTTPStatusError:
             continue
-        except Exception as exc:
-            last_error = exc
-            return _local_fallback(question, dataset_context)
-        return _from_model(parsed, dataset_context, model)
-    if last_error is not None:
-        return _local_fallback(question, dataset_context)
-    return _local_fallback(question, dataset_context)
+        except Exception:
+            return None
+        return _from_model(parsed, dataset_context, f"gemini:{model}")
+    return None
+
+
+def _answer_with_openrouter(
+    question: str,
+    dataset_context: dict[str, Any],
+    key: str,
+    settings: Settings,
+) -> dict[str, Any] | None:
+    base_url = (
+        getattr(settings, "openrouter_base_url", None) or "https://openrouter.ai/api/v1"
+    ).strip() or "https://openrouter.ai/api/v1"
+    timeout = float(getattr(settings, "openrouter_timeout_s", 45.0) or 45.0)
+    for model in _openrouter_chain(settings):
+        try:
+            parsed = _ask_openrouter(
+                question,
+                dataset_context,
+                key,
+                model,
+                base_url=base_url,
+                timeout=timeout,
+            )
+        except httpx.HTTPStatusError:
+            continue
+        except Exception:
+            continue
+        return _from_model(parsed, dataset_context, f"openrouter:{model}")
+    return None
 
 
 SUMMARY_QUESTION = (
@@ -178,8 +282,228 @@ def summarize_dataset(
     return query_dataset_rag(SUMMARY_QUESTION, dataset_context, settings)
 
 
-def _ask_gemini(query: str, context: dict[str, Any], key: str, model: str) -> dict[str, Any]:
-    packed = {
+BRIEFING_QUESTION = (
+    "Write a short plain-English risk briefing for an underwriter, using ONLY the "
+    "statistics, EP curve, and largest losses in the context. "
+    "Open with the book size and the contractual figures (ground-up loss, reinsurer payout, "
+    "cedant retention, expected annual loss). "
+    "Then describe the EP curve across its return periods. "
+    "Then name the largest losses and what drives them, naming occupancy and flood depth. "
+    "Quote the contractual amounts exactly as given; do not recompute treaty payouts, "
+    "cedant retention, or reinstatement premium. "
+    "Finish with one clear underwriting recommendation. "
+    "Use complete sentences a person could read aloud, no bullet lists, no telegraphic labels."
+)
+
+_BRIEFING_TOP_LOSSES = 10
+
+
+def _float(value: Any) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _top_losses(
+    claims: list[dict[str, Any]], limit: int = _BRIEFING_TOP_LOSSES
+) -> list[dict[str, Any]]:
+    ranked: list[tuple[float, dict[str, Any]]] = []
+    for claim in claims:
+        if not isinstance(claim, dict):
+            continue
+        loss = claim.get("modeled_ground_up_loss")
+        if loss in (None, ""):
+            loss = claim.get("ground_up_loss")
+        ranked.append((_float(loss), claim))
+    ranked.sort(key=lambda pair: pair[0], reverse=True)
+    losses: list[dict[str, Any]] = []
+    for loss, claim in ranked[:limit]:
+        losses.append(
+            {
+                "asset_id": claim.get("asset_id"),
+                "occupancy": claim.get("occupancy")
+                or claim.get("occupancy_raw")
+                or "Unknown",
+                "tiv": _float(claim.get("tiv")),
+                "flood_depth_m": claim.get("flood_depth_m"),
+                "damage_ratio": _float(claim.get("damage_ratio")),
+                "loss": loss,
+            }
+        )
+    return losses
+
+
+def build_briefing_context(job: dict[str, Any]) -> dict[str, Any]:
+    """Compact model output for the LLM: statistics + EP curve + largest losses."""
+    job = job or {}
+    ep = job.get("ep_curve") or {}
+    treaty = job.get("treaty") or {}
+    placeholders = job.get("placeholders") or {}
+    curve: list[dict[str, Any]] = []
+    for point in ep.get("curve") or []:
+        if not isinstance(point, dict):
+            continue
+        loss = point.get("loss_float")
+        if loss is None:
+            loss = point.get("loss")
+        curve.append(
+            {
+                "return_period": point.get("return_period"),
+                "loss": _float(loss),
+                "exceedance_probability": point.get(
+                    "exceedance_probability_float", point.get("exceedance_probability")
+                ),
+            }
+        )
+    statistics = {
+        "event_id": placeholders.get("EVENT_ID") or job.get("event_id"),
+        "hazard_region": placeholders.get("HAZARD_REGION") or job.get("hazard_region"),
+        "claim_count": job.get("claim_count"),
+        "total_gross_claim": _float(
+            placeholders.get("GROUND_UP_LOSS", job.get("total_gross_claim"))
+        ),
+        "reinsurer_payout": _float(
+            placeholders.get("REINSURER_PAYOUT", job.get("reinsurer_payout"))
+        ),
+        "cedant_retained_loss": _float(
+            placeholders.get("CEDANT_RETENTION", job.get("cedant_retained_loss"))
+        ),
+        "reinstatement_premium_due": _float(job.get("reinstatement_premium_due")),
+        "layer_loss": _float(job.get("layer_loss")),
+        "exhaustion_ratio": _float(job.get("exhaustion_ratio")),
+        "modeled_ground_up_loss": _float(
+            placeholders.get(
+                "MODELED_GROUND_UP_LOSS", job.get("modeled_ground_up_loss")
+            )
+        ),
+        "expected_annual_loss": _float(
+            placeholders.get("EXPECTED_ANNUAL_LOSS", ep.get("eal"))
+        ),
+        "flagged_count": int(_float(job.get("flagged_count"))),
+        "tvar_pml": job.get("tvar_pml") or {},
+        "treaty": {
+            "label": treaty.get("label") or job.get("treaty_label"),
+            "attachment_point": treaty.get("attachment_point"),
+            "limit": treaty.get("limit"),
+            "co_participation": treaty.get("co_participation"),
+        },
+        "synthetic": job.get("synthetic") or {},
+    }
+    return {
+        "event_id": statistics["event_id"],
+        "statistics": statistics,
+        "ep_curve": {
+            "eal": statistics["expected_annual_loss"],
+            "curve": curve,
+        },
+        "largest_losses": _top_losses(list(job.get("claims") or [])),
+    }
+
+
+def _briefing_prompt(packet: dict[str, Any]) -> str:
+    return (
+        "Modeled catastrophe book output (JSON):\n"
+        + json.dumps(packet, default=str)
+        + "\n\n"
+        + BRIEFING_QUESTION
+        + "\n\nReturn JSON with keys answer, confidence."
+    )
+
+
+def _provider_answer(user_text: str, settings: Settings) -> tuple[str, str] | None:
+    gemini_key = (getattr(settings, "gemini_api_key", None) or "").strip()
+    if gemini_key:
+        for model in _model_chain(settings):
+            try:
+                parsed = _post_gemini(user_text, gemini_key, model)
+            except httpx.HTTPStatusError:
+                continue
+            except Exception:
+                break
+            answer = str(parsed.get("answer") or "").strip()
+            if answer:
+                return answer, f"gemini:{model}"
+    openrouter_key = (getattr(settings, "openrouter_api_key", None) or "").strip()
+    if openrouter_key:
+        base_url = (
+            getattr(settings, "openrouter_base_url", None)
+            or "https://openrouter.ai/api/v1"
+        ).strip() or "https://openrouter.ai/api/v1"
+        timeout = float(getattr(settings, "openrouter_timeout_s", 45.0) or 45.0)
+        for model in _openrouter_chain(settings):
+            try:
+                parsed = _post_openrouter(
+                    user_text,
+                    openrouter_key,
+                    model,
+                    base_url=base_url,
+                    timeout=timeout,
+                )
+            except httpx.HTTPStatusError:
+                continue
+            except Exception:
+                continue
+            answer = str(parsed.get("answer") or "").strip()
+            if answer:
+                return answer, f"openrouter:{model}"
+    return None
+
+
+def _briefing_fallback(packet: dict[str, Any]) -> str:
+    stats = packet.get("statistics") or {}
+    curve = (packet.get("ep_curve") or {}).get("curve") or []
+    losses = packet.get("largest_losses") or []
+    event = stats.get("event_id") or "this event"
+    region = stats.get("hazard_region") or "the modeled region"
+    count = stats.get("claim_count") or 0
+    sentences = [
+        f"Event {event} covers {count} assets in {region}.",
+        f"The ground-up loss is ${stats.get('total_gross_claim', 0):,.0f}, the reinsurer payout is "
+        f"${stats.get('reinsurer_payout', 0):,.0f}, and the cedant retains "
+        f"${stats.get('cedant_retained_loss', 0):,.0f}.",
+        f"Expected annual loss is ${stats.get('expected_annual_loss', 0):,.0f}.",
+    ]
+    if curve:
+        first = curve[0]
+        last = curve[-1]
+        sentences.append(
+            f"The EP curve runs from ${first.get('loss', 0):,.0f} at the "
+            f"{first.get('return_period')}-year return period to ${last.get('loss', 0):,.0f} "
+            f"at the {last.get('return_period')}-year return period."
+        )
+    if losses:
+        top = losses[0]
+        sentences.append(
+            f"The largest loss is asset {top.get('asset_id')} "
+            f"({top.get('occupancy')}) at ${top.get('loss', 0):,.0f}."
+        )
+        names = ", ".join(str(row.get("asset_id")) for row in losses[1:5])
+        if names:
+            sentences.append(f"Other large losses include {names}.")
+    sentences.append(
+        "This briefing is generated deterministically from the modeled book output."
+    )
+    return " ".join(sentences)
+
+
+def brief_job(job: dict[str, Any], settings: Settings | None = None) -> dict[str, Any]:
+    """Natural-language risk briefing from the modeled book output."""
+    settings = settings or get_settings()
+    packet = build_briefing_context(job)
+    got = _provider_answer(_briefing_prompt(packet), settings)
+    if got is None:
+        return {
+            "briefing": _briefing_fallback(packet),
+            "source": "local-briefing",
+            "packet": packet,
+        }
+    answer, source = got
+    return {"briefing": answer, "source": source, "packet": packet}
+
+
+def _packed_context(context: dict[str, Any]) -> dict[str, Any]:
+    return {
         "name": context.get("name"),
         "event_id": context.get("event_id"),
         "row_count": context.get("row_count"),
@@ -188,17 +512,32 @@ def _ask_gemini(query: str, context: dict[str, Any], key: str, model: str) -> di
         "sample_rows": context.get("sample_rows"),
         "rows": (context.get("rows") or [])[:40],
     }
-    user = (
+
+
+def _user_prompt(query: str, context: dict[str, Any]) -> str:
+    return (
         "Dataset context (JSON):\n"
-        + json.dumps(packed, default=str)
+        + json.dumps(_packed_context(context), default=str)
         + "\n\nQuestion:\n"
         + query
-        + '\n\nReturn JSON with keys answer, matched_asset_ids, summary_stats, confidence.'
+        + "\n\nReturn JSON with keys answer, matched_asset_ids, summary_stats, confidence."
     )
+
+
+def _ask_gemini(
+    query: str, context: dict[str, Any], key: str, model: str
+) -> dict[str, Any]:
+    return _post_gemini(_user_prompt(query, context), key, model)
+
+
+def _post_gemini(user: str, key: str, model: str) -> dict[str, Any]:
     payload = {
         "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
         "contents": [{"role": "user", "parts": [{"text": user}]}],
-        "generationConfig": {"temperature": 0.1, "responseMimeType": "application/json"},
+        "generationConfig": {
+            "temperature": 0.1,
+            "responseMimeType": "application/json",
+        },
     }
     url = GEMINI_ENDPOINT.format(model=model)
     with httpx.Client(timeout=45.0) as client:
@@ -209,7 +548,7 @@ def _ask_gemini(query: str, context: dict[str, Any], key: str, model: str) -> di
     if not candidates:
         raise ValueError("Gemini returned no candidates")
     texts = []
-    for part in ((candidates[0].get("content") or {}).get("parts") or []):
+    for part in (candidates[0].get("content") or {}).get("parts") or []:
         if "text" in part:
             texts.append(part["text"])
     parsed = _parse_json("\n".join(texts) or "{}")
@@ -218,22 +557,96 @@ def _ask_gemini(query: str, context: dict[str, Any], key: str, model: str) -> di
     return parsed
 
 
-def _from_model(parsed: dict[str, Any], context: dict[str, Any], model: str) -> dict[str, Any]:
+def _ask_openrouter(
+    query: str,
+    context: dict[str, Any],
+    key: str,
+    model: str,
+    *,
+    base_url: str,
+    timeout: float = 45.0,
+) -> dict[str, Any]:
+    return _post_openrouter(
+        _user_prompt(query, context),
+        key,
+        model,
+        base_url=base_url,
+        timeout=timeout,
+    )
+
+
+def _post_openrouter(
+    user: str,
+    key: str,
+    model: str,
+    *,
+    base_url: str,
+    timeout: float = 45.0,
+) -> dict[str, Any]:
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user},
+        ],
+        "temperature": 0.1,
+    }
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+    }
+    url = base_url.rstrip("/") + OPENROUTER_CHAT_PATH
+    with httpx.Client(timeout=timeout) as client:
+        response = client.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+        try:
+            body = response.json()
+        except ValueError as exc:
+            raise ValueError("OpenRouter returned a non-JSON response") from exc
+    choices = body.get("choices") or []
+    if not choices:
+        raise ValueError("OpenRouter returned no choices")
+    content = (choices[0].get("message") or {}).get("content") or ""
+    if isinstance(content, list):
+        content = "".join(
+            part.get("text", "") for part in content if isinstance(part, dict)
+        )
+    if not str(content).strip():
+        raise ValueError("OpenRouter returned empty content")
+    parsed = _parse_json(content)
+    if not isinstance(parsed, dict):
+        raise ValueError("OpenRouter JSON was not an object")
+    return parsed
+
+
+def _from_model(
+    parsed: dict[str, Any], context: dict[str, Any], source: str
+) -> dict[str, Any]:
     known = _known_ids(context)
     raw_ids = parsed.get("matched_asset_ids") or []
     if not isinstance(raw_ids, list):
         raw_ids = []
-    ids = [str(item) for item in raw_ids if str(item) in known] if known else [str(item) for item in raw_ids]
+    ids = (
+        [str(item) for item in raw_ids if str(item) in known]
+        if known
+        else [str(item) for item in raw_ids]
+    )
     answer = str(parsed.get("answer") or "").strip()
     if not answer:
         return _local_fallback_from_ids(context, ids)
-    stats = parsed.get("summary_stats") if isinstance(parsed.get("summary_stats"), dict) else _summary_for(context, ids)
+    stats = (
+        parsed.get("summary_stats")
+        if isinstance(parsed.get("summary_stats"), dict)
+        else _summary_for(context, ids)
+    )
     try:
-        confidence = float(parsed.get("confidence") if parsed.get("confidence") is not None else 0.7)
+        confidence = float(
+            parsed.get("confidence") if parsed.get("confidence") is not None else 0.7
+        )
     except (TypeError, ValueError):
         confidence = 0.7
     confidence = max(0.0, min(1.0, confidence))
-    return _pack(answer, ids, stats, confidence, f"gemini:{model}")
+    return _pack(answer, ids, stats, confidence, source)
 
 
 def _local_fallback(query: str, context: dict[str, Any]) -> dict[str, Any]:
@@ -271,9 +684,17 @@ def _local_fallback(query: str, context: dict[str, Any]) -> dict[str, Any]:
 
 def _local_fallback_from_ids(context: dict[str, Any], ids: list[str]) -> dict[str, Any]:
     if not ids:
-        return _pack("No matching assets were returned for that question.", [], _summary([]), 0.3, "local-keyword")
+        return _pack(
+            "No matching assets were returned for that question.",
+            [],
+            _summary([]),
+            0.3,
+            "local-keyword",
+        )
     wanted = set(ids)
-    rows = [row for row in (context.get("rows") or []) if str(row.get("asset_id")) in wanted]
+    rows = [
+        row for row in (context.get("rows") or []) if str(row.get("asset_id")) in wanted
+    ]
     stats = _summary(rows)
     answer = _match_sentence(str(context.get("name") or ""), "", None, stats, ids)
     return _pack(answer, ids, stats, 0.4, "local-keyword")
@@ -308,7 +729,11 @@ def _columns(rows: list[dict[str, Any]]) -> list[dict[str, str]]:
     described = []
     for name in names:
         values = [row.get(name) for row in rows if row.get(name) not in (None, "")]
-        kind = "number" if values and all(_is_number(value) for value in values) else "text"
+        kind = (
+            "number"
+            if values and all(_is_number(value) for value in values)
+            else "text"
+        )
         described.append({"name": name, "type": kind})
     return described
 
@@ -318,7 +743,10 @@ def _summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
     tivs = [value for value in tivs if value is not None]
     losses = [_num(row.get("ground_up_loss")) for row in rows]
     losses = [value for value in losses if value is not None]
-    occupancies = Counter(str(row.get("occupancy") or row.get("occupancy_raw") or "Unknown") for row in rows)
+    occupancies = Counter(
+        str(row.get("occupancy") or row.get("occupancy_raw") or "Unknown")
+        for row in rows
+    )
     tiv_unit = ""
     for row in rows:
         keys = {str(key).strip().lower() for key in row}
@@ -337,12 +765,18 @@ def _summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 def _summary_for(context: dict[str, Any], ids: list[str]) -> dict[str, Any]:
     wanted = set(ids)
-    rows = [row for row in (context.get("rows") or []) if str(row.get("asset_id")) in wanted]
+    rows = [
+        row for row in (context.get("rows") or []) if str(row.get("asset_id")) in wanted
+    ]
     return _summary(rows if rows else list(context.get("rows") or []))
 
 
 def _known_ids(context: dict[str, Any]) -> set[str]:
-    return {str(row.get("asset_id")) for row in (context.get("rows") or []) if row.get("asset_id")}
+    return {
+        str(row.get("asset_id"))
+        for row in (context.get("rows") or [])
+        if row.get("asset_id")
+    }
 
 
 def _occupancy_phrase(query: str, rows: list[dict[str, Any]]) -> str:
@@ -365,13 +799,21 @@ def _tokens(query: str, name: str, phrase: str) -> list[str]:
     phrase_bits = set(phrase.split())
     tokens = []
     for token in re.findall(r"[a-z0-9]+", query.lower()):
-        if token in _STOP or token in name_bits or token in phrase_bits or token.isdigit() or len(token) < 3:
+        if (
+            token in _STOP
+            or token in name_bits
+            or token in phrase_bits
+            or token.isdigit()
+            or len(token) < 3
+        ):
             continue
         tokens.append(token)
     return tokens
 
 
-def _row_matches(row: dict[str, Any], phrase: str, tokens: list[str], depth: float | None, name: str) -> bool:
+def _row_matches(
+    row: dict[str, Any], phrase: str, tokens: list[str], depth: float | None, name: str
+) -> bool:
     blob = _blob(row)
     if phrase and phrase not in blob:
         return False
@@ -416,17 +858,23 @@ def _summary_sentence(
     label = name or "This portfolio"
     count = int(stats.get("row_count") or 0)
     noun = "row" if count == 1 else "rows"
-    fields = [str(column.get("name")) for column in (columns or []) if column.get("name")]
+    fields = [
+        str(column.get("name")) for column in (columns or []) if column.get("name")
+    ]
     field_text = ", ".join(fields[:12]) or "no named columns"
     occ_counts = stats.get("occupancy_counts") or {}
-    known_occ = {key: value for key, value in occ_counts.items() if key and key != "Unknown"}
+    known_occ = {
+        key: value for key, value in occ_counts.items() if key and key != "Unknown"
+    }
     occ = ", ".join(f"{value} {key}" for key, value in known_occ.items())
     shown = ", ".join(ids[:12])
     sentences = [f"{label} contains {count} {noun}."]
     tiv = float(stats.get("total_tiv") or 0)
     if tiv > 0:
         unit = " Kenyan shillings" if stats.get("tiv_unit") == "KES" else ""
-        sentences.append(f"The total insured value recorded on these rows is {tiv:,.2f}{unit}.")
+        sentences.append(
+            f"The total insured value recorded on these rows is {tiv:,.2f}{unit}."
+        )
     else:
         sentences.append(
             f"Insured value is not recorded in a tiv column, so there is no insured-value total to report. "
@@ -444,9 +892,13 @@ def _summary_sentence(
     return " ".join(sentences)
 
 
-def _match_sentence(name: str, phrase: str, depth: float | None, stats: dict[str, Any], ids: list[str]) -> str:
+def _match_sentence(
+    name: str, phrase: str, depth: float | None, stats: dict[str, Any], ids: list[str]
+) -> str:
     label = name or "the dataset"
-    focus = phrase or (f"flood depth over {depth} metres" if depth is not None else "that description")
+    focus = phrase or (
+        f"flood depth over {depth} metres" if depth is not None else "that description"
+    )
     shown = ", ".join(ids[:12])
     extra = "" if len(ids) <= 12 else f", along with {len(ids) - 12} more"
     count = int(stats.get("row_count") or 0)
