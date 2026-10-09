@@ -1,5 +1,8 @@
 """Photoreal diorama data contracts. No Google 3D tile mesh is fetched."""
 
+import json
+import subprocess
+from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from fastapi.testclient import TestClient
@@ -8,6 +11,8 @@ from catmod.api import app
 from catmod.flood.maps import esri_terrain_url
 from catmod.spatial.flooddepth import flood_depth_grid
 from catmod.spatial.osm import ways_to_features
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_flood_depth_grid_stays_on_the_local_atlas():
@@ -57,17 +62,66 @@ def test_diorama_http_and_page_do_not_call_photoreal_tiles(monkeypatch):
     assert page.status_code == 200
     assert "tile.googleapis.com" not in page.text
     assert "Not surveyed LiDAR" in page.text
-    assert "Enter streets" in page.text
-    assert "SURVEY" in page.text
-    assert 'id="tog-scan" aria-pressed="false"' in page.text
+    assert "KICC photo space" in page.text
+    assert "Enter streets" not in page.text
     script = client.get("/map/diorama.js")
     assert script.status_code == 200
     assert "tile.googleapis.com" not in script.text
-    assert "dem_footprint_densify" in script.text
-    assert "osm-buildings" in script.text
-    assert "No building geometries in this cell." in script.text
-    assert "gross_volume_m3" in script.text
+    assert "osm-buildings" not in script.text
+    assert "kicc/manifest.json" in script.text
+    assert "photo space only" in script.text
     assert client.get("/map/vendor/three/three.module.js").status_code == 200
+
+
+def test_kicc_twin_is_a_published_form_point_sample_not_lidar():
+    client = TestClient(app)
+    page = client.get("/map/diorama.html")
+    assert page.status_code == 200
+    assert "Not surveyed LiDAR" in page.text
+    assert "published cylinder, cone, and helipad" in page.text
+    script = client.get("/map/diorama.js")
+    assert script.status_code == 200
+    assert "kicc/manifest.json" in script.text
+    manifest = json.loads((ROOT / "static" / "kicc" / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["lidar"] is False
+    assert manifest["method"] == "published_form_point_sample"
+    assert manifest["height_m"] == 105.2
+    assert manifest["latitude"] == -1.28861
+    assert manifest["longitude"] == 36.82306
+    assert manifest["shaft_diameter_uncertainty_m"] >= 6
+    assert manifest["tile_cap"] <= 50000
+    assert manifest["amphitheatre_floor_sqft_published"] == 28697
+    assert "not a roof diameter" in manifest["amphitheatre_radius_note"]
+    served = TestClient(app).get("/map/kicc/manifest.json")
+    assert served.status_code == 200
+    assert served.json()["height_m"] == 105.2
+    proc = subprocess.run(
+        [
+            "node",
+            "--input-type=module",
+            "-e",
+            (
+                "import { readFileSync } from 'fs';"
+                "import { buildTwin } from './static/kiccModel.js';"
+                "const spec = JSON.parse(readFileSync('static/kicc/manifest.json','utf8'));"
+                "const model = buildTwin(spec);"
+                "const maxTile = model.tiles.reduce((m,t)=>Math.max(m,t.count),0);"
+                "console.log(JSON.stringify({ok:model.report.ok, errors:model.report.errors,"
+                " apex:model.report.apex_m, maxTile, points:model.report.lod0_points}));"
+            ),
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr
+    report = json.loads(proc.stdout)
+    assert report["ok"] is True
+    assert report["errors"] == []
+    assert abs(report["apex"] - 105.2) < 0.05
+    assert report["maxTile"] <= 50000
+    assert report["points"] > 1000
 
 
 def test_osm_buildings_parse_and_empty_on_overpass_failure(monkeypatch):

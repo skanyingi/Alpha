@@ -1,0 +1,123 @@
+{
+  "id": "kicc",
+  "name": "Kenyatta International Convention Centre",
+  "method": "published_form_point_sample",
+  "lidar": false,
+  "synthetic": true,
+  "disclaimer": "Published height and coordinates, plus a drawing radius. Not surveyed LiDAR, not stereo SfM.",
+  "latitude": -1.28861,
+  "longitude": 36.82306,
+  "height_m": 105.2,
+  "floors_published": 32,
+  "shaft_diameter_m": 30,
+  "shaft_diameter_uncertainty_m": 8,
+  "shaft_diameter_note": "No published shaft diameter. The three captures are not a calibrated stereo set. Manual windows implied about 28 m (skyline) and 39 m (plaza, looking down, so height is foreshortened). 30 m is the drawing diameter inside that spread.",
+  "ring_count": 28,
+  "ring_count_note": "One sunshade per published office floor (top floor 28). The captures show a dense stack; they do not resolve an exact integer.",
+  "ring_overhang_m": 0.9,
+  "ring_thickness_m": 0.4,
+  "podium_height_m": 7,
+  "shaft_top_m": 92,
+  "saucer_top_m": 100,
+  "saucer_radius_m": 20.5,
+  "helipad_radius_m": 8,
+  "amphitheatre_radius_m": 16,
+  "amphitheatre_radius_note": "Drawing radius, similar to the shaft in the captures. The published 28,697 sq ft hall size is a venue area, not a roof diameter, and is not used as a radius.",
+  "amphitheatre_apex_m": 32,
+  "amphitheatre_offset_east_m": 28,
+  "amphitheatre_offset_note": "Beside the shaft. Compass bearing is not solved from the uncalibrated photos; east keeps the cone off the cylinder.",
+  "amphitheatre_floor_sqft_published": 28697,
+  "tile_cap": 50000,
+  "lod_spacing_m": [0.55, 1.4, 3.6],
+  "palette": {
+    "concrete_rgb": [167, 152, 154],
+    "concrete_note": "Median of the plaza capture shaft window.",
+    "saucer_rgb": [18, 18, 24],
+    "saucer_note": "Median of the dark roof band in the skyline capture.",
+    "amphitheatre_rgb": [154, 132, 122],
+    "amphitheatre_note": "Median of brown pixels beside the tower in the plaza capture. The window is mixed with nearby masonry."
+  },
+  "sources": [
+    {
+      "fact": "architectural height 105.2 m, 32 floors",
+      "url": "https://www.skyscrapercenter.com/building/kenyatta-international-conference-centre/11252"
+    },
+    {
+      "fact": "coordinates 1.28861 S, 36.82306 E; cylinder, amphitheatre cone, helipad cone; terracotta facade",
+      "url": "https://en.wikipedia.org/wiki/Kenyatta_International_Convention_Centre"
+    },
+    {
+      "fact": "amphitheatre listed at 28,697 sq ft",
+      "url": "https://miceafrica.org/venues/kenyatta-international-convention-centre"
+    }
+  ],
+  "anchors": [
+    {
+      "id": "kicc",
+      "name": "Kenyatta International Convention Centre",
+      "lat": -1.28861,
+      "lon": 36.82306,
+      "height_m": 105.2,
+      "role": "twin",
+      "pattern": "kenyatta international|\\bkicc\\b"
+    },
+    {
+      "id": "times",
+      "name": "Times Tower",
+      "lat": -1.29028,
+      "lon": 36.82389,
+      "height_m": 140,
+      "role": "height_stake",
+      "pattern": "times tower",
+      "source": "https://en.wikipedia.org/wiki/Times_Tower"
+    },
+    {
+      "id": "parliament",
+      "name": "Parliament Buildings",
+      "lat": -1.29,
+      "lon": 36.82,
+      "height_m": null,
+      "role": "ground_pin",
+      "pattern": "parliament buildings",
+      "source": "https://en.wikipedia.org/wiki/Parliament_Buildings_(Kenya)",
+      "note": "Clock tower height is not in the source used here, so no vertical stake is drawn."
+    },
+    {
+      "id": "britam",
+      "name": "Britam Tower",
+      "lat": -1.3,
+      "lon": 36.81306,
+      "height_m": 200.1,
+      "role": "height_stake",
+      "pattern": "britam",
+      "source": "https://en.wikipedia.org/wiki/Britam_Tower",
+      "note": "Upper Hill prism. The infobox 160 by 150 m figure is not used as a shaft diameter."
+    }
+  ],
+  "views": [
+    {"id": "aerial-nadir", "group": "aerial", "eye": [0.4, 260, 0.4], "look": [8, 30, 0]},
+    {"id": "aerial-ne", "group": "aerial", "eye": [190, 220, 180], "look": [12, 50, 0]},
+    {"id": "aerial-sw", "group": "aerial", "eye": [-100, 130, -120], "look": [8, 28, 0]},
+    {"id": "cube-n", "group": "cube", "eye": [0, 58, 230], "look": [0, 54, 0]},
+    {"id": "cube-e", "group": "cube", "eye": [240, 58, 12], "look": [8, 50, 0]},
+    {"id": "cube-s", "group": "cube", "eye": [14, 56, -230], "look": [8, 48, 0]},
+    {"id": "cube-w", "group": "cube", "eye": [-230, 58, 0], "look": [0, 54, 0]},
+    {"id": "cube-top", "group": "cube", "eye": [16, 210, 16], "look": [0, 96, 0]},
+    {"id": "cube-plaza", "group": "cube", "eye": [48, 9, -78], "look": [18, 16, 0]},
+    {"id": "spatial-rings", "group": "spatial", "eye": [46, 58, 28], "look": [0, 54, 0]},
+    {"id": "spatial-helipad", "group": "spatial", "eye": [36, 118, 24], "look": [0, 102, 0]},
+    {"id": "spatial-amphitheatre", "group": "spatial", "eye": [62, 20, 26], "look": [28, 16, 0]}
+  ],
+  "plates": [
+    {"file": "plates/aerial-oblique.jpg", "group": "aerial", "synthetic": true},
+    {"file": "plates/aerial-nadir.jpg", "group": "aerial", "synthetic": true},
+    {"file": "plates/cube-north.jpg", "group": "cube", "synthetic": true},
+    {"file": "plates/cube-east.jpg", "group": "cube", "synthetic": true},
+    {"file": "plates/cube-south.jpg", "group": "cube", "synthetic": true},
+    {"file": "plates/cube-west.jpg", "group": "cube", "synthetic": true},
+    {"file": "plates/spatial-helipad.jpg", "group": "spatial", "synthetic": true},
+    {"file": "plates/spatial-amphitheatre.jpg", "group": "spatial", "synthetic": true},
+    {"file": "plates/spatial-rings.jpg", "group": "spatial", "synthetic": true}
+  ],
+  "captures": ["captures/skyline.png", "captures/plaza.png", "captures/overcast.png"]
+}

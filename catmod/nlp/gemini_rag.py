@@ -186,14 +186,14 @@ def query_dataset_rag(
         )
     gemini_key = (getattr(settings, "gemini_api_key", None) or "").strip()
     openrouter_key = (getattr(settings, "openrouter_api_key", None) or "").strip()
+    if gemini_key:
+        result = _answer_with_gemini(question, dataset_context, gemini_key, settings)
+        if result is not None:
+            return result
     if openrouter_key:
         result = _answer_with_openrouter(
             question, dataset_context, openrouter_key, settings
         )
-        if result is not None:
-            return result
-    if gemini_key:
-        result = _answer_with_gemini(question, dataset_context, gemini_key, settings)
         if result is not None:
             return result
     return _local_fallback(question, dataset_context)
@@ -211,8 +211,11 @@ def _answer_with_gemini(
         except httpx.HTTPStatusError:
             continue
         except Exception:
-            return None
-        return _from_model(parsed, dataset_context, f"gemini:{model}")
+            continue
+        packed = _from_model(parsed, dataset_context, f"gemini:{model}")
+        if packed.get("source") == "local-keyword":
+            continue
+        return packed
     return None
 
 
@@ -240,7 +243,10 @@ def _answer_with_openrouter(
             continue
         except Exception:
             continue
-        return _from_model(parsed, dataset_context, f"openrouter:{model}")
+        packed = _from_model(parsed, dataset_context, f"openrouter:{model}")
+        if packed.get("source") == "local-keyword":
+            continue
+        return packed
     return None
 
 
@@ -412,6 +418,18 @@ def _briefing_prompt(packet: dict[str, Any]) -> str:
 
 
 def _provider_answer(user_text: str, settings: Settings) -> tuple[str, str] | None:
+    gemini_key = (getattr(settings, "gemini_api_key", None) or "").strip()
+    if gemini_key:
+        for model in _model_chain(settings):
+            try:
+                parsed = _post_gemini(user_text, gemini_key, model)
+            except httpx.HTTPStatusError:
+                continue
+            except Exception:
+                continue
+            answer = str(parsed.get("answer") or "").strip()
+            if answer:
+                return answer, f"gemini:{model}"
     openrouter_key = (getattr(settings, "openrouter_api_key", None) or "").strip()
     if openrouter_key:
         base_url = (
@@ -435,18 +453,6 @@ def _provider_answer(user_text: str, settings: Settings) -> tuple[str, str] | No
             answer = str(parsed.get("answer") or "").strip()
             if answer:
                 return answer, f"openrouter:{model}"
-    gemini_key = (getattr(settings, "gemini_api_key", None) or "").strip()
-    if gemini_key:
-        for model in _model_chain(settings):
-            try:
-                parsed = _post_gemini(user_text, gemini_key, model)
-            except httpx.HTTPStatusError:
-                continue
-            except Exception:
-                break
-            answer = str(parsed.get("answer") or "").strip()
-            if answer:
-                return answer, f"gemini:{model}"
     return None
 
 

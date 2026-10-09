@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Nairobi flood survey</title>
+<style>
+  html, body { margin:0; height:100%; background:#010509; overflow:hidden; font-family: 'Courier New', monospace; }
+  #app { position:fixed; inset:0; }
+  canvas { display:block; }
+
+  .vignette {
+    position:fixed; inset:0; pointer-events:none;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(0,4,10,0.85) 100%);
+    mix-blend-mode: normal;
+  }
+
+  .hud {
+    position:fixed; left:22px; bottom:20px; color:#7ff7ff;
+    letter-spacing:2px; font-size:11px; opacity:0.65;
+    text-transform:uppercase;
+  }
+  .hud .title { font-size:14px; font-weight:bold; letter-spacing:4px; color:#bffcff; margin-bottom:4px; text-shadow:0 0 8px rgba(120,255,255,0.6); }
+  .hud .sub { opacity:0.6; }
+
+  .hint {
+    position:fixed; right:22px; bottom:20px; color:#7ff7ff;
+    letter-spacing:1.5px; font-size:10px; opacity:0.4; text-transform:uppercase;
+  }
+
+  #loading {
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    color:#7ff7ff; font-size:12px; letter-spacing:3px; text-transform:uppercase;
+    background:#010509; z-index:10;
+  }
+</style>
+</head>
+<body>
+<div id="loading">Initializing grid&hellip;</div>
+<div id="app"></div>
+<div class="vignette"></div>
+<div class="hud">
+  <div class="title">Nairobi flood survey</div>
+  <div class="sub">Modeled book // Holographic depth survey</div>
+</div>
+<div class="hint">Drag — Orbit &nbsp;|&nbsp; Scroll — Zoom</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+
+try {
+
+/* ---------------------------------------------------------------
+   PALETTE
+--------------------------------------------------------------- */
+const CYAN        = 0x5df6ff;
+const CYAN_DIM     = 0x1fa9c9;
+const CYAN_BRIGHT  = 0xbdfeff;
+const AMBER        = 0xffb35c;
+const TEAL_GLOW     = 0x36ffb0;
+
+/* ---------------------------------------------------------------
+   RENDERER / SCENE / CAMERA
+--------------------------------------------------------------- */
+const container = document.getElementById("app");
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x010509, 0.0016);
+
+const camera = new THREE.PerspectiveCamera(42, window.innerWidth/window.innerHeight, 1, 4000);
+camera.position.set(430, 300, 520);
+
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: "high-performance" });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.25));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+container.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 60, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.35;
+controls.minDistance = 150;
+controls.maxDistance = 1100;
+controls.maxPolarAngle = Math.PI * 0.49;
+
+/* ---------------------------------------------------------------
+   POST PROCESSING — BLOOM
+--------------------------------------------------------------- */
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.85, 0.4, 0.2);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+/* ---------------------------------------------------------------
+   ROOT GROUP (holographic platform floats slightly)
+--------------------------------------------------------------- */
+const plant = new THREE.Group();
+scene.add(plant);
+
+/* ---------------------------------------------------------------
+   BASE PLATFORM — fine grid + bold grid + edge frame
+--------------------------------------------------------------- */
+{
+  const fineGeo = new THREE.PlaneGeometry(560, 560, 56, 56);
+  fineGeo.rotateX(-Math.PI/2);
+  const fineMat = new THREE.MeshBasicMaterial({ color: CYAN_DIM, wireframe:true, transparent:true, opacity:0.16 });
+  plant.add(new THREE.Mesh(fineGeo, fineMat));
+
+  const bold = new THREE.GridHelper(560, 14, CYAN, CYAN);
+  bold.material.transparent = true;
+  bold.material.opacity = 0.4;
+  plant.add(bold);
+
+  // edge frame
+  const half = 280;
+  const pts = [ new THREE.Vector3(-half,0.4,-half), new THREE.Vector3(half,0.4,-half),
+                new THREE.Vector3(half,0.4,half),  new THREE.Vector3(-half,0.4,half),
+                new THREE.Vector3(-half,0.4,-half) ];
+  const frameGeo = new THREE.BufferGeometry().setFromPoints(pts);
+  const frameMat = new THREE.LineBasicMaterial({ color: CYAN_BRIGHT, transparent:true, opacity:0.85 });
+  plant.add(new THREE.Line(frameGeo, frameMat));
+
+  // faint dark disc beneath, for depth / contact shadow feel
+  const shadowGeo = new THREE.CircleGeometry(400, 48);
+  shadowGeo.rotateX(-Math.PI/2);
+  const shadowMat = new THREE.MeshBasicMaterial({ color:0x000000, transparent:true, opacity:0.55 });
+  const shadowDisc = new THREE.Mesh(shadowGeo, shadowMat);
+  shadowDisc.position.y = -1.2;
+  plant.add(shadowDisc);
+}
+
+/* ---------------------------------------------------------------
+   HELPER: glow sprite (soft dot) for lights / node markers
+--------------------------------------------------------------- */
+function makeGlowTexture() {
+  const size = 128;
+  const cnv = document.createElement("canvas");
+  cnv.width = cnv.height = size;
+  const ctx = cnv.getContext("2d");
+  const g = ctx.createRadialGradient(size/2,size/2,0,size/2,size/2,size/2);
+  g.addColorStop(0, "rgba(255,255,255,1)");
+  g.addColorStop(0.35, "rgba(255,255,255,0.6)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,size,size);
+  return new THREE.CanvasTexture(cnv);
+}
+const glowTex = makeGlowTexture();
+
+function addGlowDot(pos, color, scale, opacity=0.9) {
+  const mat = new THREE.SpriteMaterial({ map: glowTex, color, transparent:true, opacity, blending: THREE.AdditiveBlending, depthWrite:false });
+  const spr = new THREE.Sprite(mat);
+  spr.position.copy(pos);
+  spr.scale.set(scale, scale, scale);
+  plant.add(spr);
+  return spr;
+}
+
+/* ---------------------------------------------------------------
+   COOLING TOWERS (hyperboloid via LatheGeometry) + ring bands
+--------------------------------------------------------------- */
+function buildCoolingTower(scaleFactor = 1) {
+  const group = new THREE.Group();
+
+  const profile = [
+    [55,0],[52,14],[45.5,34],[38,54],[33,68],[31.5,78],
+    [33.5,94],[38,112],[40.5,128],[41.5,140]
+  ].map(([r,y]) => new THREE.Vector2(r*scaleFactor, y*scaleFactor));
+
+  const latheGeo = new THREE.LatheGeometry(profile, 40);
+  const latheMat = new THREE.MeshBasicMaterial({ color: CYAN, wireframe:true, transparent:true, opacity:0.75 });
+  group.add(new THREE.Mesh(latheGeo, latheMat));
+
+  // bright horizontal bands at a few heights
+  const bandHeights = [0.06, 0.32, 0.58, 0.86];
+  bandHeights.forEach(f => {
+    const idx = Math.min(profile.length-1, Math.floor(f*(profile.length-1)));
+    const r = profile[idx].x;
+    const y = profile[idx].y;
+    const torus = new THREE.Mesh(
+      new THREE.TorusGeometry(r, 0.45*scaleFactor, 8, 48),
+      new THREE.MeshBasicMaterial({ color: CYAN_BRIGHT, transparent:true, opacity:0.9 })
+    );
+    torus.rotation.x = Math.PI/2;
+    torus.position.y = y;
+    group.add(torus);
+  });
+
+  group.userData.topY = profile[profile.length-1].y;
+  group.userData.topR = profile[profile.length-1].x * 0.55;
+  return group;
+}
+
+const towerA = buildCoolingTower(1.05);
+towerA.position.set(-62, 0, -18);
+plant.add(towerA);
+
+const towerB = buildCoolingTower(0.92);
+towerB.position.set(28, 0, -34);
+plant.add(towerB);
+
+/* ---------------------------------------------------------------
+   SMALL CHIMNEYS
+--------------------------------------------------------------- */
+function buildChimney(height, radius) {
+  const geo = new THREE.CylinderGeometry(radius, radius*1.15, height, 16, Math.ceil(height/10), true);
+  const mat = new THREE.MeshBasicMaterial({ color: CYAN, wireframe:true, transparent:true, opacity:0.7 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.y = height/2;
+  const group = new THREE.Group();
+  group.add(mesh);
+  group.userData.topY = height;
+  return group;
+}
+const chimneyA = buildChimney(95, 6);
+chimneyA.position.set(-172, 0, 46);
+plant.add(chimneyA);
+
+const chimneyB = buildChimney(70, 4.5);
+chimneyB.position.set(-146, 0, 74);
+plant.add(chimneyB);
+
+/* ---------------------------------------------------------------
+   INDUSTRIAL BUILDINGS (edge-wireframe boxes) + tiny amber window lights
+--------------------------------------------------------------- */
+const buildingsGroup = new THREE.Group();
+plant.add(buildingsGroup);
+
+function seededRandom(seed) {
+  let s = seed;
+  return () => { s = (s*9301+49297) % 233280; return s/233280; };
+}
+const rand = seededRandom(1337);
+
+const exclusionZones = [
+  { x:-62, z:-18, r:80 },
+  { x: 28, z:-34, r:70 },
+];
+function inExclusion(x,z) {
+  return exclusionZones.some(e => Math.hypot(x-e.x, z-e.z) < e.r);
+}
+
+let buildingCount = 0;
+while (buildingCount < 46) {
+  const x = (rand()-0.5) * 520;
+  const z = (rand()-0.5) * 520;
+  if (inExclusion(x,z)) continue;
+  if (Math.abs(x) < 40 && Math.abs(z) < 40) continue;
+
+  const w = 8 + rand()*26;
+  const d = 8 + rand()*26;
+  const h = 6 + rand()*46;
+
+  const boxGeo = new THREE.BoxGeometry(w,h,d);
+  const edges = new THREE.EdgesGeometry(boxGeo);
+  const bright = rand() > 0.78;
+  const lineMat = new THREE.LineBasicMaterial({
+    color: bright ? CYAN_BRIGHT : CYAN_DIM,
+    transparent: true,
+    opacity: bright ? 0.95 : 0.55
+  });
+  const wire = new THREE.LineSegments(edges, lineMat);
+  wire.position.set(x, h/2, z);
+  buildingsGroup.add(wire);
+
+  if (rand() > 0.55) {
+    addGlowDot(new THREE.Vector3(x + (rand()-0.5)*w*0.6, h*rand(), z + (rand()-0.5)*d*0.6), AMBER, 4 + rand()*5, 0.85);
+  }
+  buildingCount++;
+}
+
+/* ---------------------------------------------------------------
+   TREES / VEGETATION CLUSTERS (small glowing octahedra)
+--------------------------------------------------------------- */
+const treesGroup = new THREE.Group();
+plant.add(treesGroup);
+
+let treeCount = 0;
+while (treeCount < 60) {
+  const x = (rand()-0.5) * 520;
+  const z = (rand()-0.5) * 520;
+  if (inExclusion(x,z)) continue;
+
+  const s = 4 + rand()*8;
+  const geo = new THREE.OctahedronGeometry(s, 0);
+  const mat = new THREE.MeshBasicMaterial({ color: TEAL_GLOW, wireframe:true, transparent:true, opacity:0.85 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(x, s*0.9, z);
+  treesGroup.add(mesh);
+  treeCount++;
+}
+
+/* ---------------------------------------------------------------
+   SCATTERED CITY-LIGHT DOTS ACROSS THE GRID
+--------------------------------------------------------------- */
+for (let i=0; i<90; i++) {
+  const x = (rand()-0.5) * 550;
+  const z = (rand()-0.5) * 550;
+  addGlowDot(new THREE.Vector3(x, 1.5, z), rand() > 0.75 ? AMBER : CYAN, 3 + rand()*4, 0.6);
+}
+
+/* ---------------------------------------------------------------
+   SMOKE SYSTEM (shader-based particles)
+--------------------------------------------------------------- */
+const smokeVertex = `
+  attribute float aAge;
+  attribute float aScale;
+  varying float vAge;
+  void main() {
+    vAge = aAge;
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    gl_PointSize = mix(5.0, 46.0, aAge) * aScale * (300.0 / -mv.z);
+    gl_Position = projectionMatrix * mv;
+  }
+`;
+const smokeFragment = `
+  varying float vAge;
+  void main() {
+    vec2 uv = gl_PointCoord - vec2(0.5);
+    float d = length(uv);
+    if (d > 0.5) discard;
+    float mask = 1.0 - smoothstep(0.28, 0.5, d);
+    float alpha = (1.0 - vAge) * 0.5 * mask;
+    vec3 color = mix(vec3(0.82,0.9,0.96), vec3(0.42,0.48,0.55), vAge);
+    gl_FragColor = vec4(color, alpha);
+  }
+`;
+
+class SmokePlume {
+  constructor(origin, radius, count, riseHeight, riseSpeedRange) {
+    this.origin = origin;
+    this.radius = radius;
+    this.count = count;
+    this.riseHeight = riseHeight;
+    this.riseSpeedRange = riseSpeedRange;
+
+    this.ages = new Float32Array(count);
+    this.speeds = new Float32Array(count);
+    this.phases = new Float32Array(count);
+    this.driftAmt = new Float32Array(count);
+    this.baseX = new Float32Array(count);
+    this.baseZ = new Float32Array(count);
+
+    const positions = new Float32Array(count*3);
+    const scales = new Float32Array(count);
+
+    for (let i=0;i<count;i++) {
+      this.resetParticle(i, true);
+      positions[i*3] = this.baseX[i];
+      positions[i*3+1] = origin.y;
+      positions[i*3+2] = this.baseZ[i];
+      scales[i] = 0.6 + Math.random()*0.8;
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute("aAge", new THREE.BufferAttribute(this.ages, 1));
+    geo.setAttribute("aScale", new THREE.BufferAttribute(scales, 1));
+
+    const mat = new THREE.ShaderMaterial({
+      vertexShader: smokeVertex,
+      fragmentShader: smokeFragment,
+      transparent: true,
+      depthWrite: false,
+    });
+
+    this.points = new THREE.Points(geo, mat);
+    this.geo = geo;
+  }
+
+  resetParticle(i, initial=false) {
+    this.ages[i] = initial ? Math.random() : 0;
+    this.speeds[i] = this.riseSpeedRange[0] + Math.random()*(this.riseSpeedRange[1]-this.riseSpeedRange[0]);
+    this.phases[i] = Math.random()*Math.PI*2;
+    this.driftAmt[i] = 6 + Math.random()*14;
+    const ang = Math.random()*Math.PI*2;
+    const rad = Math.random()*this.radius;
+    this.baseX[i] = this.origin.x + Math.cos(ang)*rad;
+    this.baseZ[i] = this.origin.z + Math.sin(ang)*rad;
+  }
+
+  update(dt) {
+    const posAttr = this.geo.attributes.position;
+    const ageAttr = this.geo.attributes.aAge;
+    for (let i=0;i<this.count;i++) {
+      let age = this.ages[i] + dt * this.speeds[i];
+      if (age >= 1) {
+        this.resetParticle(i);
+        age = 0;
+      } else {
+        this.ages[i] = age;
+      }
+      const y = this.origin.y + age * this.riseHeight;
+      const drift = this.driftAmt[i] * age;
+      const x = this.baseX[i] + Math.sin(age*4 + this.phases[i]) * drift * 0.4;
+      const z = this.baseZ[i] + Math.cos(age*4 + this.phases[i]) * drift * 0.4;
+      posAttr.setXYZ(i, x, y, z);
+      ageAttr.setX(i, age);
+    }
+    posAttr.needsUpdate = true;
+    ageAttr.needsUpdate = true;
+  }
+}
+
+const smokePlumes = [];
+
+function attachPlume(towerGroup, count, radius) {
+  const topY = towerGroup.userData.topY;
+  const origin = new THREE.Vector3(
+    towerGroup.position.x,
+    topY,
+    towerGroup.position.z
+  );
+  const plume = new SmokePlume(origin, radius, count, 190, [0.10, 0.22]);
+  plant.add(plume.points);
+  smokePlumes.push(plume);
+}
+
+attachPlume(towerA, 420, towerA.userData.topR);
+attachPlume(towerB, 380, towerB.userData.topR);
+
+function attachChimneyPlume(chimneyGroup, count) {
+  const origin = new THREE.Vector3(chimneyGroup.position.x, chimneyGroup.userData.topY, chimneyGroup.position.z);
+  const plume = new SmokePlume(origin, 4, count, 110, [0.18, 0.32]);
+  plant.add(plume.points);
+  smokePlumes.push(plume);
+}
+attachChimneyPlume(chimneyA, 140);
+attachChimneyPlume(chimneyB, 100);
+
+/* ---------------------------------------------------------------
+   RESIZE
+--------------------------------------------------------------- */
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+});
+
+/* ---------------------------------------------------------------
+   RENDER LOOP
+--------------------------------------------------------------- */
+const clock = new THREE.Clock();
+document.getElementById("loading").style.display = "none";
+
+let running = true;
+document.addEventListener("visibilitychange", () => {
+  running = document.visibilityState === "visible";
+});
+
+function animate() {
+  requestAnimationFrame(animate);
+  if (!running) return;
+  const dt = Math.min(clock.getDelta(), 0.05);
+
+  smokePlumes.forEach(p => p.update(dt));
+  controls.update();
+
+  composer.render();
+}
+animate();
+} catch (err) {
+  const el = document.getElementById("loading");
+  el.style.display = "flex";
+  el.textContent = "Grid failed to load";
+  console.error(err);
+}
+</script>
+</body>
+</html>
