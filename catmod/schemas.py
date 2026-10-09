@@ -10,12 +10,24 @@ from catmod.config import STOCHASTIC_BATCH_SIZE, STOCHASTIC_FULL_CATALOG_SIZE
 
 
 class XLTreatyIn(BaseModel):
-    attachment_point: float = Field(..., ge=0, description="Retention / attachment, e.g. 40e6")
-    limit: float = Field(..., gt=0, description="Layer limit, e.g. 100e6 for $100M xs $40M")
-    co_participation: float = Field(0.90, ge=0, le=1, description="Reinsurer share of the layer")
-    reinstatement_cost: float = Field(1.0, ge=0, description="Reinstatement rate, 1.0 = 100% AP")
-    reinstatements: int = Field(1, ge=0, description="Number of reinstatements purchased")
-    original_premium: float = Field(0.0, ge=0, description="Layer original premium for RP calc")
+    attachment_point: float = Field(
+        ..., ge=0, description="Retention / attachment, e.g. 40e6"
+    )
+    limit: float = Field(
+        ..., gt=0, description="Layer limit, e.g. 100e6 for $100M xs $40M"
+    )
+    co_participation: float = Field(
+        0.90, ge=0, le=1, description="Reinsurer share of the layer"
+    )
+    reinstatement_cost: float = Field(
+        1.0, ge=0, description="Reinstatement rate, 1.0 = 100% AP"
+    )
+    reinstatements: int = Field(
+        1, ge=0, description="Number of reinstatements purchased"
+    )
+    original_premium: float = Field(
+        0.0, ge=0, description="Layer original premium for RP calc"
+    )
 
 
 class BordereauWebhook(BaseModel):
@@ -108,6 +120,11 @@ class SummaryIn(BaseModel):
         max_length=400_000,
         description="Optional CSV text from the open studio tab",
     )
+
+
+class BriefingIn(BaseModel):
+    event_id: str | None = None
+    dataset_name: str | None = None
 
 
 class SimulateEpIn(BaseModel):
