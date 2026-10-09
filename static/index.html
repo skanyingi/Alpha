@@ -1076,18 +1076,47 @@
     font:500 clamp(32px,5vw,56px)/1 Outfit,sans-serif;
     text-shadow:0 2px 18px rgba(0,0,0,.35);
   }
-  .agents-lead{margin:0 0 18px;color:#fff;font:500 14px Inter,sans-serif;text-shadow:0 1px 8px rgba(0,0,0,.45);}
-  .agents-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
-  .agent-card{
-    background:#fff;color:#202124;border-radius:16px;
-    box-shadow:0 1px 3px rgba(60,64,67,.2), 0 8px 24px rgba(0,0,0,.12);
-    padding:14px 16px;
+  .agents-lead{margin:0 0 8px;color:#fff;font:500 14px Inter,sans-serif;text-shadow:0 1px 8px rgba(0,0,0,.45);}
+  .agents-orbit{
+    position:relative;
+    width:min(720px, 100%, calc(100vh - 210px));
+    aspect-ratio:1;
+    margin:0 auto;
   }
-  .agent-card b{display:block;font:600 15px Inter,sans-serif;}
-  .agent-card em{display:block;margin-top:4px;font:400 13px/1.4 Inter,sans-serif;color:#5f6368;}
-  .agent-card small{display:block;margin-top:8px;color:#80868b;font:500 11px Inter,sans-serif;}
+  .agents-arrows{
+    position:absolute;inset:0;width:100%;height:100%;
+    overflow:visible;pointer-events:none;
+    filter:drop-shadow(0 1px 2px rgba(0,0,0,.45));
+  }
+  .agents-arrows line{stroke:#fff;stroke-width:0.55;fill:none;}
+  .agent-node{
+    position:absolute;z-index:1;
+    left:0;top:0;
+    width:18%;height:18%;
+    transform:translate(-50%,-50%);
+    border-radius:50%;
+    background:#fff;color:#202124;
+    box-shadow:0 8px 24px rgba(0,0,0,.18);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;padding:8px;box-sizing:border-box;
+  }
+  .agent-node.is-hub{
+    width:26%;height:26%;z-index:2;
+    border:3px solid #1a73e8;
+  }
+  .agent-node svg{width:26px;height:26px;flex:none;}
+  .agent-node.is-hub svg{width:34px;height:34px;}
+  .agent-node b{
+    display:block;margin-top:6px;max-width:100%;
+    font:600 clamp(9px,1.05vw,12px)/1.15 Inter,sans-serif;
+  }
+  .agent-node small{
+    display:block;margin-top:3px;max-width:100%;
+    color:#80868b;font:500 10px/1.2 Inter,sans-serif;
+  }
   @media (max-width:720px){
-    .agents-grid{grid-template-columns:1fr;}
+    .agent-node small{display:none;}
+    .agents-lead{margin-bottom:0;}
   }
   #workspacePage{
     position:fixed;inset:0;z-index:15;
@@ -1615,7 +1644,7 @@
   <section class="agents-board">
     <h2>Alpha agents</h2>
     <p class="agents-lead" id="agentsLead">Jev routes the book. The financial engine stays on decimal cents.</p>
-    <div class="agents-grid" id="agentsGrid"></div>
+    <div class="agents-orbit" id="agentsGrid"></div>
   </section>
 </div>
 
@@ -2949,13 +2978,51 @@
     {role:"ANALYTICS_GEOJSON", title:"Analytics and map", layer:10, summary:"Exceedance curve, EAL, and the Leaflet export."},
     {role:"GEMINI_RAG", title:"Gemini RAG", layer:1, summary:"On demand when AI Mode is on. Answers from the upload. Does not price the treaty."}
   ];
+  function agentIcon(role){
+    var icons = {
+      JEV_ROUTER: '<svg viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg>',
+      INGESTION: '<svg viewBox="0 0 24 24" fill="none" stroke="#0f9d58" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V6M8 9.5 12 5.5 16 9.5"/><path d="M5 19h14"/></svg>',
+      HAZARD_VULNERABILITY: '<svg viewBox="0 0 24 24" fill="none" stroke="#12b5c4" stroke-width="1.7"><path d="M12 3s6 6.2 6 10.2A6 6 0 0 1 6 13.2C6 9.2 12 3 12 3z"/></svg>',
+      HDC_MEMORY: '<svg viewBox="0 0 24 24" fill="none" stroke="#7b3ff2" stroke-width="1.7"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M4 12h16M12 4v16M8 8h.01M16 16h.01"/></svg>',
+      FINANCE_EXECUTOR: '<svg viewBox="0 0 24 24" fill="none" stroke="#0f9d58" stroke-width="1.7" stroke-linecap="round"><path d="M12 5v14"/><path d="M15.5 7.5c0-1.4-1.5-2.5-3.5-2.5S8.5 6.1 8.5 7.6 10 9.6 12 10s3.5 1.2 3.5 2.9-1.6 2.6-3.5 2.6-3.5-1.1-3.5-2.6"/></svg>',
+      ANALYTICS_GEOJSON: '<svg viewBox="0 0 24 24" fill="none" stroke="#e8453c" stroke-width="1.7" stroke-linecap="round"><path d="M4 19h16M7 16V10M12 16V6M17 16v-4"/></svg>',
+      GEMINI_RAG: '<svg viewBox="0 0 24 24" fill="none" stroke="#9334e6" stroke-width="1.7"><path d="M12 3.2 13.3 8.2 18.3 9.5 13.3 10.8 12 15.8 10.7 10.8 5.7 9.5 10.7 8.2 12 3.2Z"/><path d="M18 14.2 18.7 16.4 21 17.1 18.7 17.8 18 20 17.3 17.8 15 17.1 17.3 16.4 18 14.2Z"/></svg>'
+    };
+    return icons[role] || icons.JEV_ROUTER;
+  }
   function renderAgents(list){
-    var grid = document.getElementById("agentsGrid");
-    if(!grid) return;
-    grid.innerHTML = (list || AGENT_CARDS).map(function(agent){
-      var latency = agent.latency_ms == null ? "" : " · " + Math.round(agent.latency_ms) + " ms";
-      return '<article class="agent-card"><b>' + esc(agent.title || agent.role) + '</b><em>' + esc(agent.summary || "") + '</em><small>Layer ' + esc(String(agent.layer)) + " · " + esc(agent.role) + (agent.status ? " · " + esc(agent.status) : "") + latency + '</small></article>';
+    var orbit = document.getElementById("agentsGrid");
+    if(!orbit) return;
+    var agents = (list || AGENT_CARDS).slice();
+    var hubIndex = 0;
+    agents.forEach(function(agent, index){
+      if(agent.role === "JEV_ROUTER") hubIndex = index;
+    });
+    var hub = agents[hubIndex];
+    var ring = agents.filter(function(agent){ return agent !== hub; });
+    var lines = ring.map(function(agent, index){
+      var angle = (-Math.PI / 2) + (index * 2 * Math.PI / ring.length);
+      var sx = 50 + Math.cos(angle) * 34;
+      var sy = 50 + Math.sin(angle) * 34;
+      var x1 = 50 + Math.cos(angle) * 14;
+      var y1 = 50 + Math.sin(angle) * 14;
+      var x2 = sx - Math.cos(angle) * 10;
+      var y2 = sy - Math.sin(angle) * 10;
+      return '<line x1="' + x2.toFixed(2) + '" y1="' + y2.toFixed(2) + '" x2="' + x1.toFixed(2) + '" y2="' + y1.toFixed(2) + '" marker-end="url(#agentArrow)"/>';
     }).join("");
+    var nodes = ring.map(function(agent, index){
+      var angle = (-Math.PI / 2) + (index * 2 * Math.PI / ring.length);
+      var x = 50 + Math.cos(angle) * 34;
+      var y = 50 + Math.sin(angle) * 34;
+      return agentNode(agent, x, y, false);
+    }).join("");
+    orbit.innerHTML = '<svg class="agents-arrows" viewBox="0 0 100 100" aria-hidden="true"><defs><marker id="agentArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#fff"/></marker></defs>' + lines + '</svg>' + agentNode(hub, 50, 50, true) + nodes;
+  }
+  function agentNode(agent, x, y, hub){
+    var latency = agent.latency_ms == null ? "" : Math.round(agent.latency_ms) + " ms";
+    var detail = [agent.status, latency].filter(Boolean).join(" · ");
+    var title = (agent.summary || "") + (detail ? " " + detail : "");
+    return '<article class="agent-node' + (hub ? " is-hub" : "") + '" style="left:' + x.toFixed(2) + '%;top:' + y.toFixed(2) + '%" title="' + esc(title) + '">' + agentIcon(agent.role) + '<b>' + esc(agent.title || agent.role) + '</b><small>' + esc(hub ? "Main agent" : (detail || ("Layer " + agent.layer))) + '</small></article>';
   }
   var WS_ICONS = {
     sheets: '<svg viewBox="0 0 48 48"><rect x="8" y="6" width="32" height="36" rx="4" fill="#0F9D58"/><rect x="14" y="16" width="20" height="3" fill="#fff"/><rect x="14" y="22" width="20" height="3" fill="#fff"/><rect x="14" y="28" width="12" height="3" fill="#fff"/></svg>',
