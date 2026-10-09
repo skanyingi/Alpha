@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
   :root{
     --ink:#202124;
@@ -70,7 +71,61 @@
     position:absolute;left:46%;top:48%;z-index:1;
     width:min(540px, 48%);aspect-ratio:1;
     transform:translate(-50%,-52%);
+    transition:left 1.4s cubic-bezier(.4,0,.2,1), top 1.4s cubic-bezier(.4,0,.2,1), width 1.4s cubic-bezier(.4,0,.2,1);
   }
+  .hz-search{
+    position:absolute;top:0;left:50%;z-index:8;
+    transform:translateX(-50%);
+    width:min(420px, 46%);
+    display:flex;align-items:center;gap:8px;
+    height:44px;margin:0;padding:0 12px;
+    background:#fff;border-bottom:1px solid #dadce0;
+  }
+  .hz-search button{
+    border:0;background:none;padding:0;color:var(--blue);cursor:pointer;
+    display:grid;place-items:center;
+  }
+  .hz-search svg{width:18px;height:18px;display:block;}
+  .hz-search input{
+    flex:1;min-width:0;border:0;outline:none;background:transparent;
+    font:500 14px Inter,sans-serif;color:var(--ink);
+  }
+  .hz-search input::placeholder{color:#80868b;}
+  .hz-find-status{
+    position:absolute;top:46px;left:50%;z-index:8;
+    transform:translateX(-50%);
+    margin:0;color:var(--muted);font:600 11px Inter,sans-serif;letter-spacing:.08em;
+    opacity:0;pointer-events:none;
+  }
+  .hz-find-status.on{opacity:1;}
+  body.is-searching .hz-left,
+  body.is-searching .hz-floats,
+  body.is-searching .hz-right,
+  body.is-searching .hz-rail,
+  body.is-searching .hz-pin{opacity:0;pointer-events:none;}
+  body.is-searching .hz-globe{left:50%;top:46%;width:min(920px, 92%);}
+  #map2d{
+    position:fixed;inset:0;z-index:40;background:#fff;
+    opacity:0;pointer-events:none;transform:scale(1.12);
+    transition:opacity .55s ease, transform .55s cubic-bezier(.4,0,.2,1);
+  }
+  #map2d.open{opacity:1;pointer-events:auto;transform:scale(1);}
+  .m2d-bar{
+    position:absolute;top:0;left:0;right:0;height:52px;z-index:2;
+    display:flex;align-items:center;gap:12px;padding:0 12px;
+    background:#fff;border-bottom:1px solid #e6e8ee;
+  }
+  .m2d-title{min-width:0;flex:1;}
+  .m2d-title b{display:block;font:600 15px/1.2 Outfit,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .m2d-title span{display:block;margin-top:2px;color:var(--muted);font:500 11px Inter,sans-serif;}
+  .m2d-layers{display:flex;gap:6px;}
+  .m2d-layers button, #m2dClose{
+    border:1px solid #dadce0;background:#fff;color:var(--ink);cursor:pointer;
+    border-radius:999px;padding:6px 12px;font:600 12px Inter,sans-serif;
+  }
+  .m2d-layers button.on{background:var(--blue);border-color:var(--blue);color:#fff;}
+  #m2dClose{background:var(--ink);border-color:var(--ink);color:#fff;}
+  #leafletMap{position:absolute;top:52px;left:0;right:0;bottom:0;background:#dbe7f3;}
   .hz-globe canvas{width:100%!important;height:100%!important;display:block;cursor:grab;}
   .hz-left{
     position:absolute;left:8px;top:8px;z-index:3;
@@ -235,6 +290,13 @@
     </button>
   </aside>
   <div class="hz-stage" id="hzStage">
+    <form class="hz-search" id="hzSearch">
+      <button type="submit" aria-label="Search places">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="6"/><path d="M16 16l5 5"/></svg>
+      </button>
+      <input id="hzFind" type="search" placeholder="Search a place" aria-label="Search places" autocomplete="off" spellcheck="false">
+    </form>
+    <p class="hz-find-status" id="hzFindStatus"></p>
     <div class="hz-globe" id="hzGlobe"></div>
     <div class="hz-left">
       <h1>Hazard catalogue</h1>
@@ -353,6 +415,19 @@
     </button>
   </div>
 </div>
+<div id="map2d" aria-hidden="true">
+  <div class="m2d-bar">
+    <div class="m2d-title"><b id="m2dName">Place</b><span id="m2dSub">Street map</span></div>
+    <div class="m2d-layers">
+      <button type="button" data-layer="street" class="on">Street</button>
+      <button type="button" data-layer="satellite">Satellite</button>
+      <button type="button" data-layer="topo">Topo</button>
+    </div>
+    <button id="m2dClose" type="button">Close map</button>
+  </div>
+  <div id="leafletMap"></div>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module">
 import * as THREE from "./vendor/three/three.module.js";
 
@@ -605,9 +680,61 @@ function syncLayers(){
 }
 syncLayers();
 
+var HOME_Y = -(36.2) * Math.PI / 180 - Math.PI * 0.5;
+var HOME_X = 5 * Math.PI / 180;
+var HOME_Z = -16 * Math.PI / 180;
+var HOME_CAM = 6.15;
+var fly = null, flyToken = 0, hold = false;
+function wrapPi(d){
+  while(d > Math.PI) d -= Math.PI * 2;
+  while(d < -Math.PI) d += Math.PI * 2;
+  return d;
+}
+function easeIO(t){ return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+function yawFor(lng){ return -(lng) * Math.PI / 180 - Math.PI * 0.5; }
+function tiltFor(lat){ return Math.max(-0.55, Math.min(0.55, HOME_X - lat * Math.PI / 180 * 0.72)); }
+function latLonVec(lat, lng, radius){
+  var phi = (90 - lat) * Math.PI / 180;
+  var theta = (lng + 180) * Math.PI / 180;
+  return new THREE.Vector3(
+    -radius * Math.sin(phi) * Math.cos(theta),
+    radius * Math.cos(phi),
+    radius * Math.sin(phi) * Math.sin(theta)
+  );
+}
+var dot = document.createElement("canvas");
+dot.width = dot.height = 64;
+var dx = dot.getContext("2d");
+var dg = dx.createRadialGradient(32, 32, 4, 32, 32, 30);
+dg.addColorStop(0, "rgba(26,115,232,1)");
+dg.addColorStop(0.45, "rgba(26,115,232,.5)");
+dg.addColorStop(1, "rgba(26,115,232,0)");
+dx.fillStyle = dg;
+dx.fillRect(0, 0, 64, 64);
+var mark = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(dot), transparent:true, depthWrite:false }));
+mark.scale.set(0.42, 0.42, 1);
+mark.visible = false;
+spin.add(mark);
+function startFly(target, done){
+  var token = ++flyToken;
+  hold = true;
+  fly = {
+    token: token,
+    y0: spin.rotation.y, dy: wrapPi(target.y - spin.rotation.y),
+    x0: tilt.rotation.x, dx: target.x - tilt.rotation.x,
+    z0: tilt.rotation.z, dz: target.z - tilt.rotation.z,
+    c0: camera.position.z, c1: target.cam,
+    t0: performance.now(), dur: 1400, done: done || null, fired: false
+  };
+}
+
 var dragging = false, lastX = 0, lastY = 0;
 renderer.domElement.addEventListener("pointerdown", function(e){
   dragging = true; lastX = e.clientX; lastY = e.clientY;
+  if(fly && !document.getElementById("map2d").classList.contains("open")){
+    flyToken++; fly = null; hold = false; mark.visible = false;
+    document.body.classList.remove("is-searching");
+  }
   renderer.domElement.setPointerCapture(e.pointerId);
 });
 renderer.domElement.addEventListener("pointerup", function(){ dragging = false; });
@@ -651,9 +778,26 @@ function frame(){
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
   }
-  if(!dragging) spin.rotation.y += 0.0024;
+  if(fly){
+    var t = Math.min(1, (performance.now() - fly.t0) / fly.dur);
+    var e = easeIO(t);
+    spin.rotation.y = fly.y0 + fly.dy * e;
+    tilt.rotation.x = Math.max(-0.7, Math.min(0.7, fly.x0 + fly.dx * e));
+    tilt.rotation.z = fly.z0 + fly.dz * e;
+    camera.position.z = fly.c0 + (fly.c1 - fly.c0) * e;
+    if(t >= 1 && !fly.fired){
+      fly.fired = true;
+      var cb = fly.done;
+      var token = fly.token;
+      fly = null;
+      if(cb && token === flyToken) cb();
+    }
+  } else if(!dragging && !hold) spin.rotation.y += 0.0024;
   renderer.render(scene, camera);
-  if(!layers.pins) return;
+  if(!layers.pins || hold){
+    if(hold) document.querySelectorAll(".hz-pin").forEach(function(pin){ pin.hidden = true; });
+    return;
+  }
   var placed = [];
   document.querySelectorAll(".hz-pin").forEach(function(pin){
     var hit = project(parseFloat(pin.dataset.lat), parseFloat(pin.dataset.lng));
@@ -709,7 +853,165 @@ function closePage(){
 }
 document.getElementById("hzClose").addEventListener("click", closePage);
 document.getElementById("hzGear").addEventListener("click", closePage);
-addEventListener("keydown", function(e){ if(e.key === "Escape") closePage(); });
+
+var findInput = document.getElementById("hzFind");
+var findStatus = document.getElementById("hzFindStatus");
+var mapOverlay = document.getElementById("map2d");
+var leafletMap = null, leafletMarker = null, leafletLayers = null, activeLayer = "street", lookupBusy = false;
+var KNOWN = {
+  nairobi:[-1.286,36.817,"Kenya"], mombasa:[-4.044,39.668,"Kenya"], kisumu:[-0.102,34.762,"Kenya"],
+  nakuru:[-0.303,36.080,"Kenya"], kibera:[-1.313,36.790,"Kenya"], nzoia:[0.40,34.22,"Kenya"],
+  kampala:[0.347,32.582,"Uganda"], "dar es salaam":[-6.792,39.208,"Tanzania"],
+  "addis ababa":[9.030,38.740,"Ethiopia"], cairo:[30.044,31.236,"Egypt"],
+  lagos:[6.455,3.384,"Nigeria"], london:[51.507,-0.128,"United Kingdom"],
+  paris:[48.857,2.352,"France"], dubai:[25.204,55.271,"United Arab Emirates"],
+  singapore:[1.352,103.820,"Singapore"], mumbai:[19.076,72.878,"India"]
+};
+function esc(s){
+  return String(s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]; });
+}
+function setFindStatus(text){
+  findStatus.textContent = text || "";
+  findStatus.classList.toggle("on", !!text);
+}
+function zoomFor(p){
+  if(p.north == null) return 13;
+  var span = Math.max(Math.abs(p.north - p.south), Math.abs(p.east - p.west));
+  if(span > 40) return 4;
+  if(span > 15) return 6;
+  if(span > 5) return 8;
+  if(span > 1) return 11;
+  return 13;
+}
+function ensureMap(){
+  if(leafletMap || !window.L) return;
+  leafletMap = L.map("leafletMap", { zoomControl:true, attributionControl:true, worldCopyJump:true });
+  leafletLayers = {
+    street: L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap contributors", maxZoom:19, subdomains:["a","b","c"]
+    }),
+    satellite: L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+      attribution: "Tiles &copy; Esri", maxZoom:18
+    }),
+    topo: L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
+      attribution: "Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap (CC-BY-SA)",
+      maxZoom:17, subdomains:["a","b","c"]
+    })
+  };
+  leafletLayers.street.addTo(leafletMap);
+}
+function openMap(p){
+  if(!window.L){ setFindStatus("Map unavailable"); hold = false; document.body.classList.remove("is-searching"); return; }
+  ensureMap();
+  document.getElementById("m2dName").textContent = p.name;
+  document.getElementById("m2dSub").textContent = p.label || "Street map";
+  mapOverlay.classList.add("open");
+  mapOverlay.setAttribute("aria-hidden", "false");
+  var z = zoomFor(p);
+  setTimeout(function(){
+    leafletMap.invalidateSize();
+    leafletMap.setView([p.lat, p.lng], 3, { animate:false });
+    if(leafletMarker) leafletMap.removeLayer(leafletMarker);
+    leafletMarker = L.marker([p.lat, p.lng]).addTo(leafletMap);
+    setTimeout(function(){
+      leafletMap.flyTo([p.lat, p.lng], z, { duration:1.35 });
+      leafletMarker.bindPopup("<strong>" + esc(p.name) + "</strong><br>" + esc(p.label || "")).openPopup();
+    }, 80);
+  }, 90);
+}
+function flyHome(done){
+  mark.visible = false;
+  startFly({ y:HOME_Y, x:HOME_X, z:HOME_Z, cam:HOME_CAM }, function(){
+    hold = false;
+    if(done) done();
+  });
+}
+function closeMap(){
+  mapOverlay.classList.remove("open");
+  mapOverlay.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("is-searching");
+  flyHome();
+}
+function beginZoom(p){
+  setFindStatus("");
+  findInput.blur();
+  document.body.classList.add("is-searching");
+  mark.position.copy(latLonVec(p.lat, p.lng, R * 1.02));
+  mark.visible = true;
+  var token = flyToken + 1;
+  startFly({ y:yawFor(p.lng), x:tiltFor(p.lat), z:0, cam:3.85 }, function(){
+    if(token === flyToken) openMap(p);
+  });
+}
+function exactPlace(q){
+  var key = q.toLowerCase().trim();
+  var hit = KNOWN[key];
+  if(!hit) return null;
+  var name = q.trim().replace(/\b\w/g, function(ch){ return ch.toUpperCase(); });
+  return { name:name, label:name + ", " + hit[2], lat:hit[0], lng:hit[1] };
+}
+function geocode(q){
+  var url = "https://geocoding-api.open-meteo.com/v1/search?count=1&language=en&format=json&name=" + encodeURIComponent(q);
+  var ctrl = typeof AbortController === "function" ? new AbortController() : null;
+  var timer = setTimeout(function(){ if(ctrl) ctrl.abort(); }, 7000);
+  return fetch(url, { signal: ctrl ? ctrl.signal : undefined }).then(function(r){
+    clearTimeout(timer);
+    if(!r.ok) throw new Error("lookup failed");
+    return r.json();
+  }).then(function(data){
+    var a = data && data.results && data.results[0];
+    if(!a || !isFinite(a.latitude) || !isFinite(a.longitude)) throw new Error("empty");
+    return {
+      name: String(a.name || q),
+      label: [a.name, a.admin1, a.country].filter(Boolean).join(", "),
+      lat: a.latitude,
+      lng: a.longitude
+    };
+  }, function(err){
+    clearTimeout(timer);
+    throw err;
+  });
+}
+function runSearch(){
+  var q = findInput.value.trim();
+  if(!q || lookupBusy) return;
+  if(mapOverlay.classList.contains("open")){
+    mapOverlay.classList.remove("open");
+    mapOverlay.setAttribute("aria-hidden", "true");
+  }
+  var known = exactPlace(q);
+  if(known){ beginZoom(known); return; }
+  lookupBusy = true;
+  setFindStatus("Looking up");
+  geocode(q).then(function(place){
+    lookupBusy = false;
+    beginZoom(place);
+  }).catch(function(){
+    lookupBusy = false;
+    document.body.classList.remove("is-searching");
+    setFindStatus("No place found");
+  });
+}
+document.getElementById("hzSearch").addEventListener("submit", function(e){
+  e.preventDefault();
+  runSearch();
+});
+document.querySelector(".m2d-layers").addEventListener("click", function(e){
+  var btn = e.target.closest("[data-layer]");
+  if(!btn || !leafletMap) return;
+  var key = btn.getAttribute("data-layer");
+  if(!leafletLayers[key] || key === activeLayer) return;
+  leafletMap.removeLayer(leafletLayers[activeLayer]);
+  leafletLayers[key].addTo(leafletMap);
+  activeLayer = key;
+  document.querySelectorAll(".m2d-layers button").forEach(function(b){ b.classList.toggle("on", b === btn); });
+});
+document.getElementById("m2dClose").addEventListener("click", closeMap);
+addEventListener("keydown", function(e){
+  if(e.key !== "Escape") return;
+  if(mapOverlay.classList.contains("open") || document.body.classList.contains("is-searching")) closeMap();
+  else closePage();
+});
 addEventListener("message", function(e){
   if(e.data === "hazard-pause") paused = true;
   if(e.data === "hazard-resume") paused = false;
