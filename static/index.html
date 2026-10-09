@@ -825,6 +825,50 @@
     font:600 14px Inter,sans-serif;
   }
   .studio-add:hover{background:#d7ffe9;}
+  .studio-saved{
+    all:unset;cursor:pointer;box-sizing:border-box;
+    display:flex;align-items:center;justify-content:center;
+    height:42px;border-radius:999px;
+    background:#fff;color:#202124;border:1px solid #e6e8ee;
+    font:600 14px Inter,sans-serif;
+  }
+  .studio-saved:hover{background:#f7f8fa;}
+  .saved-overlay{
+    position:absolute;inset:0;z-index:50;
+    display:flex;align-items:center;justify-content:center;
+    padding:24px;
+  }
+  .saved-overlay[hidden]{display:none !important;}
+  .saved-overlay-back{
+    position:absolute;inset:0;border:0;padding:0;
+    background:rgba(32,33,36,.28);cursor:pointer;
+  }
+  .saved-card{
+    position:relative;z-index:1;
+    width:min(440px,100%);
+    max-height:min(70vh,560px);
+    overflow:auto;
+    background:#fff;color:#202124;
+    border-radius:22px;
+    box-shadow:0 12px 40px rgba(0,0,0,.2);
+    padding:18px 18px 8px;
+  }
+  .saved-card-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;}
+  .saved-card h2{margin:0;font:600 22px/1.2 Outfit,sans-serif;}
+  .saved-card-bar button{
+    all:unset;cursor:pointer;width:32px;height:32px;border-radius:999px;
+    display:grid;place-items:center;color:#5f6368;
+  }
+  .saved-card-bar button:hover{background:#f1f3f4;}
+  .saved-card-bar svg{width:18px;height:18px;display:block;}
+  .saved-row{
+    display:flex;align-items:center;gap:10px;
+    padding:10px 2px;border-top:1px solid #f1f3f4;
+    font:500 13px Inter,sans-serif;
+  }
+  .saved-row span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .saved-row small{color:#80868b;font-size:11px;flex:none;}
+  .saved-empty{margin:12px 0 16px;color:#5f6368;font:400 14px/1.45 Inter,sans-serif;}
   .studio-go svg{width:16px;height:16px;display:block;}
   .studio-go{
     all:unset;cursor:pointer;margin-left:auto;width:32px;height:32px;border-radius:999px;
@@ -1470,6 +1514,7 @@
       </button>
     </div>
     <button type="button" class="studio-add" id="studioAdd">+ Add sources</button>
+    <button type="button" class="studio-saved" id="studioSaved">Saved sources</button>
     <div class="studio-sources" id="studioSources"></div>
   </aside>
   <section class="studio-card studio-main">
@@ -1535,6 +1580,18 @@
       <button type="button" class="studio-out" data-out="gmail"><svg viewBox="0 0 24 24" fill="none" stroke="#ea4335" stroke-width="1.7"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></svg><span><b>Gmail</b><small>Ready to send</small></span></button>
     </div>
   </aside>
+  <div class="saved-overlay" id="savedSourcesOverlay" hidden>
+    <button type="button" class="saved-overlay-back" id="savedSourcesBack" aria-label="Close saved sources"></button>
+    <article class="saved-card" role="dialog" aria-labelledby="savedSourcesTitle">
+      <div class="saved-card-bar">
+        <h2 id="savedSourcesTitle">Saved sources</h2>
+        <button type="button" id="savedSourcesClose" aria-label="Close saved sources">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+      <div id="savedSourcesList"></div>
+    </article>
+  </div>
 </div>
 <aside class="studio-drawer" id="studioDrawer" aria-hidden="true">
   <div class="studio-drawer-bar">
@@ -1644,9 +1701,13 @@
   };
 
   var customShortcuts = [];
+  var SAVED_SOURCES_KEY = "catmod.savedSources";
+  var keptSources = "";
   try{
+    keptSources = localStorage.getItem(SAVED_SOURCES_KEY) || "";
     localStorage.clear();
     sessionStorage.clear();
+    if(keptSources) localStorage.setItem(SAVED_SOURCES_KEY, keptSources);
     if(window.indexedDB && indexedDB.databases){
       indexedDB.databases().then(function(list){
         (list || []).forEach(function(db){ if(db && db.name) indexedDB.deleteDatabase(db.name); });
@@ -2384,6 +2445,7 @@
     if(!job || !job.event_id) return;
     lastBook = job;
     lastEventId = job.event_id;
+    rememberSources([{name: job.event_id, kind: "Modeled"}]);
     var banner = document.getElementById("provBanner");
     var deliver = document.getElementById("deliverRow");
     var desk = document.getElementById("deskAnalytics");
@@ -2991,29 +3053,65 @@
   function renderStudio(){
     var box = document.getElementById("studioSources");
     if(!box) return;
-    var files = sessionFiles.slice();
-    getJSON("/api/v1/events").then(function(data){
-      var events = (data && data.events) || [];
-      var sources = files.map(function(file){
-        return {id: file.id, name: file.name, kind: file.kind || "File"};
-      });
-      if(!sources.length){
-        sources = events.slice(0, 8).map(function(ev){
-          return {id: ev.event_id, name: ev.event_id, kind: "Modeled"};
-        });
-      }
-      var today = new Date().toLocaleDateString("en-US", {month:"short", day:"numeric", year:"numeric"});
-      document.getElementById("studioTitle").textContent = sources.length === 1 ? sources[0].name : "Catastrophe desk";
-      document.getElementById("studioMeta").textContent = sources.length + " source" + (sources.length === 1 ? "" : "s") + " · " + today;
-      box.innerHTML = '<label class="studio-all"><input type="checkbox" id="studioAll"> Select all</label>' + sources.map(function(src){
-        return '<label class="studio-src"><input type="checkbox" data-src="' + esc(src.id) + '"><span>' + esc(src.name) + '</span><small>' + esc(src.kind) + '</small></label>';
-      }).join("") || '<p class="studio-note">Add a source to start.</p>';
-      paintStudioCount();
-      writeStudioSummary();
-    }).catch(function(){
-      document.getElementById("studioSummary").textContent = "The source list could not be read. Add a file and try again.";
-      paintStudioCount();
+    var sources = sessionFiles.map(function(file){
+      return {id: file.id, name: file.name, kind: file.kind || "File"};
     });
+    var today = new Date().toLocaleDateString("en-US", {month:"short", day:"numeric", year:"numeric"});
+    document.getElementById("studioTitle").textContent = sources.length === 1 ? sources[0].name : "Catastrophe desk";
+    document.getElementById("studioMeta").textContent = sources.length ? (sources.length + " source" + (sources.length === 1 ? "" : "s") + " · " + today) : "";
+    box.innerHTML = sources.length ? ('<label class="studio-all"><input type="checkbox" id="studioAll"> Select all</label>' + sources.map(function(src){
+      return '<label class="studio-src"><input type="checkbox" data-src="' + esc(src.id) + '"><span>' + esc(src.name) + '</span><small>' + esc(src.kind) + '</small></label>';
+    }).join("")) : "";
+    paintStudioCount();
+    writeStudioSummary();
+  }
+  function readSavedSources(){
+    try{
+      var raw = localStorage.getItem(SAVED_SOURCES_KEY);
+      var list = raw ? JSON.parse(raw) : [];
+      return Array.isArray(list) ? list : [];
+    }catch(err){
+      return [];
+    }
+  }
+  function rememberSources(rows){
+    var list = readSavedSources();
+    var seen = {};
+    list.forEach(function(row){ seen[String(row.name || "") + "|" + String(row.kind || "")] = 1; });
+    (rows || []).forEach(function(row){
+      var name = String((row && row.name) || "").trim();
+      if(!name) return;
+      var kind = String(row.kind || "File");
+      var key = name + "|" + kind;
+      if(seen[key]) return;
+      seen[key] = 1;
+      list.unshift({name: name, kind: kind, when: row.when || new Date().toISOString()});
+    });
+    try{
+      localStorage.setItem(SAVED_SOURCES_KEY, JSON.stringify(list.slice(0, 80)));
+    }catch(err){}
+  }
+  function paintSavedSources(){
+    var list = document.getElementById("savedSourcesList");
+    if(!list) return;
+    var rows = readSavedSources();
+    if(!rows.length){
+      list.innerHTML = '<p class="saved-empty">No saved sources in this browser yet. Sources you add are kept here after a refresh.</p>';
+      return;
+    }
+    list.innerHTML = rows.map(function(row){
+      var when = row.when ? String(row.when).replace("T", " ").slice(0, 16) : "";
+      return '<div class="saved-row"><span>' + esc(row.name) + '</span><small>' + esc([row.kind, when].filter(Boolean).join(" · ")) + '</small></div>';
+    }).join("");
+  }
+  function openSavedSources(){
+    paintSavedSources();
+    var overlay = document.getElementById("savedSourcesOverlay");
+    if(overlay) overlay.hidden = false;
+  }
+  function closeSavedSources(){
+    var overlay = document.getElementById("savedSourcesOverlay");
+    if(overlay) overlay.hidden = true;
   }
   var summaryKey = "";
   var lastSummary = "";
@@ -3379,6 +3477,9 @@
     if(bindStudio.done) return;
     bindStudio.done = true;
     document.getElementById("studioAdd").addEventListener("click", function(){ startDesktopUpload(); });
+    document.getElementById("studioSaved").addEventListener("click", openSavedSources);
+    document.getElementById("savedSourcesClose").addEventListener("click", closeSavedSources);
+    document.getElementById("savedSourcesBack").addEventListener("click", closeSavedSources);
     document.getElementById("studioAsk").addEventListener("submit", function(e){
       e.preventDefault();
       var qbox = document.getElementById("studioAskQ");
@@ -3436,6 +3537,7 @@
       });
     })).then(function(rows){
       sessionFiles = sessionFiles.concat(rows);
+      rememberSources(rows.map(function(row){ return {name: row.name, kind: row.kind, when: row.ingested}; }));
       renderDesk();
       if(document.body.classList.contains("has-studio")) renderStudio();
       var books = rows.filter(function(row){ return row.kind === "Bordereau" && row.text; });
