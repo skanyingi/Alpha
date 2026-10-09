@@ -1261,7 +1261,6 @@
           <button class="mode-tab" type="button" data-tab="categories">Categories</button>
           <button class="mode-tab" type="button" data-tab="graphs">EP curve</button>
           <button class="mode-tab" type="button" data-tab="housing">Housing</button>
-          <button class="mode-tab" type="button" data-tab="treaty">What-if</button>
           <button class="mode-tab" type="button" data-tab="vulnerability">Vulnerability</button>
           <button class="mode-tab" type="button" data-tab="map">Map</button>
         </div>
@@ -1283,14 +1282,6 @@
           </div>
           <div class="mode-panel" data-panel="housing">
             <svg id="housingSvg" class="panel-svg" viewBox="0 0 640 280" role="img" aria-label="Housing class breakdown"></svg>
-          </div>
-          <div class="mode-panel" data-panel="treaty">
-            <div class="whatif" data-whatif>
-              <label>Attachment point <input class="whatif-attachment" type="range" min="10000000" max="100000000" step="5000000" value="40000000"><output class="whatif-attachment-out"></output></label>
-              <label>Layer limit <input class="whatif-limit" type="range" min="20000000" max="200000000" step="5000000" value="100000000"><output class="whatif-limit-out"></output></label>
-              <label>Co-participation <input class="whatif-share" type="range" min="0" max="100" step="5" value="90"><output class="whatif-share-out"></output></label>
-            </div>
-            <p id="whatifStatus" class="graph-note"></p>
           </div>
           <div class="mode-panel" data-panel="vulnerability">
             <svg id="vulnSvg" class="panel-svg" viewBox="0 0 640 280" role="img" aria-label="Vulnerability curves"></svg>
@@ -1497,7 +1488,6 @@
       <div class="mode-bar">
         <button class="mode-tab is-on" type="button" data-studio-tab="ep">EP curve</button>
         <button class="mode-tab" type="button" data-studio-tab="housing">Housing</button>
-        <button class="mode-tab" type="button" data-studio-tab="treaty">What-if</button>
         <button class="mode-tab" type="button" data-studio-tab="vulnerability">Vulnerability</button>
       </div>
       <div class="mode-panel is-on" data-studio-panel="ep">
@@ -1506,13 +1496,6 @@
       </div>
       <div class="mode-panel" data-studio-panel="housing">
         <svg id="studioHousing" class="panel-svg" viewBox="0 0 640 280" role="img" aria-label="Housing class breakdown"></svg>
-      </div>
-      <div class="mode-panel" data-studio-panel="treaty">
-        <div class="whatif" data-whatif>
-          <label>Attachment point <input class="whatif-attachment" type="range" min="10000000" max="100000000" step="5000000" value="40000000"><output class="whatif-attachment-out"></output></label>
-          <label>Layer limit <input class="whatif-limit" type="range" min="20000000" max="200000000" step="5000000" value="100000000"><output class="whatif-limit-out"></output></label>
-          <label>Co-participation <input class="whatif-share" type="range" min="0" max="100" step="5" value="90"><output class="whatif-share-out"></output></label>
-        </div>
       </div>
       <div class="mode-panel" data-studio-panel="vulnerability">
         <svg id="studioVuln" class="panel-svg" viewBox="0 0 640 280" role="img" aria-label="Vulnerability curves"></svg>
